@@ -1157,6 +1157,268 @@ app.put('/api/v1/admin/orders/:id/status', authMiddleware, requireRole('ADMIN'),
   }
 });
 
+// ============================================================
+// Student Verification Routes
+// ============================================================
+
+// POST /api/v1/student/verify - Submit student verification request
+app.post('/api/v1/student/verify', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const body = await c.req.json();
+    const { verificationMethod, eduEmail, proofUrl } = body;
+
+    if (!verificationMethod) {
+      return c.json({ error: 'Verification method is required' }, 400);
+    }
+
+    if (verificationMethod !== 'EDU_EMAIL' && verificationMethod !== 'MANUAL_UPLOAD') {
+      return c.json({ error: 'Invalid verification method' }, 400);
+    }
+
+    if (verificationMethod === 'EDU_EMAIL') {
+      if (!eduEmail) {
+        return c.json({ error: 'EDU email is required for EDU_EMAIL verification' }, 400);
+      }
+
+      // Check if email ends with .edu
+      if (!eduEmail.toLowerCase().endsWith('.edu')) {
+        return c.json({ error: 'Email must end with .edu' }, 400);
+      }
+    }
+
+    if (verificationMethod === 'MANUAL_UPLOAD') {
+      if (!proofUrl) {
+        return c.json({ error: 'Proof URL is required for MANUAL_UPLOAD verification' }, 400);
+      }
+    }
+
+    // Check if user already has a verification request
+    const existing = await prisma.studentVerification.findUnique({
+      where: { userId: user.userId }
+    });
+
+    if (existing) {
+      if (existing.status === 'PENDING') {
+        return c.json({ error: 'You already have a pending verification request' }, 400);
+      }
+
+      if (existing.status === 'APPROVED') {
+        return c.json({ error: 'You are already verified as a student' }, 400);
+      }
+
+      // If rejected, allow resubmission by updating existing record
+      const verification = await prisma.studentVerification.update({
+        where: { userId: user.userId },
+        data: {
+          status: 'PENDING',
+          verificationMethod,
+          eduEmail: verificationMethod === 'EDU_EMAIL' ? eduEmail : null,
+          proofUrl: verificationMethod === 'MANUAL_UPLOAD' ? proofUrl : null,
+          adminNotes: null,
+          verifiedAt: null,
+          verifiedById: null
+        }
+      });
+
+      return c.json({
+        verification,
+        message: 'Verification request resubmitted successfully'
+      }, 201);
+    }
+
+    // Create new verification request
+    const verification = await prisma.studentVerification.create({
+      data: {
+        userId: user.userId,
+        status: 'PENDING',
+        verificationMethod,
+        eduEmail: verificationMethod === 'EDU_EMAIL' ? eduEmail : null,
+        proofUrl: verificationMethod === 'MANUAL_UPLOAD' ? proofUrl : null
+      }
+    });
+
+    return c.json({
+      verification,
+      message: 'Verification request submitted successfully'
+    }, 201);
+
+  } catch (error) {
+    console.error('Submit verification error:', error);
+    return c.json({ error: 'Failed to submit verification', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/student/status - Get user's verification status
+app.get('/api/v1/student/status', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+
+    const verification = await prisma.studentVerification.findUnique({
+      where: { userId: user.userId },
+      include: {
+        verifiedBy: {
+          select: {
+            id: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    if (!verification) {
+      return c.json({
+        status: 'NOT_SUBMITTED',
+        message: 'No verification request found'
+      });
+    }
+
+    return c.json({ verification });
+
+  } catch (error) {
+    console.error('Get verification status error:', error);
+    return c.json({ error: 'Failed to get verification status', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/admin/student-verifications - List student verifications (admin only)
+app.get('/api/v1/admin/student-verifications', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { page = '1', limit = '20', status } = c.req.query();
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter
+    const where = {};
+    if (status) {
+      where.status = status;
+    }
+
+    // Get verifications and total count
+    const [verifications, total] = await Promise.all([
+      prisma.studentVerification.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              role: true
+            }
+          },
+          verifiedBy: {
+            select: {
+              id: true,
+              email: true
+            }
+          }
+        }
+      }),
+      prisma.studentVerification.count({ where })
+    ]);
+
+    return c.json({
+      verifications,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get verifications error:', error);
+    return c.json({ error: 'Failed to fetch verifications', message: error.message }, 500);
+  }
+});
+
+// PUT /api/v1/admin/student-verifications/:id - Approve or reject verification
+app.put('/api/v1/admin/student-verifications/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const admin = c.get('user');
+    const { id } = c.req.param();
+    const body = await c.req.json();
+    const { status, adminNotes } = body;
+
+    if (!status) {
+      return c.json({ error: 'Status is required' }, 400);
+    }
+
+    if (status !== 'APPROVED' && status !== 'REJECTED') {
+      return c.json({ error: 'Status must be APPROVED or REJECTED' }, 400);
+    }
+
+    // Check if verification exists
+    const existingVerification = await prisma.studentVerification.findUnique({
+      where: { id }
+    });
+
+    if (!existingVerification) {
+      return c.json({ error: 'Verification not found' }, 404);
+    }
+
+    if (existingVerification.status !== 'PENDING') {
+      return c.json({ error: 'Only pending verifications can be updated' }, 400);
+    }
+
+    // Update verification
+    const verification = await prisma.studentVerification.update({
+      where: { id },
+      data: {
+        status,
+        adminNotes,
+        verifiedAt: new Date(),
+        verifiedById: admin.userId
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true
+          }
+        },
+        verifiedBy: {
+          select: {
+            id: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    return c.json({
+      verification,
+      message: `Verification ${status.toLowerCase()} successfully`
+    });
+
+  } catch (error) {
+    console.error('Update verification error:', error);
+    return c.json({ error: 'Failed to update verification', message: error.message }, 500);
+  }
+});
+
 // Test endpoints
 app.get('/test/db', async (c) => {
   if (!prisma) {
