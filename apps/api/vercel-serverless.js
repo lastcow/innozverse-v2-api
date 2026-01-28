@@ -26,6 +26,52 @@ try {
 
 const app = new Hono();
 
+// ============================================================
+// Authentication Middleware
+// ============================================================
+
+// Middleware to verify JWT and attach user to context
+const authMiddleware = async (c, next) => {
+  const jwt = require('jsonwebtoken');
+  const authHeader = c.req.header('Authorization');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Missing or invalid authorization header' }, 401);
+  }
+
+  const token = authHeader.substring(7);
+  const JWT_SECRET = process.env.JWT_SECRET;
+
+  if (!JWT_SECRET) {
+    return c.json({ error: 'Server configuration error' }, 500);
+  }
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    c.set('user', payload);
+    await next();
+  } catch (error) {
+    return c.json({ error: 'Invalid or expired token' }, 401);
+  }
+};
+
+// Middleware to require specific role
+const requireRole = (...roles) => {
+  return async (c, next) => {
+    const user = c.get('user');
+
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    if (!roles.includes(user.role)) {
+      return c.json({ error: 'Insufficient permissions' }, 403);
+    }
+
+    await next();
+  };
+};
+
 // Middleware
 app.use('*', logger());
 app.use(
@@ -191,6 +237,220 @@ app.post('/api/v1/auth/login', async (c) => {
   } catch (error) {
     console.error('Login error:', error);
     return c.json({ error: 'Login failed', message: error.message }, 500);
+  }
+});
+
+// ============================================================
+// Product Routes
+// ============================================================
+
+// GET /api/v1/products - List products with filtering
+app.get('/api/v1/products', async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { type, search, active, page = '1', limit = '20' } = c.req.query();
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter
+    const where = {};
+
+    if (type) {
+      where.type = type;
+    }
+
+    if (active !== undefined) {
+      where.active = active === 'true';
+    }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Get products and total count
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    return c.json({
+      products,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get products error:', error);
+    return c.json({ error: 'Failed to fetch products', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/products/:id - Get single product
+app.get('/api/v1/products/:id', async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+
+    const product = await prisma.product.findUnique({
+      where: { id }
+    });
+
+    if (!product) {
+      return c.json({ error: 'Product not found' }, 404);
+    }
+
+    return c.json({ product });
+
+  } catch (error) {
+    console.error('Get product error:', error);
+    return c.json({ error: 'Failed to fetch product', message: error.message }, 500);
+  }
+});
+
+// POST /api/v1/products - Create product (admin only)
+app.post('/api/v1/products', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { name, description, basePrice, type, imageUrls, properties, stock = 0, active = true } = body;
+
+    // Validate required fields
+    if (!name || !description || basePrice === undefined || !type) {
+      return c.json({ error: 'Missing required fields: name, description, basePrice, type' }, 400);
+    }
+
+    // Validate price
+    if (basePrice < 0) {
+      return c.json({ error: 'Base price must be non-negative' }, 400);
+    }
+
+    // Validate stock
+    if (stock < 0) {
+      return c.json({ error: 'Stock must be non-negative' }, 400);
+    }
+
+    // Create product
+    const product = await prisma.product.create({
+      data: {
+        name,
+        description,
+        basePrice,
+        type,
+        imageUrls: imageUrls || [],
+        properties: properties || {},
+        stock,
+        active
+      }
+    });
+
+    return c.json({ product, message: 'Product created successfully' }, 201);
+
+  } catch (error) {
+    console.error('Create product error:', error);
+    return c.json({ error: 'Failed to create product', message: error.message }, 500);
+  }
+});
+
+// PUT /api/v1/products/:id - Update product (admin only)
+app.put('/api/v1/products/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const body = await c.req.json();
+    const { name, description, basePrice, type, imageUrls, properties, stock, active } = body;
+
+    // Check if product exists
+    const existingProduct = await prisma.product.findUnique({ where: { id } });
+    if (!existingProduct) {
+      return c.json({ error: 'Product not found' }, 404);
+    }
+
+    // Build update data
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (basePrice !== undefined) {
+      if (basePrice < 0) {
+        return c.json({ error: 'Base price must be non-negative' }, 400);
+      }
+      updateData.basePrice = basePrice;
+    }
+    if (type !== undefined) updateData.type = type;
+    if (imageUrls !== undefined) updateData.imageUrls = imageUrls;
+    if (properties !== undefined) updateData.properties = properties;
+    if (stock !== undefined) {
+      if (stock < 0) {
+        return c.json({ error: 'Stock must be non-negative' }, 400);
+      }
+      updateData.stock = stock;
+    }
+    if (active !== undefined) updateData.active = active;
+
+    // Update product
+    const product = await prisma.product.update({
+      where: { id },
+      data: updateData
+    });
+
+    return c.json({ product, message: 'Product updated successfully' });
+
+  } catch (error) {
+    console.error('Update product error:', error);
+    return c.json({ error: 'Failed to update product', message: error.message }, 500);
+  }
+});
+
+// DELETE /api/v1/products/:id - Delete product (admin only)
+app.delete('/api/v1/products/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+
+    // Check if product exists
+    const existingProduct = await prisma.product.findUnique({ where: { id } });
+    if (!existingProduct) {
+      return c.json({ error: 'Product not found' }, 404);
+    }
+
+    // Delete product
+    await prisma.product.delete({
+      where: { id }
+    });
+
+    return c.json({ message: 'Product deleted successfully' });
+
+  } catch (error) {
+    console.error('Delete product error:', error);
+    return c.json({ error: 'Failed to delete product', message: error.message }, 500);
   }
 });
 
