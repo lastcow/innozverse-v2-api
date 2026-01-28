@@ -55,6 +55,28 @@ const authMiddleware = async (c, next) => {
   }
 };
 
+// Optional auth middleware - sets user if token present, but doesn't require it
+const optionalAuthMiddleware = async (c, next) => {
+  const jwt = require('jsonwebtoken');
+  const authHeader = c.req.header('Authorization');
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    const JWT_SECRET = process.env.JWT_SECRET;
+
+    if (JWT_SECRET) {
+      try {
+        const payload = jwt.verify(token, JWT_SECRET);
+        c.set('user', payload);
+      } catch (error) {
+        // Token invalid, but continue anyway (optional auth)
+      }
+    }
+  }
+
+  await next();
+};
+
 // Middleware to require specific role
 const requireRole = (...roles) => {
   return async (c, next) => {
@@ -451,6 +473,355 @@ app.delete('/api/v1/products/:id', authMiddleware, requireRole('ADMIN'), async (
   } catch (error) {
     console.error('Delete product error:', error);
     return c.json({ error: 'Failed to delete product', message: error.message }, 500);
+  }
+});
+
+// ============================================================
+// Cart Routes
+// ============================================================
+
+// Helper function to get or create cart
+async function getOrCreateCart(userId, sessionId) {
+  if (!prisma) {
+    throw new Error('Database not available');
+  }
+
+  // Try to find existing cart
+  let cart = null;
+
+  if (userId) {
+    cart = await prisma.cart.findFirst({
+      where: { userId },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+  } else if (sessionId) {
+    cart = await prisma.cart.findFirst({
+      where: { sessionId },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+  }
+
+  // Create new cart if not found
+  if (!cart) {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30); // 30 days expiration
+
+    cart = await prisma.cart.create({
+      data: {
+        userId,
+        sessionId,
+        expiresAt
+      },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+  }
+
+  return cart;
+}
+
+// GET /api/v1/cart - Get user cart
+app.get('/api/v1/cart', optionalAuthMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    // Get user from token (if authenticated) or session ID from header
+    const user = c.get('user');
+    const sessionId = c.req.header('X-Session-Id');
+
+    if (!user && !sessionId) {
+      return c.json({ error: 'User authentication or session ID required' }, 401);
+    }
+
+    const cart = await getOrCreateCart(user?.userId, sessionId);
+
+    // Calculate cart total
+    const subtotal = cart.items.reduce((sum, item) => {
+      return sum + (parseFloat(item.product.basePrice) * item.quantity);
+    }, 0);
+
+    return c.json({
+      cart: {
+        id: cart.id,
+        items: cart.items,
+        itemCount: cart.items.reduce((sum, item) => sum + item.quantity, 0),
+        subtotal: subtotal.toFixed(2)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get cart error:', error);
+    return c.json({ error: 'Failed to fetch cart', message: error.message }, 500);
+  }
+});
+
+// POST /api/v1/cart/items - Add item to cart
+app.post('/api/v1/cart/items', optionalAuthMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const sessionId = c.req.header('X-Session-Id');
+
+    if (!user && !sessionId) {
+      return c.json({ error: 'User authentication or session ID required' }, 401);
+    }
+
+    const body = await c.req.json();
+    const { productId, quantity = 1 } = body;
+
+    if (!productId) {
+      return c.json({ error: 'Product ID is required' }, 400);
+    }
+
+    if (quantity < 1) {
+      return c.json({ error: 'Quantity must be at least 1' }, 400);
+    }
+
+    // Check if product exists
+    const product = await prisma.product.findUnique({
+      where: { id: productId }
+    });
+
+    if (!product) {
+      return c.json({ error: 'Product not found' }, 404);
+    }
+
+    if (!product.active) {
+      return c.json({ error: 'Product is not available' }, 400);
+    }
+
+    // Check stock
+    if (product.stock < quantity) {
+      return c.json({ error: `Only ${product.stock} items available in stock` }, 400);
+    }
+
+    // Get or create cart
+    const cart = await getOrCreateCart(user?.userId, sessionId);
+
+    // Check if item already exists in cart
+    const existingItem = await prisma.cartItem.findUnique({
+      where: {
+        cartId_productId: {
+          cartId: cart.id,
+          productId
+        }
+      }
+    });
+
+    let cartItem;
+
+    if (existingItem) {
+      // Update quantity
+      const newQuantity = existingItem.quantity + quantity;
+
+      if (product.stock < newQuantity) {
+        return c.json({ error: `Only ${product.stock} items available in stock` }, 400);
+      }
+
+      cartItem = await prisma.cartItem.update({
+        where: { id: existingItem.id },
+        data: { quantity: newQuantity },
+        include: { product: true }
+      });
+    } else {
+      // Create new cart item
+      cartItem = await prisma.cartItem.create({
+        data: {
+          cartId: cart.id,
+          productId,
+          quantity
+        },
+        include: { product: true }
+      });
+    }
+
+    return c.json({ cartItem, message: 'Item added to cart' }, 201);
+
+  } catch (error) {
+    console.error('Add to cart error:', error);
+    return c.json({ error: 'Failed to add item to cart', message: error.message }, 500);
+  }
+});
+
+// PUT /api/v1/cart/items/:id - Update cart item quantity
+app.put('/api/v1/cart/items/:id', optionalAuthMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const sessionId = c.req.header('X-Session-Id');
+
+    if (!user && !sessionId) {
+      return c.json({ error: 'User authentication or session ID required' }, 401);
+    }
+
+    const { id } = c.req.param();
+    const body = await c.req.json();
+    const { quantity } = body;
+
+    if (quantity === undefined) {
+      return c.json({ error: 'Quantity is required' }, 400);
+    }
+
+    if (quantity < 1) {
+      return c.json({ error: 'Quantity must be at least 1' }, 400);
+    }
+
+    // Get cart item with product
+    const cartItem = await prisma.cartItem.findUnique({
+      where: { id },
+      include: {
+        cart: true,
+        product: true
+      }
+    });
+
+    if (!cartItem) {
+      return c.json({ error: 'Cart item not found' }, 404);
+    }
+
+    // Verify cart belongs to user or session
+    if (user && cartItem.cart.userId !== user.userId) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    if (!user && cartItem.cart.sessionId !== sessionId) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    // Check stock
+    if (cartItem.product.stock < quantity) {
+      return c.json({ error: `Only ${cartItem.product.stock} items available in stock` }, 400);
+    }
+
+    // Update quantity
+    const updatedItem = await prisma.cartItem.update({
+      where: { id },
+      data: { quantity },
+      include: { product: true }
+    });
+
+    return c.json({ cartItem: updatedItem, message: 'Cart item updated' });
+
+  } catch (error) {
+    console.error('Update cart item error:', error);
+    return c.json({ error: 'Failed to update cart item', message: error.message }, 500);
+  }
+});
+
+// DELETE /api/v1/cart/items/:id - Remove item from cart
+app.delete('/api/v1/cart/items/:id', optionalAuthMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const sessionId = c.req.header('X-Session-Id');
+
+    if (!user && !sessionId) {
+      return c.json({ error: 'User authentication or session ID required' }, 401);
+    }
+
+    const { id } = c.req.param();
+
+    // Get cart item
+    const cartItem = await prisma.cartItem.findUnique({
+      where: { id },
+      include: { cart: true }
+    });
+
+    if (!cartItem) {
+      return c.json({ error: 'Cart item not found' }, 404);
+    }
+
+    // Verify cart belongs to user or session
+    if (user && cartItem.cart.userId !== user.userId) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    if (!user && cartItem.cart.sessionId !== sessionId) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    // Delete item
+    await prisma.cartItem.delete({
+      where: { id }
+    });
+
+    return c.json({ message: 'Item removed from cart' });
+
+  } catch (error) {
+    console.error('Remove from cart error:', error);
+    return c.json({ error: 'Failed to remove item from cart', message: error.message }, 500);
+  }
+});
+
+// DELETE /api/v1/cart - Clear cart
+app.delete('/api/v1/cart', optionalAuthMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const sessionId = c.req.header('X-Session-Id');
+
+    if (!user && !sessionId) {
+      return c.json({ error: 'User authentication or session ID required' }, 401);
+    }
+
+    // Find cart
+    let cart = null;
+
+    if (user) {
+      cart = await prisma.cart.findFirst({
+        where: { userId: user.userId }
+      });
+    } else if (sessionId) {
+      cart = await prisma.cart.findFirst({
+        where: { sessionId }
+      });
+    }
+
+    if (!cart) {
+      return c.json({ error: 'Cart not found' }, 404);
+    }
+
+    // Delete all cart items
+    await prisma.cartItem.deleteMany({
+      where: { cartId: cart.id }
+    });
+
+    return c.json({ message: 'Cart cleared successfully' });
+
+  } catch (error) {
+    console.error('Clear cart error:', error);
+    return c.json({ error: 'Failed to clear cart', message: error.message }, 500);
   }
 });
 
