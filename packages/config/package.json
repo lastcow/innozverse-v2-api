@@ -1,0 +1,10 @@
+{
+  "name": "@repo/config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.js",
+  "files": ["*.json"],
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
