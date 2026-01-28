@@ -4,6 +4,12 @@
 const { Hono } = require('hono');
 const { cors } = require('hono/cors');
 const { logger } = require('hono/logger');
+const { PrismaClient } = require('@prisma/client');
+
+// Initialize Prisma Client (cached for serverless)
+const globalForPrisma = global;
+const prisma = globalForPrisma.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 const app = new Hono();
 
@@ -25,6 +31,89 @@ app.get('/health', (c) => {
 // Routes (to be added)
 app.get('/api/v1', (c) => {
   return c.json({ message: 'Innozverse API v1' });
+});
+
+// Test endpoints
+app.get('/test/db', async (c) => {
+  try {
+    // Test database connection by counting users
+    const userCount = await prisma.user.count();
+    const users = await prisma.user.findMany({
+      select: { id: true, email: true, role: true, createdAt: true },
+      take: 3
+    });
+
+    return c.json({
+      status: 'ok',
+      message: 'Database connection successful',
+      userCount,
+      sampleUsers: users,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return c.json({
+      status: 'error',
+      message: 'Database connection failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
+
+app.get('/test/env', (c) => {
+  return c.json({
+    status: 'ok',
+    env: {
+      DATABASE_URL: process.env.DATABASE_URL ? '✓ Set' : '✗ Missing',
+      JWT_SECRET: process.env.JWT_SECRET ? '✓ Set' : '✗ Missing',
+      NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? '✓ Set' : '✗ Missing',
+      NEXT_PUBLIC_WEB_URL: process.env.NEXT_PUBLIC_WEB_URL || 'Not set',
+      NODE_ENV: process.env.NODE_ENV || 'Not set',
+      VERCEL: process.env.VERCEL ? '✓ Running on Vercel' : '✗ Not on Vercel'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/test/jwt', async (c) => {
+  try {
+    const jwt = require('jsonwebtoken');
+    const JWT_SECRET = process.env.JWT_SECRET;
+
+    if (!JWT_SECRET) {
+      return c.json({
+        status: 'error',
+        message: 'JWT_SECRET not configured'
+      }, 500);
+    }
+
+    // Generate test token
+    const testPayload = {
+      userId: 'test-123',
+      email: 'test@example.com',
+      role: 'USER'
+    };
+
+    const token = jwt.sign(testPayload, JWT_SECRET, { expiresIn: '1h' });
+
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    return c.json({
+      status: 'ok',
+      message: 'JWT generation and verification successful',
+      testToken: token,
+      decoded,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return c.json({
+      status: 'error',
+      message: 'JWT test failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
 });
 
 // Export handler for Vercel
