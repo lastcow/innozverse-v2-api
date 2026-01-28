@@ -1,7 +1,16 @@
 {
+  "version": 2,
   "buildCommand": "npx turbo run build --filter=@repo/api",
-  "outputDirectory": "apps/api/dist",
-  "installCommand": "npm install",
-  "devCommand": "npm run dev --workspace=@repo/api",
-  "framework": null
+  "builds": [
+    {
+      "src": "apps/api/api/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "apps/api/api/index.js"
+    }
+  ]
 }
