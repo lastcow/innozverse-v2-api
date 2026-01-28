@@ -67,3 +67,38 @@ model StudentVerification {
   @@map("student_verifications")
   @@index([status])
 }
+
+enum ProductType {
+  SURFACE
+  LAPTOP
+  XBOX
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  name        String
+  description String      @db.Text
+  type        ProductType
+  basePrice   Decimal     @map("base_price") @db.Decimal(10, 2)
+  stock       Int         @default(0)
+  active      Boolean     @default(true)
+  properties  Json        @default("{}")
+  imageUrls   Json        @default("[]") @map("image_urls")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@map("products")
+}
+
+model ProductPropertyTemplate {
+  id          String      @id @default(uuid())
+  productType ProductType @unique @map("product_type")
+  schema      Json
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@map("product_property_templates")
+}
