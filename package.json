@@ -1,0 +1,28 @@
+{
+  "name": "innozverse-v2",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
+  },
+  "devDependencies": {
+    "turbo": "^1.13.0",
+    "prettier": "^3.2.5",
+    "@turbo/gen": "^1.13.0"
+  },
+  "packageManager": "npm@10.5.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
