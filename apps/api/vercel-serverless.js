@@ -41,9 +41,157 @@ app.get('/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Routes (to be added)
+// Routes
 app.get('/api/v1', (c) => {
   return c.json({ message: 'Innozverse API v1' });
+});
+
+// ============================================================
+// Authentication Routes
+// ============================================================
+
+// POST /api/v1/auth/register - Register new user
+app.post('/api/v1/auth/register', async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const bcrypt = require('bcryptjs');
+    const jwt = require('jsonwebtoken');
+    const body = await c.req.json();
+
+    // Validate input
+    const { email, password } = body;
+    if (!email || !password) {
+      return c.json({ error: 'Email and password are required' }, 400);
+    }
+
+    if (password.length < 8) {
+      return c.json({ error: 'Password must be at least 8 characters' }, 400);
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
+
+    if (existingUser) {
+      return c.json({ error: 'User with this email already exists' }, 409);
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create user
+    const user = await prisma.user.create({
+      data: {
+        email: email.toLowerCase(),
+        passwordHash,
+        role: 'USER',
+        oauthProvider: 'LOCAL',
+        emailVerified: false,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        oauthProvider: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      }
+    });
+
+    // Generate JWT token
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      return c.json({ error: 'Server configuration error' }, 500);
+    }
+
+    const accessToken = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return c.json({
+      user,
+      accessToken,
+      message: 'Registration successful'
+    }, 201);
+
+  } catch (error) {
+    console.error('Register error:', error);
+    return c.json({ error: 'Registration failed', message: error.message }, 500);
+  }
+});
+
+// POST /api/v1/auth/login - Login user
+app.post('/api/v1/auth/login', async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const bcrypt = require('bcryptjs');
+    const jwt = require('jsonwebtoken');
+    const body = await c.req.json();
+
+    // Validate input
+    const { email, password } = body;
+    if (!email || !password) {
+      return c.json({ error: 'Email and password are required' }, 400);
+    }
+
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
+
+    if (!user || !user.passwordHash) {
+      return c.json({ error: 'Invalid email or password' }, 401);
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!isValidPassword) {
+      return c.json({ error: 'Invalid email or password' }, 401);
+    }
+
+    // Generate JWT token
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      return c.json({ error: 'Server configuration error' }, 500);
+    }
+
+    const accessToken = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Return user without password hash
+    const { passwordHash, ...userWithoutPassword } = user;
+
+    return c.json({
+      user: userWithoutPassword,
+      accessToken,
+      message: 'Login successful'
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    return c.json({ error: 'Login failed', message: error.message }, 500);
+  }
 });
 
 // Test endpoints
