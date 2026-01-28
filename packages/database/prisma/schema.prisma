@@ -41,11 +41,13 @@ model User {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  studentVerification StudentVerification?
+  studentVerification   StudentVerification?
   verificationsApproved StudentVerification[] @relation("ApprovedBy")
+  carts                 Cart[]
+  orders                Order[]
 
-  @@map("users")
   @@unique([oauthProvider, oauthId])
+  @@map("users")
 }
 
 model StudentVerification {
@@ -64,8 +66,8 @@ model StudentVerification {
   user       User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   verifiedBy User? @relation("ApprovedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
 
-  @@map("student_verifications")
   @@index([status])
+  @@map("student_verifications")
 }
 
 enum ProductType {
@@ -91,6 +93,8 @@ model Product {
   orderItems OrderItem[]
 
   @@map("products")
+  @@index([type, active])
+  @@index([active, createdAt])
 }
 
 model ProductPropertyTemplate {
@@ -101,4 +105,77 @@ model ProductPropertyTemplate {
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
   @@map("product_property_templates")
+}
+
+model Cart {
+  id        String    @id @default(uuid())
+  userId    String?   @map("user_id")
+  sessionId String?   @map("session_id")
+  expiresAt DateTime? @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@index([userId])
+  @@index([sessionId])
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String   @map("cart_id")
+  productId String   @map("product_id")
+  quantity  Int      @default(1)
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id             String      @id @default(uuid())
+  userId         String      @map("user_id")
+  status         OrderStatus @default(PENDING)
+  subtotal       Decimal     @db.Decimal(10, 2)
+  discountAmount Decimal     @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  tax            Decimal     @default(0) @db.Decimal(10, 2)
+  total          Decimal     @db.Decimal(10, 2)
+  placedAt       DateTime    @default(now()) @map("placed_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([userId, status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(uuid())
+  orderId         String   @map("order_id")
+  productId       String   @map("product_id")
+  quantity        Int
+  priceAtPurchase Decimal  @map("price_at_purchase") @db.Decimal(10, 2)
+  productSnapshot Json     @map("product_snapshot")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("order_items")
 }
