@@ -19,6 +19,17 @@ enum OAuthProvider {
   GITHUB
 }
 
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VerificationMethod {
+  EDU_EMAIL
+  MANUAL_UPLOAD
+}
+
 model User {
   id            String         @id @default(uuid())
   email         String         @unique
@@ -30,6 +41,29 @@ model User {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
+  studentVerification StudentVerification?
+  verificationsApproved StudentVerification[] @relation("ApprovedBy")
+
   @@map("users")
   @@unique([oauthProvider, oauthId])
+}
+
+model StudentVerification {
+  id                 String             @id @default(uuid())
+  userId             String             @unique @map("user_id")
+  status             VerificationStatus @default(PENDING)
+  verificationMethod VerificationMethod @map("verification_method")
+  eduEmail           String?            @map("edu_email")
+  proofUrl           String?            @map("proof_url")
+  adminNotes         String?            @map("admin_notes") @db.Text
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedById       String?            @map("verified_by_id")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  user       User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifiedBy User? @relation("ApprovedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@map("student_verifications")
+  @@index([status])
 }
