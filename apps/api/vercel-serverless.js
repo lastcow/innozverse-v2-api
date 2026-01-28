@@ -4,12 +4,6 @@
 const { Hono } = require('hono');
 const { cors } = require('hono/cors');
 const { logger } = require('hono/logger');
-const { PrismaClient } = require('@prisma/client');
-
-// Initialize Prisma Client (cached for serverless)
-const globalForPrisma = global;
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 const app = new Hono();
 
@@ -34,30 +28,14 @@ app.get('/api/v1', (c) => {
 });
 
 // Test endpoints
+// Database test disabled temporarily - will add back after Prisma setup in Vercel
 app.get('/test/db', async (c) => {
-  try {
-    // Test database connection by counting users
-    const userCount = await prisma.user.count();
-    const users = await prisma.user.findMany({
-      select: { id: true, email: true, role: true, createdAt: true },
-      take: 3
-    });
-
-    return c.json({
-      status: 'ok',
-      message: 'Database connection successful',
-      userCount,
-      sampleUsers: users,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    return c.json({
-      status: 'error',
-      message: 'Database connection failed',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    }, 500);
-  }
+  return c.json({
+    status: 'info',
+    message: 'Database test endpoint disabled temporarily',
+    note: 'Will be enabled once Prisma is properly configured in Vercel',
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.get('/test/env', (c) => {
