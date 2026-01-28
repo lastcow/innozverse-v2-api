@@ -25,12 +25,15 @@ app.get('/api/v1', (c) => {
   return c.json({ message: 'Innozverse API v1' });
 });
 
-const port = parseInt(process.env.PORT || '3001');
-console.log(`🚀 API server running on http://localhost:${port}`);
+// Only start server when running locally (not in serverless environment)
+if (!process.env.VERCEL) {
+  const port = parseInt(process.env.PORT || '3001');
+  console.log(`🚀 API server running on http://localhost:${port}`);
 
-serve({
-  fetch: app.fetch,
-  port,
-});
+  serve({
+    fetch: app.fetch,
+    port,
+  });
+}
 
 export default app;
