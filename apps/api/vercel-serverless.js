@@ -825,6 +825,338 @@ app.delete('/api/v1/cart', optionalAuthMiddleware, async (c) => {
   }
 });
 
+// ============================================================
+// Order Routes
+// ============================================================
+
+// POST /api/v1/orders - Create order from cart
+app.post('/api/v1/orders', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+
+    // Get user's cart with items
+    const cart = await prisma.cart.findFirst({
+      where: { userId: user.userId },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+
+    if (!cart || cart.items.length === 0) {
+      return c.json({ error: 'Cart is empty' }, 400);
+    }
+
+    // Validate stock and calculate totals
+    let subtotal = 0;
+    const orderItems = [];
+
+    for (const item of cart.items) {
+      if (!item.product.active) {
+        return c.json({ error: `Product "${item.product.name}" is no longer available` }, 400);
+      }
+
+      if (item.product.stock < item.quantity) {
+        return c.json({
+          error: `Insufficient stock for "${item.product.name}". Only ${item.product.stock} available.`
+        }, 400);
+      }
+
+      const itemTotal = parseFloat(item.product.basePrice) * item.quantity;
+      subtotal += itemTotal;
+
+      orderItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+        priceAtPurchase: item.product.basePrice,
+        productSnapshot: {
+          name: item.product.name,
+          description: item.product.description,
+          type: item.product.type,
+          imageUrls: item.product.imageUrls,
+          properties: item.product.properties
+        }
+      });
+    }
+
+    // For MVP, no tax or discounts
+    const tax = 0;
+    const discountAmount = 0;
+    const total = subtotal + tax - discountAmount;
+
+    // Create order and order items in transaction
+    const order = await prisma.$transaction(async (tx) => {
+      // Create order
+      const newOrder = await tx.order.create({
+        data: {
+          userId: user.userId,
+          status: 'PENDING',
+          subtotal,
+          discountAmount,
+          tax,
+          total,
+          items: {
+            create: orderItems
+          }
+        },
+        include: {
+          items: {
+            include: {
+              product: true
+            }
+          }
+        }
+      });
+
+      // Update product stock
+      for (const item of cart.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: {
+              decrement: item.quantity
+            }
+          }
+        });
+      }
+
+      // Clear cart
+      await tx.cartItem.deleteMany({
+        where: { cartId: cart.id }
+      });
+
+      return newOrder;
+    });
+
+    return c.json({
+      order,
+      message: 'Order placed successfully'
+    }, 201);
+
+  } catch (error) {
+    console.error('Create order error:', error);
+    return c.json({ error: 'Failed to create order', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/orders - Get user's orders
+app.get('/api/v1/orders', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const { page = '1', limit = '10', status } = c.req.query();
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter
+    const where = { userId: user.userId };
+    if (status) {
+      where.status = status;
+    }
+
+    // Get orders and total count
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { placedAt: 'desc' },
+        include: {
+          items: {
+            include: {
+              product: true
+            }
+          }
+        }
+      }),
+      prisma.order.count({ where })
+    ]);
+
+    return c.json({
+      orders,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get orders error:', error);
+    return c.json({ error: 'Failed to fetch orders', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/orders/:id - Get single order
+app.get('/api/v1/orders/:id', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const { id } = c.req.param();
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      return c.json({ error: 'Order not found' }, 404);
+    }
+
+    // Verify order belongs to user
+    if (order.userId !== user.userId && user.role !== 'ADMIN') {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    return c.json({ order });
+
+  } catch (error) {
+    console.error('Get order error:', error);
+    return c.json({ error: 'Failed to fetch order', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/admin/orders - Get all orders (admin only)
+app.get('/api/v1/admin/orders', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { page = '1', limit = '20', status, userId } = c.req.query();
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter
+    const where = {};
+    if (status) {
+      where.status = status;
+    }
+    if (userId) {
+      where.userId = userId;
+    }
+
+    // Get orders and total count
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { placedAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              role: true
+            }
+          },
+          items: {
+            include: {
+              product: true
+            }
+          }
+        }
+      }),
+      prisma.order.count({ where })
+    ]);
+
+    return c.json({
+      orders,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get admin orders error:', error);
+    return c.json({ error: 'Failed to fetch orders', message: error.message }, 500);
+  }
+});
+
+// PUT /api/v1/admin/orders/:id/status - Update order status (admin only)
+app.put('/api/v1/admin/orders/:id/status', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const body = await c.req.json();
+    const { status } = body;
+
+    if (!status) {
+      return c.json({ error: 'Status is required' }, 400);
+    }
+
+    const validStatuses = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+    if (!validStatuses.includes(status)) {
+      return c.json({ error: 'Invalid status' }, 400);
+    }
+
+    // Check if order exists
+    const existingOrder = await prisma.order.findUnique({
+      where: { id }
+    });
+
+    if (!existingOrder) {
+      return c.json({ error: 'Order not found' }, 404);
+    }
+
+    // Update order status
+    const order = await prisma.order.update({
+      where: { id },
+      data: { status },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true
+          }
+        },
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+
+    return c.json({ order, message: 'Order status updated successfully' });
+
+  } catch (error) {
+    console.error('Update order status error:', error);
+    return c.json({ error: 'Failed to update order status', message: error.message }, 500);
+  }
+});
+
 // Test endpoints
 app.get('/test/db', async (c) => {
   if (!prisma) {
