@@ -1196,6 +1196,110 @@ app.put('/api/v1/admin/orders/:id/status', authMiddleware, requireRole('ADMIN'),
   }
 });
 
+// PATCH /api/v1/admin/orders/:id/status - Update order status (admin only) - alternative method
+app.patch('/api/v1/admin/orders/:id/status', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const body = await c.req.json();
+    const { status } = body;
+
+    if (!status) {
+      return c.json({ error: 'Status is required' }, 400);
+    }
+
+    const validStatuses = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+    if (!validStatuses.includes(status)) {
+      return c.json({ error: 'Invalid status' }, 400);
+    }
+
+    // Check if order exists
+    const existingOrder = await prisma.order.findUnique({
+      where: { id }
+    });
+
+    if (!existingOrder) {
+      return c.json({ error: 'Order not found' }, 404);
+    }
+
+    // Update order status
+    const order = await prisma.order.update({
+      where: { id },
+      data: { status },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true
+          }
+        },
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+
+    return c.json({ order, message: 'Order status updated successfully' });
+
+  } catch (error) {
+    console.error('Update order status error:', error);
+    return c.json({ error: 'Failed to update order status', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/admin/stats - Get admin statistics
+app.get('/api/v1/admin/stats', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    // Get counts and totals in parallel
+    const [
+      totalProducts,
+      activeProducts,
+      totalOrders,
+      pendingOrders,
+      totalUsers,
+      orders
+    ] = await Promise.all([
+      prisma.product.count(),
+      prisma.product.count({ where: { active: true } }),
+      prisma.order.count(),
+      prisma.order.count({ where: { status: { in: ['PENDING', 'PROCESSING'] } } }),
+      prisma.user.count(),
+      prisma.order.findMany({
+        select: {
+          totalAmount: true
+        }
+      })
+    ]);
+
+    // Calculate total revenue
+    const totalRevenue = orders.reduce((sum, order) => sum + parseFloat(order.totalAmount.toString()), 0);
+
+    return c.json({
+      stats: {
+        totalProducts,
+        activeProducts,
+        totalOrders,
+        pendingOrders,
+        totalRevenue: totalRevenue.toFixed(2),
+        totalUsers
+      }
+    });
+
+  } catch (error) {
+    console.error('Get admin stats error:', error);
+    return c.json({ error: 'Failed to fetch admin stats', message: error.message }, 500);
+  }
+});
+
 // ============================================================
 // Student Verification Routes
 // ============================================================
