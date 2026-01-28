@@ -5,6 +5,25 @@ const { Hono } = require('hono');
 const { cors } = require('hono/cors');
 const { logger } = require('hono/logger');
 
+// Initialize Prisma Client with connection pooling for serverless
+let prisma;
+try {
+  const { PrismaClient } = require('@prisma/client');
+
+  // Singleton pattern for serverless - reuse connection across invocations
+  const globalForPrisma = global;
+  prisma = globalForPrisma.prisma || new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  });
+
+  if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prisma = prisma;
+  }
+} catch (error) {
+  console.error('Failed to initialize Prisma Client:', error.message);
+  prisma = null;
+}
+
 const app = new Hono();
 
 // Middleware
@@ -28,14 +47,40 @@ app.get('/api/v1', (c) => {
 });
 
 // Test endpoints
-// Database test disabled temporarily - will add back after Prisma setup in Vercel
 app.get('/test/db', async (c) => {
-  return c.json({
-    status: 'info',
-    message: 'Database test endpoint disabled temporarily',
-    note: 'Will be enabled once Prisma is properly configured in Vercel',
-    timestamp: new Date().toISOString()
-  });
+  if (!prisma) {
+    return c.json({
+      status: 'error',
+      message: 'Prisma Client not initialized',
+      note: 'Make sure @prisma/client is installed and generated',
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+
+  try {
+    // Test database connection by counting users
+    const userCount = await prisma.user.count();
+    const users = await prisma.user.findMany({
+      select: { id: true, email: true, role: true, createdAt: true },
+      take: 3
+    });
+
+    return c.json({
+      status: 'ok',
+      message: 'Database connection successful',
+      userCount,
+      sampleUsers: users,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return c.json({
+      status: 'error',
+      message: 'Database connection failed',
+      error: error.message,
+      hint: 'Check DATABASE_URL environment variable',
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
 });
 
 app.get('/test/env', (c) => {

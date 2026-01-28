@@ -14,7 +14,8 @@
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "clean": "turbo run clean && rm -rf node_modules",
-    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "postinstall": "cd packages/database && npm run db:generate"
   },
   "devDependencies": {
     "turbo": "^1.13.0",
