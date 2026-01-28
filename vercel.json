@@ -1,16 +1,15 @@
 {
   "version": 2,
-  "buildCommand": "npx turbo run build --filter=@repo/api",
   "builds": [
     {
-      "src": "apps/api/api/index.js",
+      "src": "apps/api/vercel-serverless.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "apps/api/api/index.js"
+      "dest": "apps/api/vercel-serverless.js"
     }
   ]
 }
