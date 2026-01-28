@@ -25,8 +25,10 @@ app.get('/api/v1', (c) => {
   return c.json({ message: 'Innozverse API v1' });
 });
 
-// Only start server when running locally (not in serverless environment)
-if (!process.env.VERCEL) {
+export default app;
+
+// Start server only when this file is run directly (not imported)
+if (require.main === module) {
   const port = parseInt(process.env.PORT || '3001');
   console.log(`🚀 API server running on http://localhost:${port}`);
 
@@ -35,5 +37,3 @@ if (!process.env.VERCEL) {
     port,
   });
 }
-
-export default app;
