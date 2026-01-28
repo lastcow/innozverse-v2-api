@@ -1038,6 +1038,45 @@ app.get('/api/v1/orders/:id', authMiddleware, async (c) => {
   }
 });
 
+// GET /api/v1/orders/summary - Get order summary for user
+app.get('/api/v1/orders/summary', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+
+    // Get all orders for the user
+    const orders = await prisma.order.findMany({
+      where: { userId: user.userId },
+      select: {
+        status: true,
+        totalAmount: true,
+      }
+    });
+
+    // Calculate summary
+    const totalOrders = orders.length;
+    const pendingOrders = orders.filter(o => o.status === 'PENDING' || o.status === 'PROCESSING').length;
+    const completedOrders = orders.filter(o => o.status === 'DELIVERED').length;
+    const totalSpent = orders.reduce((sum, order) => sum + parseFloat(order.totalAmount.toString()), 0);
+
+    return c.json({
+      summary: {
+        totalOrders,
+        pendingOrders,
+        completedOrders,
+        totalSpent: totalSpent.toFixed(2)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get order summary error:', error);
+    return c.json({ error: 'Failed to fetch order summary', message: error.message }, 500);
+  }
+});
+
 // GET /api/v1/admin/orders - Get all orders (admin only)
 app.get('/api/v1/admin/orders', authMiddleware, requireRole('ADMIN'), async (c) => {
   if (!prisma) {
