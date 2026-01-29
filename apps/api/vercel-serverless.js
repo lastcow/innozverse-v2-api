@@ -1656,7 +1656,7 @@ app.get('/test/jwt', async (c) => {
 });
 
 // Export handler for Vercel
-module.exports = async (req, res) => {
+const handler = async (req, res) => {
   try {
     // Build full URL from Vercel request
     const protocol = req.headers['x-forwarded-proto'] || 'https';
@@ -1712,3 +1712,7 @@ module.exports = async (req, res) => {
     }));
   }
 };
+
+// Export both for different use cases
+module.exports = handler;  // For Vercel
+module.exports.app = app;   // For local development

@@ -4,13 +4,69 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Warm Sand/Stone neutrals - Human-centric palette */
+    --background: 42 15% 97%; /* #F5F5F0 - Warm off-white */
+    --foreground: 24 10% 10%; /* #1A1714 - Deep warm gray */
+
+    /* Nature-inspired accent - Deep Moss Green */
+    --primary: 150 40% 35%; /* #36755B - Deep moss green */
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Clay/Terracotta */
+    --secondary: 20 45% 92%; /* #F2EBE6 - Warm stone */
+    --secondary-foreground: 24 10% 10%;
+
+    --muted: 42 20% 92%; /* #F0EDE8 - Soft sand */
+    --muted-foreground: 25 10% 40%;
+
+    --accent: 30 40% 85%; /* #E8DDD3 - Warm beige */
+    --accent-foreground: 24 10% 10%;
+
+    --destructive: 0 65% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 42 15% 88%; /* #E5E1DC - Warm border */
+    --input: 42 15% 88%;
+    --ring: 150 40% 35%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 24 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 10% 10%;
+
+    --radius: 1rem; /* Larger, friendlier radius */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Deep warm charcoal - Not pure black */
+    --background: 20 15% 11%; /* #1C1917 - Warm espresso */
+    --foreground: 42 15% 97%;
+
+    --primary: 150 40% 45%; /* Lighter moss in dark mode */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 20 20% 18%; /* #2D2622 - Warm dark stone */
+    --secondary-foreground: 42 15% 97%;
+
+    --muted: 20 15% 15%;
+    --muted-foreground: 42 15% 70%;
+
+    --accent: 30 25% 22%;
+    --accent-foreground: 42 15% 97%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 20 15% 20%;
+    --input: 20 15% 20%;
+    --ring: 150 40% 45%;
+
+    --card: 20 15% 13%;
+    --card-foreground: 42 15% 97%;
+
+    --popover: 20 15% 13%;
+    --popover-foreground: 42 15% 97%;
   }
 }
 
@@ -20,5 +76,24 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+}
+
+/* Custom grain texture overlay */
+.grain-texture {
+  position: relative;
+}
+
+.grain-texture::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
 }
