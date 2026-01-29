@@ -27,6 +27,11 @@ export function Navbar() {
               </Link>
             </Button>
             <Button asChild variant="ghost" size="sm">
+              <Link href="/pricing">
+                Pricing
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
               <Link href="/cart">
                 Cart
               </Link>
