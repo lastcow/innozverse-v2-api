@@ -28,8 +28,8 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const [success, setSuccess] = useState(false);
 
   const imageUrl = Array.isArray(product.imageUrls) && product.imageUrls.length > 0
-    ? product.imageUrls[0]
-    : 'https://via.placeholder.com/600x400?text=No+Image';
+    ? product.imageUrls[0]!
+    : '/placeholder.png';
 
   const handleAddToCart = async () => {
     setError('');

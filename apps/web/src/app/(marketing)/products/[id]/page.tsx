@@ -1,4 +1,3 @@
-import { Navbar } from '@/components/layout/navbar';
 import { ProductDetail } from '@/components/products/product-detail';
 import { notFound } from 'next/navigation';
 
@@ -30,7 +29,6 @@ export default async function ProductDetailPage({
 
   return (
     <>
-      <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <ProductDetail product={product} />
       </main>

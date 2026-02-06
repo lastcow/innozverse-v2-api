@@ -67,8 +67,8 @@ export function OrderCard({ order }: OrderCardProps) {
           {order.items.slice(0, 3).map((item) => {
             const imageUrl =
               Array.isArray(item.product.imageUrls) && item.product.imageUrls.length > 0
-                ? item.product.imageUrls[0]
-                : 'https://via.placeholder.com/80';
+                ? item.product.imageUrls[0]!
+                : '/placeholder.png';
 
             return (
               <div key={item.id} className="flex items-center gap-3">

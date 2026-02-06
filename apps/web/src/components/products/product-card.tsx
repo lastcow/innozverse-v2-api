@@ -16,8 +16,8 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const imageUrl = Array.isArray(product.imageUrls) && product.imageUrls.length > 0
-    ? product.imageUrls[0]
-    : 'https://via.placeholder.com/400x300?text=No+Image';
+    ? product.imageUrls[0]!
+    : '/placeholder.png';
 
   return (
     <Link href={`/products/${product.id}`}>

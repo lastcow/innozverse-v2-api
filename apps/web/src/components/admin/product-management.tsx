@@ -153,8 +153,8 @@ export function ProductManagement() {
             {products.map((product) => {
               const imageUrl =
                 Array.isArray(product.imageUrls) && product.imageUrls.length > 0
-                  ? product.imageUrls[0]
-                  : 'https://via.placeholder.com/50';
+                  ? product.imageUrls[0]!
+                  : '/placeholder.png';
 
               return (
                 <tr key={product.id}>

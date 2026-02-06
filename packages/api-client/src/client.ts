@@ -18,9 +18,9 @@ export class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<{ data: T; error: null } | { data: null; error: string }> {
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     };
 
     if (this.token) {

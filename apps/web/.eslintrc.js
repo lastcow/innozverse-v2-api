@@ -1,3 +1,6 @@
 module.exports = {
-  extends: ['next/core-web-vitals', '@repo/config/eslint-preset'],
+  extends: ['next/core-web-vitals'],
+  rules: {
+    'react/no-unescaped-entities': 'off',
+  },
 }

@@ -29,8 +29,8 @@ export function CartItem({ item, onUpdate, isAuthenticated, accessToken }: CartI
   const [error, setError] = useState('');
 
   const imageUrl = Array.isArray(item.product.imageUrls) && item.product.imageUrls.length > 0
-    ? item.product.imageUrls[0]
-    : 'https://via.placeholder.com/150';
+    ? item.product.imageUrls[0]!
+    : '/placeholder.png';
 
   const handleUpdateQuantity = async (newQuantity: number) => {
     if (newQuantity < 1 || newQuantity > item.product.stock) return;

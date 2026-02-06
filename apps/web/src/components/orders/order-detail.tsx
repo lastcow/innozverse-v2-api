@@ -150,8 +150,8 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
           {order.items.map((item) => {
             const imageUrl =
               Array.isArray(item.product.imageUrls) && item.product.imageUrls.length > 0
-                ? item.product.imageUrls[0]
-                : 'https://via.placeholder.com/120';
+                ? item.product.imageUrls[0]!
+                : '/placeholder.png';
 
             const itemTotal = parseFloat(item.price) * item.quantity;
 
