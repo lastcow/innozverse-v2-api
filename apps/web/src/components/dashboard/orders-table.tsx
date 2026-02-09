@@ -349,35 +349,106 @@ export function OrdersTable() {
 
       {/* Pagination Controls */}
       {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500 text-center">
             Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} orders)
           </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() =>
-                setPagination((prev) => ({
-                  ...prev,
-                  page: Math.max(1, prev.page - 1),
-                }))
+          <div className="flex justify-center items-center gap-2">
+            {pagination.page > 1 && (
+              <button
+                onClick={() =>
+                  setPagination((prev) => ({
+                    ...prev,
+                    page: prev.page - 1,
+                  }))
+                }
+                className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Previous
+              </button>
+            )}
+
+            {(() => {
+              const maxVisible = 5;
+              let start = Math.max(1, pagination.page - Math.floor(maxVisible / 2));
+              let end = Math.min(pagination.totalPages, start + maxVisible - 1);
+
+              if (end - start + 1 < maxVisible) {
+                start = Math.max(1, end - maxVisible + 1);
               }
-              disabled={pagination.page === 1}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() =>
-                setPagination((prev) => ({
-                  ...prev,
-                  page: Math.min(prev.totalPages, prev.page + 1),
-                }))
+
+              const pages: number[] = [];
+              for (let i = start; i <= end; i++) {
+                pages.push(i);
               }
-              disabled={pagination.page === pagination.totalPages}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
+
+              return (
+                <>
+                  {start > 1 && (
+                    <>
+                      <button
+                        onClick={() =>
+                          setPagination((prev) => ({ ...prev, page: 1 }))
+                        }
+                        className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        1
+                      </button>
+                      {start > 2 && <span className="px-2 text-gray-500">...</span>}
+                    </>
+                  )}
+
+                  {pages.map((page) => (
+                    <button
+                      key={page}
+                      onClick={() =>
+                        setPagination((prev) => ({ ...prev, page }))
+                      }
+                      className={`px-3 py-2 rounded-md text-sm font-medium ${
+                        page === pagination.page
+                          ? 'bg-primary-600 text-white'
+                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  {end < pagination.totalPages && (
+                    <>
+                      {end < pagination.totalPages - 1 && (
+                        <span className="px-2 text-gray-500">...</span>
+                      )}
+                      <button
+                        onClick={() =>
+                          setPagination((prev) => ({
+                            ...prev,
+                            page: prev.totalPages,
+                          }))
+                        }
+                        className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        {pagination.totalPages}
+                      </button>
+                    </>
+                  )}
+                </>
+              );
+            })()}
+
+            {pagination.page < pagination.totalPages && (
+              <button
+                onClick={() =>
+                  setPagination((prev) => ({
+                    ...prev,
+                    page: prev.page + 1,
+                  }))
+                }
+                className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Next
+              </button>
+            )}
           </div>
         </div>
       )}
