@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -62,6 +63,12 @@ const formatDate = (dateString: string) => {
 }
 
 export function UserTable({ users, loading, onEdit, onDelete }: UserTableProps) {
+  const router = useRouter()
+
+  const handleRowClick = (userId: string) => {
+    router.push(`/admin/users/${userId}`)
+  }
+
   if (loading) {
     return (
       <div className="py-16 text-center">
@@ -95,7 +102,11 @@ export function UserTable({ users, loading, onEdit, onDelete }: UserTableProps) 
       </TableHeader>
       <TableBody>
         {users.map((user) => (
-          <TableRow key={user.id} className="border-gray-50 hover:bg-gray-50/50">
+          <TableRow
+            key={user.id}
+            className="border-gray-50 hover:bg-gray-50/50 cursor-pointer"
+            onClick={() => handleRowClick(user.id)}
+          >
             <TableCell>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-600">
@@ -121,13 +132,19 @@ export function UserTable({ users, loading, onEdit, onDelete }: UserTableProps) 
             <TableCell className="text-right">
               <div className="flex justify-end gap-2">
                 <button
-                  onClick={() => onEdit(user)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEdit(user)
+                  }}
                   className="w-8 h-8 rounded-lg bg-blue-50 text-[#4379EE] hover:bg-blue-100 flex items-center justify-center transition-colors"
                 >
                   <Pencil className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => onDelete(user.id)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(user.id)
+                  }}
                   className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
