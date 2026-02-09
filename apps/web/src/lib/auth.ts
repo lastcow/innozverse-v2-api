@@ -155,10 +155,11 @@ export const authOptions: NextAuthOptions = {
       if (!token.accessToken && token.sub) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub },
-          select: { role: true },
+          select: { role: true, oauthProvider: true },
         });
         if (dbUser) {
           token.role = dbUser.role;
+          token.oauthProvider = dbUser.oauthProvider;
         }
       }
 
@@ -169,6 +170,9 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub!;
         session.user.role = token.role as string;
         session.accessToken = token.accessToken as string;
+        if (token.oauthProvider) {
+          session.user.oauthProvider = token.oauthProvider as string;
+        }
       }
       return session;
     },
