@@ -1252,6 +1252,120 @@ app.patch('/api/v1/admin/orders/:id/status', authMiddleware, requireRole('ADMIN'
   }
 });
 
+// GET /api/v1/admin/users - Get all users (admin only)
+app.get('/api/v1/admin/users', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { page = '1', limit = '20', search, role } = c.req.query();
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter
+    const where = {};
+    if (role) {
+      where.role = role;
+    }
+    if (search) {
+      where.OR = [
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Get users and total count
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          emailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: { select: { orders: true } }
+        }
+      }),
+      prisma.user.count({ where })
+    ]);
+
+    return c.json({
+      users,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get admin users error:', error);
+    return c.json({ error: 'Failed to fetch users', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/admin/users/:id - Get single user with orders and verification (admin only)
+app.get('/api/v1/admin/users/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        emailVerified: true,
+        oauthProvider: true,
+        createdAt: true,
+        updatedAt: true,
+        orders: {
+          orderBy: { placedAt: 'desc' },
+          include: {
+            items: {
+              include: {
+                product: true
+              }
+            }
+          }
+        },
+        studentVerification: {
+          include: {
+            verifiedBy: {
+              select: {
+                id: true,
+                email: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    return c.json({ user });
+
+  } catch (error) {
+    console.error('Get admin user error:', error);
+    return c.json({ error: 'Failed to fetch user', message: error.message }, 500);
+  }
+});
+
 // GET /api/v1/admin/stats - Get admin statistics
 app.get('/api/v1/admin/stats', authMiddleware, requireRole('ADMIN'), async (c) => {
   if (!prisma) {
