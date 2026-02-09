@@ -1312,6 +1312,60 @@ app.get('/api/v1/admin/users', authMiddleware, requireRole('ADMIN'), async (c) =
   }
 });
 
+// GET /api/v1/admin/users/:id - Get single user with orders and verification (admin only)
+app.get('/api/v1/admin/users/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        emailVerified: true,
+        oauthProvider: true,
+        createdAt: true,
+        updatedAt: true,
+        orders: {
+          orderBy: { placedAt: 'desc' },
+          include: {
+            items: {
+              include: {
+                product: true
+              }
+            }
+          }
+        },
+        studentVerification: {
+          include: {
+            verifiedBy: {
+              select: {
+                id: true,
+                email: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    return c.json({ user });
+
+  } catch (error) {
+    console.error('Get admin user error:', error);
+    return c.json({ error: 'Failed to fetch user', message: error.message }, 500);
+  }
+});
+
 // GET /api/v1/admin/stats - Get admin statistics
 app.get('/api/v1/admin/stats', authMiddleware, requireRole('ADMIN'), async (c) => {
   if (!prisma) {
