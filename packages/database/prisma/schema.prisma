@@ -85,9 +85,10 @@ model Product {
   stock       Int         @default(0)
   active      Boolean     @default(true)
   properties  Json        @default("{}")
-  imageUrls   Json        @default("[]") @map("image_urls")
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  imageUrls                 Json     @default("[]") @map("image_urls")
+  studentDiscountPercentage Decimal? @map("student_discount_percentage") @db.Decimal(5, 2)
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
 
   cartItems  CartItem[]
   orderItems OrderItem[]
@@ -178,4 +179,19 @@ model OrderItem {
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@map("order_items")
+}
+
+model EventDiscount {
+  id          String    @id @default(uuid())
+  name        String
+  description String?   @db.Text
+  percentage  Decimal   @db.Decimal(5, 2)
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime  @map("end_date")
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([active, startDate, endDate])
+  @@map("event_discounts")
 }
