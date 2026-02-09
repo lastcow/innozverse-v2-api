@@ -4,8 +4,14 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Cpu, Monitor, Gamepad2, Loader2 } from 'lucide-react'
+import { Cpu, Monitor, Gamepad2, Loader2, Tag, Percent } from 'lucide-react'
 import Link from 'next/link'
+import type { EventDiscount } from '@repo/types'
+import {
+  calculateDiscountBreakdown,
+  getActiveEventDiscount,
+  formatDiscountPercentage,
+} from '@/lib/discount'
 
 type ProductType = 'SURFACE' | 'LAPTOP' | 'XBOX'
 type CategoryFilter = 'all' | ProductType
@@ -27,7 +33,7 @@ interface Product {
 
 interface ApiResponse {
   products: Product[]
-  activeEventDiscounts: unknown[]
+  activeEventDiscounts: EventDiscount[]
 }
 
 const categories: { value: CategoryFilter; label: string }[] = [
@@ -86,10 +92,14 @@ const getProductTag = (product: Product): string => {
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
+  const [activeEventDiscounts, setActiveEventDiscounts] = useState<EventDiscount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all')
   const [showStudentPricing, setShowStudentPricing] = useState(false)
+
+  // Get the best active event discount (highest percentage)
+  const activeEventDiscount = getActiveEventDiscount(activeEventDiscounts)
 
   const fetchProducts = async (typeFilter?: ProductType) => {
     try {
@@ -102,6 +112,7 @@ export default function ProductsPage() {
       if (response.ok) {
         const data: ApiResponse = await response.json()
         setProducts(data.products)
+        setActiveEventDiscounts(data.activeEventDiscounts || [])
       } else {
         setError('Failed to load products')
       }
@@ -115,14 +126,6 @@ export default function ProductsPage() {
   useEffect(() => {
     fetchProducts(selectedCategory === 'all' ? undefined : selectedCategory)
   }, [selectedCategory])
-
-  const calculateStudentPrice = (product: Product): number => {
-    if (product.studentDiscountPercentage) {
-      const discount = Number(product.basePrice) * (Number(product.studentDiscountPercentage) / 100)
-      return Number(product.basePrice) - discount
-    }
-    return Number(product.basePrice)
-  }
 
   const groupedProducts = products.reduce<Record<ProductType, Product[]>>((acc, product) => {
     if (!acc[product.type]) {
@@ -235,7 +238,7 @@ export default function ProductsPage() {
                           key={product.id}
                           product={product}
                           showStudentPricing={showStudentPricing}
-                          calculateStudentPrice={calculateStudentPrice}
+                          activeEventDiscount={activeEventDiscount}
                         />
                       ))}
                     </div>
@@ -250,7 +253,7 @@ export default function ProductsPage() {
                     key={product.id}
                     product={product}
                     showStudentPricing={showStudentPricing}
-                    calculateStudentPrice={calculateStudentPrice}
+                    activeEventDiscount={activeEventDiscount}
                   />
                 ))}
               </div>
@@ -292,15 +295,30 @@ export default function ProductsPage() {
 interface ProductCardProps {
   product: Product
   showStudentPricing: boolean
-  calculateStudentPrice: (product: Product) => number
+  activeEventDiscount: EventDiscount | null
 }
 
-function ProductCard({ product, showStudentPricing, calculateStudentPrice }: ProductCardProps) {
+function ProductCard({ product, showStudentPricing, activeEventDiscount }: ProductCardProps) {
   const basePrice = Number(product.basePrice)
-  const studentPrice = calculateStudentPrice(product)
   const hasStudentDiscount = product.studentDiscountPercentage && product.studentDiscountPercentage > 0
+  const hasEventDiscount = activeEventDiscount !== null && activeEventDiscount.percentage > 0
   const specs = getProductSpecs(product)
   const tag = getProductTag(product)
+
+  // Calculate discount breakdown using utility function
+  const studentDiscountPercentage = showStudentPricing && hasStudentDiscount
+    ? product.studentDiscountPercentage
+    : null
+  const eventDiscountPercentage = hasEventDiscount ? activeEventDiscount.percentage : null
+
+  const discountBreakdown = calculateDiscountBreakdown(
+    basePrice,
+    studentDiscountPercentage,
+    eventDiscountPercentage
+  )
+
+  const hasAnyDiscount = (showStudentPricing && hasStudentDiscount) || hasEventDiscount
+  const finalPrice = discountBreakdown.finalPrice
 
   return (
     <Card
@@ -352,27 +370,53 @@ function ProductCard({ product, showStudentPricing, calculateStudentPrice }: Pro
       </CardHeader>
 
       <CardContent className="space-y-3 pb-6 flex-grow">
+        {/* Discount Badges */}
+        {hasAnyDiscount && (
+          <div className="flex flex-wrap gap-2">
+            {hasEventDiscount && (
+              <Badge className="bg-green-600 text-white text-xs px-2 py-0.5 flex items-center gap-1">
+                <Tag className="w-3 h-3" />
+                {activeEventDiscount.name} -{formatDiscountPercentage(activeEventDiscount.percentage)}
+              </Badge>
+            )}
+            {showStudentPricing && hasStudentDiscount && (
+              <Badge className="bg-orange-600 text-white text-xs px-2 py-0.5 flex items-center gap-1">
+                <Percent className="w-3 h-3" />
+                Student -{formatDiscountPercentage(Number(product.studentDiscountPercentage))}
+              </Badge>
+            )}
+          </div>
+        )}
+
         {/* Pricing */}
         <div className="space-y-1">
-          {showStudentPricing && hasStudentDiscount ? (
+          {hasAnyDiscount ? (
             <>
               <div className="flex items-center gap-2">
                 <span className="text-stone-400 line-through text-lg">
                   ${basePrice.toFixed(2)}
                 </span>
-                <Badge className="bg-orange-600 text-white text-xs px-2 py-0.5">
-                  Student
-                </Badge>
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="font-serif text-4xl font-bold text-orange-600">
-                  ${studentPrice.toFixed(2)}
+                  ${finalPrice.toFixed(2)}
                 </span>
               </div>
-              <p className="text-xs text-green-600 font-medium">
-                Save ${(basePrice - studentPrice).toFixed(2)} (
-                {Math.round(Number(product.studentDiscountPercentage))}% off)
-              </p>
+              <div className="text-xs text-green-600 font-medium space-y-0.5">
+                {discountBreakdown.studentDiscountAmount > 0 && (
+                  <p>
+                    Student discount: -${discountBreakdown.studentDiscountAmount.toFixed(2)}
+                  </p>
+                )}
+                {discountBreakdown.eventDiscountAmount > 0 && (
+                  <p>
+                    Event discount: -${discountBreakdown.eventDiscountAmount.toFixed(2)}
+                  </p>
+                )}
+                <p className="font-semibold">
+                  Total savings: ${discountBreakdown.totalDiscountAmount.toFixed(2)}
+                </p>
+              </div>
             </>
           ) : (
             <div className="flex items-baseline gap-1">
