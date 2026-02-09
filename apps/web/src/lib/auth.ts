@@ -144,10 +144,24 @@ export const authOptions: NextAuthOptions = {
       return false;
     },
     async jwt({ token, user }) {
+      // Initial sign-in: store user data in token
       if (user) {
         token.accessToken = user.accessToken;
         token.role = user.role;
       }
+
+      // For OAuth users (no accessToken), fetch fresh data from database
+      // This ensures role changes are reflected in the session
+      if (!token.accessToken && token.sub) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { role: true },
+        });
+        if (dbUser) {
+          token.role = dbUser.role;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
