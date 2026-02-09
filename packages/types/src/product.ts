@@ -16,6 +16,7 @@ export const ProductSchema = z.object({
   active: z.boolean(),
   properties: ProductPropertiesSchema,
   imageUrls: z.array(z.string().url()),
+  studentDiscountPercentage: z.number().min(0).max(100).nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -29,6 +30,7 @@ export const CreateProductRequestSchema = z.object({
   stock: z.number().int().min(0),
   properties: ProductPropertiesSchema,
   imageUrls: z.array(z.string().url()),
+  studentDiscountPercentage: z.number().min(0).max(100).optional(),
 });
 export type CreateProductRequest = z.infer<typeof CreateProductRequestSchema>;
 
