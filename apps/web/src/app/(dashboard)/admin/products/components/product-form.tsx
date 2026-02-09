@@ -27,6 +27,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -47,6 +48,7 @@ const productSchema = z.object({
     })
   ),
   imageUrls: z.array(z.string().url('Must be a valid URL')),
+  studentDiscountPercentage: z.number().min(0).max(100).nullable().optional(),
 })
 
 type ProductFormData = z.infer<typeof productSchema>
@@ -71,6 +73,7 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
       stock: 0,
       properties: [],
       imageUrls: [],
+      studentDiscountPercentage: null,
     },
   })
 
@@ -91,6 +94,7 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
         stock: product.stock,
         properties,
         imageUrls: (product.imageUrls as string[]) || [],
+        studentDiscountPercentage: product.studentDiscountPercentage ? Number(product.studentDiscountPercentage) : null,
       })
     } else {
       form.reset({
@@ -101,6 +105,7 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
         stock: 0,
         properties: [],
         imageUrls: [],
+        studentDiscountPercentage: null,
       })
     }
   }, [product, form])
@@ -124,6 +129,7 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
         properties: propertiesObj,
         active: true,
         imageUrls: data.imageUrls,
+        studentDiscountPercentage: data.studentDiscountPercentage ?? null,
       }
 
       const url = isEditing ? `/api/products/${product.id}` : '/api/products'
@@ -280,6 +286,35 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
                       onChange={(e) => field.onChange(parseInt(e.target.value))}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="studentDiscountPercentage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Student Discount (%)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      placeholder="e.g., 10 for 10% off"
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        field.onChange(value === '' ? null : parseFloat(value))
+                      }}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Optional discount for verified students (0-100%). Leave empty for no student discount.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
