@@ -46,7 +46,7 @@ const getStatusBadge = (status: MockUser['status']) => {
 }
 
 const getInitials = (name: string) => {
-  return name
+  return (name || '')
     .split(' ')
     .map((n) => n[0])
     .join('')

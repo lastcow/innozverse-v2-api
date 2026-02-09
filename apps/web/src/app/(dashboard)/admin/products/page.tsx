@@ -19,7 +19,7 @@ export default function AdminProductsPage() {
       const response = await fetch('/api/products')
       if (response.ok) {
         const data = await response.json()
-        setProducts(data)
+        setProducts(data.products)
       }
     } catch (error) {
       console.error('Failed to fetch products:', error)
