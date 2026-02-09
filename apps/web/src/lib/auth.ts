@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import GitHubProvider from 'next-auth/providers/github';
 import { getServerSession } from 'next-auth';
+import { prisma, OAuthProvider } from '@repo/database';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -65,6 +66,83 @@ export const authOptions: NextAuthOptions = {
       : []),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      // Skip for credentials provider (handled separately)
+      if (account?.provider === 'credentials') {
+        return true;
+      }
+
+      // Handle OAuth providers (Google, GitHub)
+      if (account?.provider && account.providerAccountId && user.email) {
+        const oauthProvider = account.provider.toUpperCase() as keyof typeof OAuthProvider;
+
+        // Validate that this is a supported OAuth provider
+        if (oauthProvider !== 'GOOGLE' && oauthProvider !== 'GITHUB') {
+          return false;
+        }
+
+        try {
+          // Find existing user by OAuth provider and ID
+          let dbUser = await prisma.user.findUnique({
+            where: {
+              oauthProvider_oauthId: {
+                oauthProvider: OAuthProvider[oauthProvider],
+                oauthId: account.providerAccountId,
+              },
+            },
+          });
+
+          if (!dbUser) {
+            // Check if user exists with same email (might be a credentials user)
+            const existingUserByEmail = await prisma.user.findUnique({
+              where: { email: user.email },
+            });
+
+            if (existingUserByEmail) {
+              // If existing user has a different OAuth provider, don't allow sign in
+              // This prevents account takeover via OAuth
+              if (existingUserByEmail.oauthProvider && existingUserByEmail.oauthProvider !== OAuthProvider[oauthProvider]) {
+                return false;
+              }
+
+              // Update existing user with OAuth info if they don't have one
+              if (!existingUserByEmail.oauthProvider) {
+                dbUser = await prisma.user.update({
+                  where: { email: user.email },
+                  data: {
+                    oauthProvider: OAuthProvider[oauthProvider],
+                    oauthId: account.providerAccountId,
+                    emailVerified: true,
+                  },
+                });
+              } else {
+                dbUser = existingUserByEmail;
+              }
+            } else {
+              // Create new user
+              dbUser = await prisma.user.create({
+                data: {
+                  email: user.email,
+                  oauthProvider: OAuthProvider[oauthProvider],
+                  oauthId: account.providerAccountId,
+                  emailVerified: true,
+                },
+              });
+            }
+          }
+
+          // Update user object with database ID and role for JWT callback
+          user.id = dbUser.id;
+          user.role = dbUser.role;
+
+          return true;
+        } catch (error) {
+          return false;
+        }
+      }
+
+      return false;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.accessToken = user.accessToken;
