@@ -12,6 +12,7 @@ import {
   Users,
   BarChart,
   Settings,
+  Tag,
 } from 'lucide-react'
 import {
   Sheet,
@@ -59,6 +60,7 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
           title: 'Management',
           items: [
             { label: 'Products', href: '/admin/products', icon: ShoppingBag },
+            { label: 'Discounts', href: '/admin/discounts', icon: Tag },
             { label: 'Users', href: '/admin/users', icon: Users },
             { label: 'Analytics', href: '/admin/analytics', icon: BarChart },
           ],
