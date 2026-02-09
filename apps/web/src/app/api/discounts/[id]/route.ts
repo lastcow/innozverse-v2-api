@@ -3,48 +3,31 @@ import { getServerSession } from 'next-auth'
 import { prisma } from '@repo/database'
 import { authOptions } from '@/lib/auth'
 
-// GET /api/products/:id - Get a single product with active event discounts
+// GET /api/discounts/:id - Get a single discount
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Fetch product and active event discounts in parallel
-    const now = new Date()
-    const [product, activeEventDiscounts] = await Promise.all([
-      prisma.product.findUnique({
-        where: { id: params.id },
-      }),
-      prisma.eventDiscount.findMany({
-        where: {
-          active: true,
-          startDate: { lte: now },
-          endDate: { gte: now },
-        },
-        orderBy: {
-          percentage: 'desc',
-        },
-      }),
-    ])
+    const discount = await prisma.eventDiscount.findUnique({
+      where: { id: params.id },
+    })
 
-    if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    if (!discount) {
+      return NextResponse.json({ error: 'Discount not found' }, { status: 404 })
     }
 
-    return NextResponse.json({
-      product,
-      activeEventDiscounts,
-    })
+    return NextResponse.json(discount)
   } catch (error) {
-    console.error('Failed to fetch product:', error)
+    console.error('Failed to fetch discount:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch product' },
+      { error: 'Failed to fetch discount' },
       { status: 500 }
     )
   }
 }
 
-// PUT /api/products/:id - Update a product
+// PUT /api/discounts/:id - Update a discount
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -66,45 +49,51 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { name, description, type, basePrice, stock, properties, imageUrls, active, studentDiscountPercentage } = body
+    const { name, description, percentage, startDate, endDate, active } = body
 
-    // Validate studentDiscountPercentage if provided
-    if (studentDiscountPercentage !== undefined && studentDiscountPercentage !== null) {
-      const discountValue = Number(studentDiscountPercentage)
-      if (isNaN(discountValue) || discountValue < 0 || discountValue > 100) {
+    // Validate percentage range if provided
+    if (percentage !== undefined && (percentage < 0 || percentage > 100)) {
+      return NextResponse.json(
+        { error: 'Percentage must be between 0 and 100' },
+        { status: 400 }
+      )
+    }
+
+    // Validate date range if both dates are provided
+    if (startDate !== undefined && endDate !== undefined) {
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      if (end <= start) {
         return NextResponse.json(
-          { error: 'Student discount percentage must be between 0 and 100' },
+          { error: 'End date must be after start date' },
           { status: 400 }
         )
       }
     }
 
-    const product = await prisma.product.update({
+    const discount = await prisma.eventDiscount.update({
       where: { id: params.id },
       data: {
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
-        ...(type !== undefined && { type }),
-        ...(basePrice !== undefined && { basePrice }),
-        ...(stock !== undefined && { stock }),
-        ...(properties !== undefined && { properties }),
-        ...(imageUrls !== undefined && { imageUrls }),
+        ...(percentage !== undefined && { percentage }),
+        ...(startDate !== undefined && { startDate: new Date(startDate) }),
+        ...(endDate !== undefined && { endDate: new Date(endDate) }),
         ...(active !== undefined && { active }),
-        ...(studentDiscountPercentage !== undefined && { studentDiscountPercentage: studentDiscountPercentage ?? null }),
       },
     })
 
-    return NextResponse.json(product)
+    return NextResponse.json(discount)
   } catch (error) {
-    console.error('Failed to update product:', error)
+    console.error('Failed to update discount:', error)
     return NextResponse.json(
-      { error: 'Failed to update product' },
+      { error: 'Failed to update discount' },
       { status: 500 }
     )
   }
 }
 
-// DELETE /api/products/:id - Delete a product
+// DELETE /api/discounts/:id - Delete a discount
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -125,15 +114,15 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await prisma.product.delete({
+    await prisma.eventDiscount.delete({
       where: { id: params.id },
     })
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Failed to delete product:', error)
+    console.error('Failed to delete discount:', error)
     return NextResponse.json(
-      { error: 'Failed to delete product' },
+      { error: 'Failed to delete discount' },
       { status: 500 }
     )
   }

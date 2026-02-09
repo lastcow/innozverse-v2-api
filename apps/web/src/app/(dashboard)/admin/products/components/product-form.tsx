@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Image } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -46,6 +47,8 @@ const productSchema = z.object({
       value: z.string().min(1, 'Value is required'),
     })
   ),
+  imageUrls: z.array(z.string().url('Must be a valid URL')),
+  studentDiscountPercentage: z.number().min(0).max(100).nullable().optional(),
 })
 
 type ProductFormData = z.infer<typeof productSchema>
@@ -69,6 +72,8 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
       basePrice: 0,
       stock: 0,
       properties: [],
+      imageUrls: [],
+      studentDiscountPercentage: null,
     },
   })
 
@@ -88,6 +93,8 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
         basePrice: Number(product.basePrice),
         stock: product.stock,
         properties,
+        imageUrls: (product.imageUrls as string[]) || [],
+        studentDiscountPercentage: product.studentDiscountPercentage ? Number(product.studentDiscountPercentage) : null,
       })
     } else {
       form.reset({
@@ -97,6 +104,8 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
         basePrice: 0,
         stock: 0,
         properties: [],
+        imageUrls: [],
+        studentDiscountPercentage: null,
       })
     }
   }, [product, form])
@@ -119,7 +128,8 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
         stock: data.stock,
         properties: propertiesObj,
         active: true,
-        imageUrls: [],
+        imageUrls: data.imageUrls,
+        studentDiscountPercentage: data.studentDiscountPercentage ?? null,
       }
 
       const url = isEditing ? `/api/products/${product.id}` : '/api/products'
@@ -153,6 +163,19 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
     form.setValue(
       'properties',
       currentProperties.filter((_, i) => i !== index)
+    )
+  }
+
+  const addImageUrl = () => {
+    const currentImageUrls = form.getValues('imageUrls')
+    form.setValue('imageUrls', [...currentImageUrls, ''])
+  }
+
+  const removeImageUrl = (index: number) => {
+    const currentImageUrls = form.getValues('imageUrls')
+    form.setValue(
+      'imageUrls',
+      currentImageUrls.filter((_, i) => i !== index)
     )
   }
 
@@ -268,6 +291,35 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
               )}
             />
 
+            <FormField
+              control={form.control}
+              name="studentDiscountPercentage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Student Discount (%)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      placeholder="e.g., 10 for 10% off"
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        field.onChange(value === '' ? null : parseFloat(value))
+                      }}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Optional discount for verified students (0-100%). Leave empty for no student discount.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-base">Product Specifications</Label>
@@ -318,6 +370,54 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
                       <button
                         type="button"
                         onClick={() => removeProperty(index)}
+                        className="w-9 h-9 shrink-0 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-base">Product Images</Label>
+                <Button
+                  type="button"
+                  onClick={addImageUrl}
+                  variant="outline"
+                  size="sm"
+                  className="border-gray-200 text-[#4379EE] hover:bg-blue-50"
+                >
+                  <Image className="w-4 h-4 mr-1" />
+                  Add Image URL
+                </Button>
+              </div>
+
+              <div className="space-y-3 border border-gray-100 rounded-xl p-4 bg-[#F9FAFB]">
+                {form.watch('imageUrls').length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">
+                    No images added yet. Click &ldquo;Add Image URL&rdquo; to start.
+                  </p>
+                ) : (
+                  form.watch('imageUrls').map((_, index) => (
+                    <div key={index} className="flex gap-2">
+                      <FormField
+                        control={form.control}
+                        name={`imageUrls.${index}`}
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormControl>
+                              <Input placeholder="https://example.com/image.jpg" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImageUrl(index)}
                         className="w-9 h-9 shrink-0 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />

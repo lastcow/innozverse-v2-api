@@ -2,17 +2,68 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@repo/database'
 import { authOptions } from '@/lib/auth'
+import { ProductType } from '@prisma/client'
 
-// GET /api/products - List all products
-export async function GET() {
+// GET /api/products - List all products with optional type filtering
+export async function GET(request: NextRequest) {
   try {
-    const products = await prisma.product.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+    const { searchParams } = new URL(request.url)
+    const typeParam = searchParams.get('type')
+    const activeOnly = searchParams.get('activeOnly') !== 'false' // Default to true
 
-    return NextResponse.json(products)
+    // Validate type parameter if provided
+    const validTypes: ProductType[] = ['SURFACE', 'LAPTOP', 'XBOX']
+    let typeFilter: ProductType | undefined
+
+    if (typeParam) {
+      if (!validTypes.includes(typeParam as ProductType)) {
+        return NextResponse.json(
+          { error: `Invalid product type. Must be one of: ${validTypes.join(', ')}` },
+          { status: 400 }
+        )
+      }
+      typeFilter = typeParam as ProductType
+    }
+
+    // Build where clause for products query
+    const whereClause: {
+      type?: ProductType
+      active?: boolean
+    } = {}
+
+    if (typeFilter) {
+      whereClause.type = typeFilter
+    }
+
+    if (activeOnly) {
+      whereClause.active = true
+    }
+
+    // Fetch products and active event discounts in parallel
+    const now = new Date()
+    const [products, activeEventDiscounts] = await Promise.all([
+      prisma.product.findMany({
+        where: whereClause,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      prisma.eventDiscount.findMany({
+        where: {
+          active: true,
+          startDate: { lte: now },
+          endDate: { gte: now },
+        },
+        orderBy: {
+          percentage: 'desc',
+        },
+      }),
+    ])
+
+    return NextResponse.json({
+      products,
+      activeEventDiscounts,
+    })
   } catch (error) {
     console.error('Failed to fetch products:', error)
     return NextResponse.json(
@@ -41,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, type, basePrice, stock, properties, imageUrls } = body
+    const { name, description, type, basePrice, stock, properties, imageUrls, studentDiscountPercentage } = body
 
     // Validate required fields
     if (!name || !description || !type || basePrice === undefined || stock === undefined) {
@@ -49,6 +100,17 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required fields' },
         { status: 400 }
       )
+    }
+
+    // Validate studentDiscountPercentage if provided
+    if (studentDiscountPercentage !== undefined && studentDiscountPercentage !== null) {
+      const discountValue = Number(studentDiscountPercentage)
+      if (isNaN(discountValue) || discountValue < 0 || discountValue > 100) {
+        return NextResponse.json(
+          { error: 'Student discount percentage must be between 0 and 100' },
+          { status: 400 }
+        )
+      }
     }
 
     const product = await prisma.product.create({
@@ -60,6 +122,7 @@ export async function POST(request: NextRequest) {
         stock,
         properties: properties || {},
         imageUrls: imageUrls || [],
+        studentDiscountPercentage: studentDiscountPercentage ?? null,
         active: true,
       },
     })
