@@ -159,7 +159,7 @@ export const authOptions: NextAuthOptions = {
         });
         if (dbUser) {
           token.role = dbUser.role;
-          token.oauthProvider = dbUser.oauthProvider;
+          token.oauthProvider = dbUser.oauthProvider ?? undefined;
         }
       }
 
