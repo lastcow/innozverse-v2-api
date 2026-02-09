@@ -3,21 +3,38 @@ import { getServerSession } from 'next-auth'
 import { prisma } from '@repo/database'
 import { authOptions } from '@/lib/auth'
 
-// GET /api/products/:id - Get a single product
+// GET /api/products/:id - Get a single product with active event discounts
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const product = await prisma.product.findUnique({
-      where: { id: params.id },
-    })
+    // Fetch product and active event discounts in parallel
+    const now = new Date()
+    const [product, activeEventDiscounts] = await Promise.all([
+      prisma.product.findUnique({
+        where: { id: params.id },
+      }),
+      prisma.eventDiscount.findMany({
+        where: {
+          active: true,
+          startDate: { lte: now },
+          endDate: { gte: now },
+        },
+        orderBy: {
+          percentage: 'desc',
+        },
+      }),
+    ])
 
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    return NextResponse.json(product)
+    return NextResponse.json({
+      product,
+      activeEventDiscounts,
+    })
   } catch (error) {
     console.error('Failed to fetch product:', error)
     return NextResponse.json(
@@ -49,7 +66,18 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { name, description, type, basePrice, stock, properties, imageUrls, active } = body
+    const { name, description, type, basePrice, stock, properties, imageUrls, active, studentDiscountPercentage } = body
+
+    // Validate studentDiscountPercentage if provided
+    if (studentDiscountPercentage !== undefined && studentDiscountPercentage !== null) {
+      const discountValue = Number(studentDiscountPercentage)
+      if (isNaN(discountValue) || discountValue < 0 || discountValue > 100) {
+        return NextResponse.json(
+          { error: 'Student discount percentage must be between 0 and 100' },
+          { status: 400 }
+        )
+      }
+    }
 
     const product = await prisma.product.update({
       where: { id: params.id },
@@ -62,6 +90,7 @@ export async function PUT(
         ...(properties !== undefined && { properties }),
         ...(imageUrls !== undefined && { imageUrls }),
         ...(active !== undefined && { active }),
+        ...(studentDiscountPercentage !== undefined && { studentDiscountPercentage: studentDiscountPercentage ?? null }),
       },
     })
 
