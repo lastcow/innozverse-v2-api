@@ -10,6 +10,8 @@ const nextConfig = {
   webpack: (config) => {
     // next-auth v5 uses flat file exports (react.js) not directory (react/index.js)
     // Webpack in monorepo resolves incorrectly without this alias
+    // Explicit @ alias for Vercel monorepo builds where tsconfig paths may not resolve
+    config.resolve.alias['@'] = path.resolve(__dirname, 'src');
     config.resolve.alias['next-auth/react'] = path.resolve(
       __dirname, '../../node_modules/next-auth/react.js'
     );
