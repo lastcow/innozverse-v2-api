@@ -136,13 +136,18 @@ export function Hero() {
 
             {/* Additional Info */}
             <div className="bg-orange-50 rounded-xl border border-orange-200 p-4">
-              <p className="text-sm text-stone-700">
-                <span className="font-semibold text-stone-900">Open Hours:</span> Monday - Friday, 9 AM - 5 PM
-              </p>
+              <div className="text-sm text-stone-700">
+                <span className="font-semibold text-stone-900">Open Hours:</span>
+                <span className="ml-1">Mon - Fri: 6 PM - 9 PM</span>
+                <span className="mx-1">|</span>
+                <span>Sat: 1 PM - 8 PM</span>
+                <span className="mx-1">|</span>
+                <span>Sun: Closed</span>
+              </div>
               <p className="text-sm text-stone-700 mt-2">
                 <span className="font-semibold text-stone-900">Contact:</span>{' '}
-                <a href="mailto:hello@innozverse.com" className="text-orange-600 hover:text-orange-700 underline">
-                  hello@innozverse.com
+                <a href="mailto:contact@innozverse.com" className="text-orange-600 hover:text-orange-700 underline">
+                  contact@innozverse.com
                 </a>
               </p>
             </div>
