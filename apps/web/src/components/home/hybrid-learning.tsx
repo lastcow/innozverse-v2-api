@@ -34,7 +34,7 @@ export function HybridLearning() {
       {
         icon: Clock,
         title: 'Flexible Schedules',
-        description: 'Study at your own pace. Watch lectures on-demand, submit assignments when it works for you.',
+        description: 'Learn at your own pace with open access to our knowledge base and lab environments anytime.',
       },
       {
         icon: Video,

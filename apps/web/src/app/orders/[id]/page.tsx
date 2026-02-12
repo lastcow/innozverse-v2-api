@@ -1,6 +1,6 @@
 import { Navbar } from '@/components/layout/navbar';
 import { OrderDetail } from '@/components/orders/order-detail';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth } from '@/auth';
 import { redirect } from 'next/navigation';
 
 export default async function OrderDetailPage({ params }: { params: { id: string } }) {

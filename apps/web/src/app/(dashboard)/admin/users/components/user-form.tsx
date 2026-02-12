@@ -35,7 +35,7 @@ const userSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Please enter a valid email address'),
   role: z.enum(['USER', 'ADMIN', 'SYSTEM']),
-  status: z.enum(['ACTIVE', 'SUSPENDED']),
+  status: z.enum(['ACTIVE', 'SUSPENDED', 'PENDING']),
 })
 
 type UserFormData = z.infer<typeof userSchema>
@@ -179,6 +179,7 @@ export function UserForm({ open, user, onSubmit, onCancel }: UserFormProps) {
                       <SelectContent>
                         <SelectItem value="ACTIVE">Active</SelectItem>
                         <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                        <SelectItem value="PENDING">Pending</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

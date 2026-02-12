@@ -37,65 +37,8 @@ export function CommunityTrust() {
     <section className="py-24 bg-white">
       <div className="container px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          {/* Stats Strip */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-24">
-            {stats.map((stat, index) => (
-              <div
-                key={index}
-                className="text-center p-8 rounded-2xl bg-gradient-to-br from-stone-50 to-orange-50/30 border-2 border-stone-100"
-              >
-                <stat.icon className="w-10 h-10 text-orange-600 mx-auto mb-4" />
-                <div className="text-4xl font-bold text-stone-900 mb-2">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-stone-600 font-medium">
-                  {stat.label}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Testimonials */}
-          <div className="mb-24">
-            <div className="text-center mb-12">
-              <h2 className="font-serif text-4xl sm:text-5xl font-bold text-stone-900 mb-4">
-                Trusted by Students
-              </h2>
-              <p className="text-xl text-stone-600 max-w-2xl mx-auto">
-                Real stories from students who are building their future with Innozverse.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {testimonials.map((testimonial, index) => (
-                <Card
-                  key={index}
-                  className="border-2 border-stone-200 bg-gradient-to-br from-white to-stone-50"
-                >
-                  <CardHeader>
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold">
-                        {testimonial.avatar}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-stone-900">
-                          {testimonial.author}
-                        </div>
-                        <div className="text-sm text-stone-600">
-                          {testimonial.role}
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-stone-700 leading-relaxed italic">
-                      "{testimonial.quote}"
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
+          {/* Stats Strip - hidden for now */}
+          {/* Testimonials - hidden for now */}
 
           {/* Knowledge Base CTA */}
           <Card className="bg-gradient-to-br from-orange-600 to-orange-500 border-0 text-white overflow-hidden relative">
@@ -137,9 +80,8 @@ export function CommunityTrust() {
                 </Button>
                 <Button
                   asChild
-                  variant="outline"
                   size="lg"
-                  className="border-2 border-white/30 hover:bg-white/10 text-white"
+                  className="bg-white/20 hover:bg-white/30 text-white font-semibold border-2 border-white"
                 >
                   <Link href="/contact">
                     Contact Support

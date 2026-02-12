@@ -3,21 +3,14 @@
 import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 
 export interface MockUser {
   id: string
   name: string
   email: string
   role: 'USER' | 'ADMIN' | 'SYSTEM'
-  status: 'ACTIVE' | 'SUSPENDED'
+  status: 'ACTIVE' | 'SUSPENDED' | 'PENDING'
+  emailVerified?: boolean
   createdAt: string
 }
 
@@ -35,14 +28,6 @@ const getRoleBadge = (role: MockUser['role']) => {
     SYSTEM: 'bg-purple-50 text-purple-600 border-0',
   }
   return styles[role]
-}
-
-const getStatusBadge = (status: MockUser['status']) => {
-  const styles = {
-    ACTIVE: 'bg-green-50 text-green-600 border-0',
-    SUSPENDED: 'bg-red-50 text-red-500 border-0',
-  }
-  return styles[status]
 }
 
 const getInitials = (name: string) => {
@@ -90,70 +75,84 @@ export function UserTable({ users, loading, onEdit, onDelete }: UserTableProps) 
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow className="border-gray-100 hover:bg-transparent">
-          <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">User</TableHead>
-          <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Role</TableHead>
-          <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Status</TableHead>
-          <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Joined</TableHead>
-          <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {users.map((user) => (
-          <TableRow
-            key={user.id}
-            className="border-gray-50 hover:bg-gray-50/50 cursor-pointer"
-            onClick={() => handleRowClick(user.id)}
-          >
-            <TableCell>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-600">
-                  {getInitials(user.name)}
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="bg-gray-50/80">
+            <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              User
+            </th>
+            <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              Role
+            </th>
+            <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              Status
+            </th>
+            <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              Joined
+            </th>
+            <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((user) => (
+            <tr
+              key={user.id}
+              className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer transition-colors"
+              onClick={() => handleRowClick(user.id)}
+            >
+              <td className="px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-600">
+                    {getInitials(user.name)}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <p className="font-medium text-[#202224] truncate">{user.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-[#202224] truncate">{user.name}</p>
-                  <p className="text-sm text-gray-400 truncate">{user.email}</p>
+              </td>
+              <td className="px-5 py-4">
+                <Badge className={getRoleBadge(user.role)}>{user.role}</Badge>
+              </td>
+              <td className="px-5 py-4">
+                {user.emailVerified ? (
+                  <Badge className="bg-green-50 text-green-600 border-0">Verified</Badge>
+                ) : (
+                  <Badge className="bg-yellow-50 text-yellow-600 border-0">Unverified</Badge>
+                )}
+              </td>
+              <td className="px-5 py-4 text-gray-500 text-sm">
+                {formatDate(user.createdAt)}
+              </td>
+              <td className="px-5 py-4 text-right">
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEdit(user)
+                    }}
+                    className="w-8 h-8 rounded-lg bg-blue-50 text-[#4379EE] hover:bg-blue-100 flex items-center justify-center transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete(user.id)
+                    }}
+                    className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-              </div>
-            </TableCell>
-            <TableCell>
-              <Badge className={getRoleBadge(user.role)}>{user.role}</Badge>
-            </TableCell>
-            <TableCell>
-              <Badge className={getStatusBadge(user.status)}>
-                {user.status === 'ACTIVE' ? 'Active' : 'Suspended'}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-gray-500">
-              {formatDate(user.createdAt)}
-            </TableCell>
-            <TableCell className="text-right">
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onEdit(user)
-                  }}
-                  className="w-8 h-8 rounded-lg bg-blue-50 text-[#4379EE] hover:bg-blue-100 flex items-center justify-center transition-colors"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDelete(user.id)
-                  }}
-                  className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }

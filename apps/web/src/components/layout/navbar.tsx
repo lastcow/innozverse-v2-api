@@ -31,12 +31,6 @@ export function Navbar() {
         <div className="flex items-center gap-8">
           {/* Desktop Navigation Links */}
           <div className="hidden md:flex items-center gap-8">
-            <Link
-              href="/products"
-              className="text-[15px] text-stone-600 hover:text-stone-900 transition-colors"
-            >
-              Product
-            </Link>
             <a
               href="https://docs.innozverse.com"
               target="_blank"
@@ -46,10 +40,16 @@ export function Navbar() {
               Knowledge Base
             </a>
             <Link
+              href="/products"
+              className="text-[15px] text-stone-600 hover:text-stone-900 transition-colors"
+            >
+              Product
+            </Link>
+            <Link
               href="/pricing"
               className="text-[15px] text-stone-600 hover:text-stone-900 transition-colors"
             >
-              Pricing
+              Plans & Pricing
             </Link>
             <Link
               href="/company"
@@ -149,13 +149,6 @@ export function Navbar() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 top-16 z-40 md:hidden bg-[#F4F3EE] backdrop-blur-md">
           <div className="container px-4 py-8 space-y-1">
-            <Link
-              href="/products"
-              className="block px-4 py-3 text-lg text-stone-700 hover:text-stone-900 transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Product
-            </Link>
             <a
               href="https://docs.innozverse.com"
               target="_blank"
@@ -165,11 +158,18 @@ export function Navbar() {
               Knowledge Base
             </a>
             <Link
+              href="/products"
+              className="block px-4 py-3 text-lg text-stone-700 hover:text-stone-900 transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Product
+            </Link>
+            <Link
               href="/pricing"
               className="block px-4 py-3 text-lg text-stone-700 hover:text-stone-900 transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Pricing
+              Plans & Pricing
             </Link>
             <Link
               href="/company"

@@ -81,8 +81,10 @@ model Product {
   name        String
   description String      @db.Text
   type        ProductType
+  upc         String      @default("")
   basePrice   Decimal     @map("base_price") @db.Decimal(10, 2)
   stock       Int         @default(0)
+  soldCount   Int         @default(0) @map("sold_count")
   active      Boolean     @default(true)
   properties  Json        @default("{}")
   imageUrls                 Json     @default("[]") @map("image_urls")

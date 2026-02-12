@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { auth } from '@/auth'
 import { prisma } from '@repo/database'
-import { authOptions } from '@/lib/auth'
 
 // GET /api/discounts/:id - Get a single discount
 export async function GET(
@@ -33,7 +32,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
 
     // Check authentication and admin role
     if (!session?.user) {
@@ -99,7 +98,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
 
     // Check authentication and admin role
     if (!session?.user) {

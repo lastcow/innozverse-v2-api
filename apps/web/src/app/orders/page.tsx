@@ -1,6 +1,6 @@
 import { Navbar } from '@/components/layout/navbar';
 import { OrdersList } from '@/components/orders/orders-list';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth } from '@/auth';
 import { redirect } from 'next/navigation';
 
 export default async function OrdersPage() {

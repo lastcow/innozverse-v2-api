@@ -61,21 +61,7 @@ export function Hero() {
                 </Button>
               </div>
 
-              {/* Stats */}
-              <div className="flex items-center gap-8 pt-8 border-t border-stone-200">
-                <div>
-                  <div className="text-3xl font-bold text-stone-900">10,000+</div>
-                  <div className="text-sm text-stone-600">Students Verified</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-stone-900">50+</div>
-                  <div className="text-sm text-stone-600">Courses Available</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-orange-600">40%</div>
-                  <div className="text-sm text-stone-600">Average Savings</div>
-                </div>
-              </div>
+{/* Stats - hidden for now */}
             </div>
 
             {/* Right: Visual */}

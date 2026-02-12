@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { auth } from '@/auth'
 import { prisma } from '@repo/database'
-import { authOptions } from '@/lib/auth'
 
 // GET /api/products/:id - Get a single product with active event discounts
 export async function GET(
@@ -50,7 +49,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
 
     // Check authentication and admin role
     if (!session?.user) {
@@ -66,7 +65,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { name, description, type, basePrice, stock, properties, imageUrls, active, studentDiscountPercentage } = body
+    const { name, upc, description, type, basePrice, stock, properties, imageUrls, active, studentDiscountPercentage } = body
 
     // Validate studentDiscountPercentage if provided
     if (studentDiscountPercentage !== undefined && studentDiscountPercentage !== null) {
@@ -83,6 +82,7 @@ export async function PUT(
       where: { id: params.id },
       data: {
         ...(name !== undefined && { name }),
+        ...(upc !== undefined && { upc }),
         ...(description !== undefined && { description }),
         ...(type !== undefined && { type }),
         ...(basePrice !== undefined && { basePrice }),
@@ -110,7 +110,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
 
     // Check authentication and admin role
     if (!session?.user) {

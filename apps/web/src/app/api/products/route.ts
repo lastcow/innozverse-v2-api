@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { auth } from '@/auth'
 import { prisma } from '@repo/database'
-import { authOptions } from '@/lib/auth'
 import { ProductType } from '@prisma/client'
 
 // GET /api/products - List all products with optional type filtering
@@ -76,7 +75,7 @@ export async function GET(request: NextRequest) {
 // POST /api/products - Create a new product
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
 
     // Check authentication and admin role
     if (!session?.user) {
@@ -92,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, type, basePrice, stock, properties, imageUrls, studentDiscountPercentage } = body
+    const { name, upc, description, type, basePrice, stock, properties, imageUrls, studentDiscountPercentage } = body
 
     // Validate required fields
     if (!name || !description || !type || basePrice === undefined || stock === undefined) {
@@ -116,6 +115,7 @@ export async function POST(request: NextRequest) {
     const product = await prisma.product.create({
       data: {
         name,
+        upc: upc || 'N/A',
         description,
         type,
         basePrice,

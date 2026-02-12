@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Check, Terminal, Zap, ShieldCheck, Crown, HardDrive, Shield, Server } from 'lucide-react'
+import { Check, Terminal, Zap, ShieldCheck, Crown } from 'lucide-react'
 import Link from 'next/link'
 
 interface PricingTier {
@@ -100,15 +100,14 @@ export default function PricingPage() {
       },
       {
         name: 'Pro',
-        basePrice: 39.99,
-        displayPrice: `$${(39.99 * periodMultiplier * totalDiscount).toFixed(2)}`,
-        regularPrice: student ? `$${(39.99 * periodMultiplier * annualDiscount).toFixed(2)}` : undefined,
+        basePrice: 29.99,
+        displayPrice: `$${(29.99 * periodMultiplier * totalDiscount).toFixed(2)}`,
+        regularPrice: student ? `$${(29.99 * periodMultiplier * annualDiscount).toFixed(2)}` : undefined,
         description: 'For serious developers and learners.',
         features: [
           '2 Standard Linux VMs',
           '1 Kali Linux VM (Security Lab)',
-          'Priority Support',
-          '99.9% uptime SLA',
+          'Community Support',
         ],
         cta: 'View Details',
         ctaLink: '/pricing/pro',
@@ -127,9 +126,7 @@ export default function PricingPage() {
         features: [
           '3 Standard Linux VMs',
           '2 Kali Linux VMs',
-          'Priority Queue for GPU Resources',
-          'Custom VM configurations',
-          'Dedicated support channel',
+          'Priority Support',
         ],
         cta: 'View Details',
         ctaLink: '/pricing/premium',
@@ -319,123 +316,19 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Power-Up Add-ons Section */}
+      {/* Need More Power Section */}
       <section className="py-16 bg-stone-50 border-y-2 border-stone-200">
         <div className="container px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="text-center mb-12">
-              <h2 className="font-serif text-4xl font-bold text-stone-900 mb-3">
-                Need More Power?
-              </h2>
-              <p className="text-lg text-stone-600 mb-2">
-                Customize your lab environment with specific upgrades.
-              </p>
-              <p className="text-sm text-orange-600 font-medium mb-1">
-                Available for Basic, Pro, and Premium subscribers
-              </p>
-              <p className="text-xs text-stone-500">
-                Add-ons are billed monthly and are not eligible for discounts.
-              </p>
-            </div>
-
-            {/* 3-Column Add-on Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Extra Storage Pack */}
-              <Card className="bg-white border border-stone-200 rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col">
-                <CardContent className="flex flex-col h-full p-6">
-                  {/* Icon & Title & Description */}
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                      <HardDrive className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg text-stone-900 mb-2">
-                        Extra Storage Pack
-                      </h3>
-                      <p className="text-sm text-stone-600">
-                        Persistent high-speed SSD storage for your datasets.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Price & Button (Bottom Aligned) */}
-                  <div className="mt-auto space-y-3">
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-serif font-bold text-2xl text-stone-900">$8</span>
-                      <span className="text-sm text-stone-500">/ mo</span>
-                    </div>
-                    <Button variant="outline" size="sm" className="w-full border-stone-300 hover:bg-stone-50">
-                      Add to Plan
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Additional Linux VM */}
-              <Card className="bg-white border border-stone-200 rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col">
-                <CardContent className="flex flex-col h-full p-6">
-                  {/* Icon & Title & Description */}
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-                      <Server className="w-6 h-6 text-purple-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg text-stone-900 mb-2">
-                        Additional Linux VM
-                      </h3>
-                      <p className="text-sm text-stone-600">
-                        Run an extra Standard Ubuntu/Debian instance concurrently.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Price & Button (Bottom Aligned) */}
-                  <div className="mt-auto space-y-3">
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-serif font-bold text-2xl text-stone-900">$10</span>
-                      <span className="text-sm text-stone-500">/ mo</span>
-                      <span className="text-xs text-stone-400">(per instance)</span>
-                    </div>
-                    <Button variant="outline" size="sm" className="w-full border-stone-300 hover:bg-stone-50">
-                      Add to Plan
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Security Lab Upgrade */}
-              <Card className="bg-white border border-stone-200 rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col">
-                <CardContent className="flex flex-col h-full p-6">
-                  {/* Icon & Title & Description */}
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-                      <Shield className="w-6 h-6 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg text-stone-900 mb-2">
-                        Security Lab Upgrade
-                      </h3>
-                      <p className="text-sm text-stone-600">
-                        Add a Kali Linux instance to a lower-tier plan.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Price & Button (Bottom Aligned) */}
-                  <div className="mt-auto space-y-3">
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-serif font-bold text-2xl text-stone-900">$15</span>
-                      <span className="text-sm text-stone-500">/ mo</span>
-                      <span className="text-xs text-stone-400">(per instance)</span>
-                    </div>
-                    <Button variant="outline" size="sm" className="w-full border-stone-300 hover:bg-stone-50">
-                      Add to Plan
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+          <div className="max-w-3xl mx-auto text-center space-y-6">
+            <h2 className="font-serif text-4xl font-bold text-stone-900">
+              Need More Power?
+            </h2>
+            <p className="text-lg text-stone-600">
+              Looking for custom configurations, dedicated resources, or enterprise-grade solutions? We can tailor a plan to fit your needs.
+            </p>
+            <Button asChild size="lg" className="bg-orange-600 hover:bg-orange-700 text-white">
+              <Link href="/contact">Contact innoZverse</Link>
+            </Button>
           </div>
         </div>
       </section>
@@ -539,6 +432,36 @@ export default function PricingPage() {
               <Button asChild variant="outline" size="lg" className="border-2 border-stone-300 hover:bg-stone-100">
                 <Link href="/contact">Talk to a Human</Link>
               </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Usage Policy Notice */}
+      <section className="py-12 bg-amber-50 border-y border-amber-200">
+        <div className="container px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-white border-2 border-amber-300 rounded-2xl p-6 shadow-md">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <h3 className="font-bold text-amber-800 text-center">Acceptable Use Policy</h3>
+              </div>
+              <p className="text-sm text-amber-700 leading-relaxed text-center mb-4">
+                All virtual machines provided by Innozverse are intended strictly for educational and learning purposes. The following activities are prohibited:
+              </p>
+              <ul className="text-sm text-amber-800 space-y-1.5 max-w-xl mx-auto">
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Production workloads or commercial use</li>
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Cryptocurrency mining or blockchain validation</li>
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Unauthorized scanning or attacks on external systems</li>
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Hosting public-facing services or websites</li>
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Distributing malware or illegal content</li>
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Reselling or sharing VM access with others</li>
+              </ul>
+              <p className="text-xs text-amber-600 text-center mt-4 font-medium">
+                Violation of these policies may result in immediate account suspension. All security testing must be performed within your own lab environment only.
+              </p>
             </div>
           </div>
         </div>

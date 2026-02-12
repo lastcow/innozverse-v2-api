@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Fraunces, Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import { SessionProvider } from '@/components/providers/session-provider'
+import { Toaster } from '@/components/ui/sonner'
 
 const fraunces = Fraunces({
   subsets: ['latin'],
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body className="font-sans antialiased min-h-screen flex flex-col">
         <SessionProvider>
           {children}
+          <Toaster richColors position="top-right" />
         </SessionProvider>
       </body>
     </html>

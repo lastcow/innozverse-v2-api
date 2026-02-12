@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { auth } from '@/auth'
 import { prisma } from '@repo/database'
-import { authOptions } from '@/lib/auth'
 
 // GET /api/discounts - List all discounts
 export async function GET(request: NextRequest) {
@@ -37,7 +36,7 @@ export async function GET(request: NextRequest) {
 // POST /api/discounts - Create a new discount
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
 
     // Check authentication and admin role
     if (!session?.user) {

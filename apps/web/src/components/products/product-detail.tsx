@@ -1,9 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/use-auth';
+import Link from 'next/link';
 
 interface ProductDetailProps {
   product: {
@@ -20,68 +18,9 @@ interface ProductDetailProps {
 }
 
 export function ProductDetail({ product }: ProductDetailProps) {
-  const router = useRouter();
-  const { accessToken, isAuthenticated } = useAuth();
-  const [quantity, setQuantity] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-
   const imageUrl = Array.isArray(product.imageUrls) && product.imageUrls.length > 0
     ? product.imageUrls[0]!
     : '/placeholder.png';
-
-  const handleAddToCart = async () => {
-    setError('');
-    setSuccess(false);
-    setLoading(true);
-
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-      // For authenticated users, use token
-      // For guests, generate/use session ID
-      const sessionId = !isAuthenticated
-        ? localStorage.getItem('guestSessionId') || `guest-${Date.now()}`
-        : undefined;
-
-      if (!isAuthenticated && sessionId) {
-        localStorage.setItem('guestSessionId', sessionId);
-      }
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      if (isAuthenticated && accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-      } else if (sessionId) {
-        headers['X-Session-Id'] = sessionId;
-      }
-
-      const response = await fetch(`${apiUrl}/api/v1/cart/items`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          productId: product.id,
-          quantity,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to add to cart');
-      }
-
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -143,48 +82,13 @@ export function ProductDetail({ product }: ProductDetailProps) {
           </div>
         )}
 
-        {error && (
-          <div className="rounded-md bg-red-50 p-4">
-            <div className="text-sm text-red-800">{error}</div>
-          </div>
-        )}
-
-        {success && (
-          <div className="rounded-md bg-green-50 p-4">
-            <div className="text-sm text-green-800">Added to cart successfully!</div>
-          </div>
-        )}
-
         <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <label htmlFor="quantity" className="text-sm font-medium text-gray-900">
-              Quantity:
-            </label>
-            <input
-              type="number"
-              id="quantity"
-              min="1"
-              max={product.stock}
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-              disabled={product.stock === 0}
-            />
-          </div>
-
-          <button
-            onClick={handleAddToCart}
-            disabled={loading || product.stock === 0 || !product.active}
-            className="w-full py-3 px-6 bg-primary-600 text-white font-medium rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          <Link
+            href="/contact"
+            className="block w-full py-3 px-6 bg-orange-600 text-white font-medium rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition text-center"
           >
-            {loading ? 'Adding...' : product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
-          </button>
-
-          {!isAuthenticated && (
-            <p className="text-sm text-gray-500 text-center">
-              Sign in to sync your cart across devices
-            </p>
-          )}
+            Contact Us to Buy
+          </Link>
         </div>
       </div>
     </div>

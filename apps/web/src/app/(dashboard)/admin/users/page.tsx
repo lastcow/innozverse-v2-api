@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { Plus } from 'lucide-react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
 import { UserTable } from './components/user-table'
@@ -29,6 +29,7 @@ interface UsersResponse {
 export default function AdminUsersPage() {
   const { accessToken, isLoading: authLoading } = useAuth()
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   const [users, setUsers] = useState<MockUser[]>([])
   const [pagination, setPagination] = useState<PaginationData | null>(null)
@@ -42,6 +43,7 @@ export default function AdminUsersPage() {
   const search = searchParams.get('search') || ''
   const role = searchParams.get('role') || ''
   const page = parseInt(searchParams.get('page') || '1', 10)
+  const limit = parseInt(searchParams.get('limit') || '20', 10)
 
   const fetchUsers = useCallback(async () => {
     if (!accessToken) return
@@ -52,7 +54,7 @@ export default function AdminUsersPage() {
     try {
       const params = new URLSearchParams()
       params.set('page', page.toString())
-      params.set('limit', '20')
+      params.set('limit', limit.toString())
       if (search) params.set('search', search)
       if (role) params.set('role', role)
 
@@ -76,7 +78,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false)
     }
-  }, [accessToken, page, search, role])
+  }, [accessToken, page, limit, search, role])
 
   useEffect(() => {
     if (accessToken) {
@@ -113,13 +115,21 @@ export default function AdminUsersPage() {
     }
     setIsFormOpen(false)
     setEditingUser(null)
-    // Refetch to get the latest data
     fetchUsers()
   }
 
   const handleFormCancel = () => {
     setIsFormOpen(false)
     setEditingUser(null)
+  }
+
+  const handleLimitChange = (newLimit: number) => {
+    const params = new URLSearchParams()
+    if (search) params.set('search', search)
+    if (role) params.set('role', role)
+    params.set('page', '1')
+    params.set('limit', newLimit.toString())
+    router.push(`/admin/users?${params.toString()}`)
   }
 
   // Show loading state while auth is loading
@@ -134,23 +144,13 @@ export default function AdminUsersPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[#202224]">
-            Community Members
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            View and manage all registered users across your platform
-          </p>
-        </div>
-        <Button
-          onClick={() => setIsFormOpen(true)}
-          className="bg-[#4379EE] hover:bg-[#3568d4] text-white rounded-xl px-5"
-          size="lg"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Add User
-        </Button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-[#202224]">
+          Community Members
+        </h1>
+        <p className="text-sm text-gray-500 mt-1">
+          View and manage all registered users across your platform
+        </p>
       </div>
 
       {/* Stats Row */}
@@ -162,23 +162,33 @@ export default function AdminUsersPage() {
           </p>
         </div>
         <div className="bg-white rounded-2xl shadow-sm p-5">
-          <p className="text-sm text-gray-400 font-medium">Active</p>
+          <p className="text-sm text-gray-400 font-medium">Verified</p>
           <p className="text-2xl font-bold text-green-600 mt-1">
-            {users.filter((u) => u.status === 'ACTIVE').length}
+            {users.filter((u) => u.emailVerified).length}
           </p>
         </div>
         <div className="bg-white rounded-2xl shadow-sm p-5">
-          <p className="text-sm text-gray-400 font-medium">Suspended</p>
-          <p className="text-2xl font-bold text-red-500 mt-1">
-            {users.filter((u) => u.status === 'SUSPENDED').length}
+          <p className="text-sm text-gray-400 font-medium">Unverified</p>
+          <p className="text-2xl font-bold text-yellow-600 mt-1">
+            {users.filter((u) => !u.emailVerified).length}
           </p>
         </div>
       </div>
 
-      {/* Search and Filter Row */}
+      {/* Search, Filter, and Add User Row */}
       <div className="flex items-center gap-4 mb-6">
         <UserSearch currentSearch={search} />
         <UserFilters currentRole={role} />
+        <div className="ml-auto">
+          <Button
+            onClick={() => setIsFormOpen(true)}
+            className="bg-[#4379EE] hover:bg-[#3568d4] text-white rounded-xl px-5"
+            size="lg"
+          >
+            <UserPlus className="w-5 h-5 mr-2" />
+            Add User
+          </Button>
+        </div>
       </div>
 
       {/* Error State */}
@@ -194,8 +204,8 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* User Table Card */}
-      <div className="bg-white rounded-2xl shadow-sm p-6">
+      {/* User Table Card — Board Style */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <UserTable
           users={users}
           loading={loading}
@@ -203,17 +213,18 @@ export default function AdminUsersPage() {
           onDelete={handleDelete}
         />
 
-        {/* Pagination */}
-        {pagination && pagination.totalPages > 1 && (
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <UserPagination
-              currentPage={pagination.page}
-              totalPages={pagination.totalPages}
-              role={role}
-              search={search}
-            />
-          </div>
-        )}
+        {/* Footer: Pagination */}
+        <div className="border-t border-gray-100 px-5 py-4">
+          <UserPagination
+            currentPage={pagination?.page ?? 1}
+            totalPages={pagination?.totalPages ?? 1}
+            total={pagination?.total ?? 0}
+            limit={limit}
+            role={role}
+            search={search}
+            onLimitChange={handleLimitChange}
+          />
+        </div>
       </div>
 
       {/* User Form Dialog */}

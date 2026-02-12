@@ -33,10 +33,12 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { Product } from '@repo/database'
 
 const productSchema = z.object({
   name: z.string().min(1, 'Name is required'),
+  upc: z.string().optional(),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   type: z.enum(['SURFACE', 'LAPTOP', 'XBOX']),
   basePrice: z.number().min(0.01, 'Price must be greater than 0'),
@@ -67,6 +69,7 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: '',
+      upc: '',
       description: '',
       type: 'LAPTOP',
       basePrice: 0,
@@ -88,6 +91,7 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
 
       form.reset({
         name: product.name,
+        upc: (product as Product & { upc?: string }).upc || '',
         description: product.description,
         type: product.type as 'SURFACE' | 'LAPTOP' | 'XBOX',
         basePrice: Number(product.basePrice),
@@ -99,6 +103,7 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
     } else {
       form.reset({
         name: '',
+        upc: '',
         description: '',
         type: 'LAPTOP',
         basePrice: 0,
@@ -122,6 +127,7 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
 
       const payload = {
         name: data.name,
+        upc: data.upc || '',
         description: data.description,
         type: data.type,
         basePrice: data.basePrice,
@@ -195,238 +201,268 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Product Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Surface Pro 9" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <Tabs defaultValue="general" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="specifications">Specifications</TabsTrigger>
+              </TabsList>
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Describe the product features and benefits..."
-                      className="min-h-[100px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+              {/* Tab 1: General */}
+              <TabsContent value="general" className="space-y-5 mt-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Product Name</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
+                        <Input placeholder="Surface Pro 9" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="SURFACE">Surface</SelectItem>
-                        <SelectItem value="LAPTOP">Laptop</SelectItem>
-                        <SelectItem value="XBOX">Xbox</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="basePrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Base Price ($)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="999.99"
-                        {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="SURFACE">Surface</SelectItem>
+                            <SelectItem value="LAPTOP">Laptop</SelectItem>
+                            <SelectItem value="XBOX">Xbox</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-            <FormField
-              control={form.control}
-              name="stock"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Stock Quantity</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="50"
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  <FormField
+                    control={form.control}
+                    name="basePrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price (USD)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="999.99"
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            <FormField
-              control={form.control}
-              name="studentDiscountPercentage"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Student Discount (%)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      placeholder="e.g., 10 for 10% off"
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        field.onChange(value === '' ? null : parseFloat(value))
-                      }}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Optional discount for verified students (0-100%). Leave empty for no student discount.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="stock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stock Quantity</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="50"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base">Product Specifications</Label>
-                <Button
-                  type="button"
-                  onClick={addProperty}
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-200 text-[#4379EE] hover:bg-blue-50"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add Spec
-                </Button>
-              </div>
+                <FormField
+                  control={form.control}
+                  name="studentDiscountPercentage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Student Discount (%)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          placeholder="e.g., 10 for 10% off"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            field.onChange(value === '' ? null : parseFloat(value))
+                          }}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Optional discount for verified students (0-100%).
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <div className="space-y-3 border border-gray-100 rounded-xl p-4 bg-[#F9FAFB]">
-                {form.watch('properties').length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">
-                    No specifications added yet. Click &ldquo;Add Spec&rdquo; to start.
-                  </p>
-                ) : (
-                  form.watch('properties').map((_, index) => (
-                    <div key={index} className="flex gap-2">
-                      <FormField
-                        control={form.control}
-                        name={`properties.${index}.key`}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input placeholder="Key (e.g., RAM)" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`properties.${index}.value`}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input placeholder="Value (e.g., 16GB)" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeProperty(index)}
-                        className="w-9 h-9 shrink-0 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base">Product Images</Label>
+                    <Button
+                      type="button"
+                      onClick={addImageUrl}
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-200 text-[#4379EE] hover:bg-blue-50"
+                    >
+                      <Image className="w-4 h-4 mr-1" />
+                      Add Image URL
+                    </Button>
+                  </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base">Product Images</Label>
-                <Button
-                  type="button"
-                  onClick={addImageUrl}
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-200 text-[#4379EE] hover:bg-blue-50"
-                >
-                  <Image className="w-4 h-4 mr-1" />
-                  Add Image URL
-                </Button>
-              </div>
+                  <div className="space-y-3 border border-gray-100 rounded-xl p-4 bg-[#F9FAFB]">
+                    {form.watch('imageUrls').length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-4">
+                        No images added yet. Click &ldquo;Add Image URL&rdquo; to start.
+                      </p>
+                    ) : (
+                      form.watch('imageUrls').map((_, index) => (
+                        <div key={index} className="flex gap-2">
+                          <FormField
+                            control={form.control}
+                            name={`imageUrls.${index}`}
+                            render={({ field }) => (
+                              <FormItem className="flex-1">
+                                <FormControl>
+                                  <Input placeholder="https://example.com/image.jpg" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImageUrl(index)}
+                            className="w-9 h-9 shrink-0 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
 
-              <div className="space-y-3 border border-gray-100 rounded-xl p-4 bg-[#F9FAFB]">
-                {form.watch('imageUrls').length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">
-                    No images added yet. Click &ldquo;Add Image URL&rdquo; to start.
-                  </p>
-                ) : (
-                  form.watch('imageUrls').map((_, index) => (
-                    <div key={index} className="flex gap-2">
-                      <FormField
-                        control={form.control}
-                        name={`imageUrls.${index}`}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input placeholder="https://example.com/image.jpg" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImageUrl(index)}
-                        className="w-9 h-9 shrink-0 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+              {/* Tab 2: Specifications */}
+              <TabsContent value="specifications" className="space-y-5 mt-4">
+                <FormField
+                  control={form.control}
+                  name="upc"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>UPC</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 012345678901" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Universal Product Code. Leave empty if not applicable.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Describe the product features and benefits..."
+                          className="min-h-[100px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base">Technical Specifications</Label>
+                    <Button
+                      type="button"
+                      onClick={addProperty}
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-200 text-[#4379EE] hover:bg-blue-50"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Spec
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3 border border-gray-100 rounded-xl p-4 bg-[#F9FAFB]">
+                    {form.watch('properties').length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-4">
+                        No specifications added yet. Click &ldquo;Add Spec&rdquo; to start.
+                      </p>
+                    ) : (
+                      form.watch('properties').map((_, index) => (
+                        <div key={index} className="flex gap-2">
+                          <FormField
+                            control={form.control}
+                            name={`properties.${index}.key`}
+                            render={({ field }) => (
+                              <FormItem className="flex-1">
+                                <FormControl>
+                                  <Input placeholder="Key (e.g., RAM)" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`properties.${index}.value`}
+                            render={({ field }) => (
+                              <FormItem className="flex-1">
+                                <FormControl>
+                                  <Input placeholder="Value (e.g., 16GB)" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeProperty(index)}
+                            className="w-9 h-9 shrink-0 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
 
             <DialogFooter>
               <Button

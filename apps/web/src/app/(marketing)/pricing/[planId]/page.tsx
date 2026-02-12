@@ -10,6 +10,7 @@ interface PlanData {
   id: string
   name: string
   price: string
+  annualPrice?: string
   description: string
   icon: typeof Terminal
   features: {
@@ -33,7 +34,7 @@ const planData: Record<string, PlanData> = {
     features: [
       {
         title: 'Standard Linux VM Specifications',
-        description: 'Get access to 1 Linux virtual machine with 1 vCPU and 2GB RAM. Perfect for learning the basics, running small projects, or testing code. The VM runs Ubuntu 22.04 LTS with common development tools pre-installed.',
+        description: 'Get access to 1 Linux virtual machine with 1 vCPU and 2GB RAM. Perfect for learning the basics, running small projects, or testing code. The VM runs the latest version of Ubuntu with common development tools pre-installed.',
         icon: Cpu,
       },
       {
@@ -75,12 +76,13 @@ const planData: Record<string, PlanData> = {
     id: 'basic',
     name: 'Basic',
     price: '$19.99/month',
+    annualPrice: '$215.89/year',
     description: 'The perfect starting point for cybersecurity students. Get a dedicated Kali Linux environment without the Pro price tag.',
     icon: Zap,
     features: [
       {
         title: 'Core Compute',
-        description: '1 Standard Linux VM (2 vCPU, 4GB RAM) for general development. Run your code, build projects, and learn system administration with a full Ubuntu 22.04 LTS environment.',
+        description: '1 Standard Linux VM (2 vCPU, 4GB RAM) for general development. Run your code, build projects, and learn system administration with the latest Ubuntu environment.',
         icon: Server,
       },
       {
@@ -90,7 +92,7 @@ const planData: Record<string, PlanData> = {
       },
       {
         title: 'Access',
-        description: 'Standard Web Terminal access to both VMs through your browser. No additional software required. Connect from anywhere with secure SSH access included.',
+        description: 'Connect from anywhere with secure SSH access. No additional software required.',
         icon: Terminal,
       },
       {
@@ -110,7 +112,7 @@ const planData: Record<string, PlanData> = {
       },
       {
         question: 'How does Basic compare to Pro?',
-        answer: 'Pro ($39.99/mo) includes 2 standard Linux VMs plus 1 Kali VM (vs Basic\'s 1+1), priority support with 4-hour response time, and a 99.9% uptime SLA. Basic is perfect if you primarily need the Kali environment and don\'t require enterprise support.',
+        answer: 'Pro ($29.99/mo) includes 2 standard Linux VMs plus 1 Kali VM (vs Basic\'s 1+1) and community support. Basic is perfect if you primarily need the Kali environment and don\'t require additional VMs.',
       },
       {
         question: 'Can I run both VMs simultaneously?',
@@ -118,14 +120,15 @@ const planData: Record<string, PlanData> = {
       },
       {
         question: 'Can I add more VMs to my Basic plan?',
-        answer: 'Absolutely! You can add additional Linux VMs ($10/mo each) or Kali VMs ($15/mo each) as Power-Up Add-ons from your dashboard. Or upgrade to Pro for 2 standard + 1 Kali VMs included.',
+        answer: 'Need more resources? We recommend upgrading to a higher-level subscription. Pro ($29.99/mo) includes 2 standard + 1 Kali VMs, and Premium ($59.99/mo) offers 3 standard + 2 Kali VMs with priority support.',
       },
     ],
   },
   pro: {
     id: 'pro',
     name: 'Pro',
-    price: '$39.99/month',
+    price: '$29.99/month',
+    annualPrice: '$323.89/year',
     description: 'Built for serious developers and security professionals.',
     icon: ShieldCheck,
     features: [
@@ -141,13 +144,8 @@ const planData: Record<string, PlanData> = {
       },
       {
         title: 'Priority Support',
-        description: 'Get help within 4 hours during business hours (9am-5pm PT, Mon-Fri) via email and chat. Direct access to senior support engineers who understand your technical stack. Priority bug fixes and feature requests.',
+        description: 'Get help during business hours via email and chat. Direct access to senior support engineers who understand your technical stack.',
         icon: Users,
-      },
-      {
-        title: '99.9% Uptime SLA',
-        description: 'Guaranteed 99.9% uptime with automatic failover. If we miss our SLA target, you receive service credits. Real-time status dashboard and proactive incident notifications.',
-        icon: Network,
       },
     ],
     faqs: [
@@ -161,11 +159,7 @@ const planData: Record<string, PlanData> = {
       },
       {
         question: 'How does Priority Support work?',
-        answer: 'Submit tickets via dashboard or email. Our team responds within 4 business hours with actionable solutions. For critical outages, response time is 1 hour.',
-      },
-      {
-        question: 'What happens if I hit the 99.9% SLA threshold?',
-        answer: 'We credit your account with service credits equivalent to 10% of your monthly fee for each 0.1% below 99.9% uptime.',
+        answer: 'Submit tickets via dashboard or email. Our team responds during business hours with actionable solutions.',
       },
     ],
   },
@@ -173,6 +167,7 @@ const planData: Record<string, PlanData> = {
     id: 'premium',
     name: 'Premium',
     price: '$59.99/month',
+    annualPrice: '$647.89/year',
     description: 'The ultimate toolkit for professionals and advanced learners.',
     icon: Crown,
     features: [
@@ -182,8 +177,8 @@ const planData: Record<string, PlanData> = {
         icon: Server,
       },
       {
-        title: 'Priority Queue for GPU Resources',
-        description: 'Get priority access to GPU-accelerated instances for machine learning, data analysis, and compute-intensive tasks. Skip the wait times and get instant access to NVIDIA T4 GPUs when you need them. Includes discounted GPU hourly rates.',
+        title: 'Priority Support',
+        description: 'Get faster responses when you need help. Premium members receive priority handling on all support requests, ensuring your issues are resolved quickly so you can stay focused on your work.',
         icon: Zap,
       },
       {
@@ -193,18 +188,14 @@ const planData: Record<string, PlanData> = {
       },
       {
         title: 'Dedicated Support Channel',
-        description: 'Private Slack channel with 1-hour response time, 24/7. Direct access to engineering team for complex issues. Dedicated account manager for quarterly check-ins and resource optimization.',
+        description: 'Private Discord channel with 2-hour response time during business hours (9am-5pm PT, Mon-Fri). Direct access to engineering team for complex issues.',
         icon: Users,
       },
     ],
     faqs: [
       {
-        question: 'How does Priority Queue for GPU Resources work?',
-        answer: 'Premium members get immediate access to GPU instances without waiting in the standard queue. You also receive a 20% discount on GPU hourly rates. Perfect for machine learning projects, data analysis, and compute-intensive workloads.',
-      },
-      {
         question: 'Can I run more than 5 VMs total?',
-        answer: 'Yes! You can spin up additional VMs beyond your 5 included instances using Power-Up Add-ons. Premium members also get priority allocation during high-demand periods.',
+        answer: 'Yes! You can request additional resources beyond your 5 included instances. Contact us to add more VMs at a great price.',
       },
       {
         question: 'How do custom VM configurations work?',
@@ -212,7 +203,7 @@ const planData: Record<string, PlanData> = {
       },
       {
         question: 'What happens if I downgrade from Premium?',
-        answer: 'You can downgrade to Pro or Basic anytime. Your VMs will remain active, but you\'ll lose access to Premium features like GPU priority and custom configurations. Any running custom VMs will be preserved.',
+        answer: 'You can downgrade to Pro or Basic anytime. Your VMs will remain active, but you\'ll lose access to Premium features like custom configurations and the dedicated Discord channel.',
       },
     ],
   },
@@ -243,9 +234,9 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
                   <p className="text-2xl text-orange-600 font-bold">
                     {plan.price}
                   </p>
-                  {plan.id === 'basic' && (
+                  {plan.annualPrice && (
                     <p className="text-base text-stone-500 mt-1">
-                      or $215.89 / year <span className="text-sm">(save 10%)</span>
+                      or {plan.annualPrice} <span className="text-sm">(save 10%)</span>
                     </p>
                   )}
                 </div>
@@ -312,6 +303,36 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Usage Policy Notice */}
+      <section className="py-12 bg-amber-50 border-y border-amber-200">
+        <div className="container px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-white border-2 border-amber-300 rounded-2xl p-6 shadow-md">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <h3 className="font-bold text-amber-800 text-center">Acceptable Use Policy</h3>
+              </div>
+              <p className="text-sm text-amber-700 leading-relaxed text-center mb-4">
+                All virtual machines provided by Innozverse are intended strictly for educational and learning purposes. The following activities are prohibited:
+              </p>
+              <ul className="text-sm text-amber-800 space-y-1.5 max-w-xl mx-auto">
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Production workloads or commercial use</li>
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Cryptocurrency mining or blockchain validation</li>
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Unauthorized scanning or attacks on external systems</li>
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Hosting public-facing services or websites</li>
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Distributing malware or illegal content</li>
+                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">&#x2715;</span> Reselling or sharing VM access with others</li>
+              </ul>
+              <p className="text-xs text-amber-600 text-center mt-4 font-medium">
+                Violation of these policies may result in immediate account suspension. All security testing must be performed within your own lab environment only.
+              </p>
             </div>
           </div>
         </div>

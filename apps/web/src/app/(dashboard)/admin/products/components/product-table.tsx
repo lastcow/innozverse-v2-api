@@ -1,15 +1,7 @@
 'use client'
 
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Package } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import type { Product } from '@repo/database'
 
 interface ProductTableProps {
@@ -38,6 +30,29 @@ const getStockStatus = (stock: number) => {
   }
 }
 
+function ProductThumbnail({ product }: { product: Product }) {
+  const imageUrls = product.imageUrls as string[]
+  const firstImage = imageUrls?.[0]
+
+  if (firstImage) {
+    return (
+      <div className="w-12 h-12 rounded-md border border-gray-200 p-0.5 shrink-0">
+        <img
+          src={firstImage}
+          alt={product.name}
+          className="w-full h-full rounded-sm object-contain"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex w-12 h-12 items-center justify-center rounded-md border border-gray-200 shrink-0">
+      <Package className="w-5 h-5 text-gray-400" />
+    </div>
+  )
+}
+
 export function ProductTable({ products, loading, onEdit, onDelete }: ProductTableProps) {
   if (loading) {
     return (
@@ -60,57 +75,87 @@ export function ProductTable({ products, loading, onEdit, onDelete }: ProductTab
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow className="border-gray-100 hover:bg-transparent">
-          <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Name</TableHead>
-          <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Type</TableHead>
-          <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Price</TableHead>
-          <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Stock</TableHead>
-          <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Status</TableHead>
-          <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {products.map((product) => {
-          const stockStatus = getStockStatus(product.stock)
-          return (
-            <TableRow key={product.id} className="border-gray-50 hover:bg-gray-50/50">
-              <TableCell className="font-semibold text-[#202224]">{product.name}</TableCell>
-              <TableCell>
-                <Badge className={getProductTypeBadge(product.type)}>
-                  {product.type}
-                </Badge>
-              </TableCell>
-              <TableCell className="font-semibold text-[#202224]">
-                ${Number(product.basePrice).toFixed(2)}
-              </TableCell>
-              <TableCell className="text-gray-500">{product.stock} units</TableCell>
-              <TableCell>
-                <Badge className={stockStatus.color}>
-                  {stockStatus.label}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => onEdit(product)}
-                    className="w-8 h-8 rounded-lg bg-blue-50 text-[#4379EE] hover:bg-blue-100 flex items-center justify-center transition-colors"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(product.id)}
-                    className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </TableCell>
-            </TableRow>
-          )
-        })}
-      </TableBody>
-    </Table>
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="bg-gray-50/80">
+            <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              Product
+            </th>
+            <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              Type
+            </th>
+            <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              Price
+            </th>
+            <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              Stock
+            </th>
+            <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              Status
+            </th>
+            <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {products.map((product) => {
+            const stockStatus = getStockStatus(product.stock)
+            const upc = (product as Product & { upc?: string }).upc
+            return (
+              <tr
+                key={product.id}
+                className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors"
+              >
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <ProductThumbnail product={product} />
+                    <div className="flex flex-col min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{product.name}</p>
+                      {upc && (
+                        <p className="text-xs text-muted-foreground truncate">UPC: {upc}</p>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-5 py-4">
+                  <Badge className={getProductTypeBadge(product.type)}>
+                    {product.type}
+                  </Badge>
+                </td>
+                <td className="px-5 py-4 font-medium text-[#202224]">
+                  ${Number(product.basePrice).toFixed(2)}
+                </td>
+                <td className="px-5 py-4 text-gray-500 text-sm">
+                  {product.stock} units
+                </td>
+                <td className="px-5 py-4">
+                  <Badge className={stockStatus.color}>
+                    {stockStatus.label}
+                  </Badge>
+                </td>
+                <td className="px-5 py-4 text-right">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => onEdit(product)}
+                      className="w-8 h-8 rounded-lg bg-blue-50 text-[#4379EE] hover:bg-blue-100 flex items-center justify-center transition-colors"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => onDelete(product.id)}
+                      className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }

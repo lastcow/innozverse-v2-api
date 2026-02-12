@@ -1,15 +1,14 @@
-import NextAuth, { NextAuthOptions } from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import GoogleProvider from 'next-auth/providers/google';
-import GitHubProvider from 'next-auth/providers/github';
-import { getServerSession } from 'next-auth';
+import NextAuth from 'next-auth';
+import Credentials from 'next-auth/providers/credentials';
+import Google from 'next-auth/providers/google';
+import GitHub from 'next-auth/providers/github';
 import { prisma, OAuthProvider } from '@repo/database';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-export const authOptions: NextAuthOptions = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
-    CredentialsProvider({
+    Credentials({
       name: 'credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },
@@ -48,41 +47,23 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-      ? [
-          GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          }),
-        ]
-      : []),
-    ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
-      ? [
-          GitHubProvider({
-            clientId: process.env.GITHUB_CLIENT_ID,
-            clientSecret: process.env.GITHUB_CLIENT_SECRET,
-          }),
-        ]
-      : []),
+    Google,
+    GitHub,
   ],
   callbacks: {
     async signIn({ user, account }) {
-      // Skip for credentials provider (handled separately)
       if (account?.provider === 'credentials') {
         return true;
       }
 
-      // Handle OAuth providers (Google, GitHub)
       if (account?.provider && account.providerAccountId && user.email) {
         const oauthProvider = account.provider.toUpperCase() as keyof typeof OAuthProvider;
 
-        // Validate that this is a supported OAuth provider
         if (oauthProvider !== 'GOOGLE' && oauthProvider !== 'GITHUB') {
           return false;
         }
 
         try {
-          // Find existing user by OAuth provider and ID
           let dbUser = await prisma.user.findUnique({
             where: {
               oauthProvider_oauthId: {
@@ -93,19 +74,15 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (!dbUser) {
-            // Check if user exists with same email (might be a credentials user)
             const existingUserByEmail = await prisma.user.findUnique({
               where: { email: user.email },
             });
 
             if (existingUserByEmail) {
-              // If existing user has a different OAuth provider, don't allow sign in
-              // This prevents account takeover via OAuth
               if (existingUserByEmail.oauthProvider && existingUserByEmail.oauthProvider !== OAuthProvider[oauthProvider]) {
                 return false;
               }
 
-              // Update existing user with OAuth info if they don't have one
               if (!existingUserByEmail.oauthProvider) {
                 dbUser = await prisma.user.update({
                   where: { email: user.email },
@@ -119,7 +96,6 @@ export const authOptions: NextAuthOptions = {
                 dbUser = existingUserByEmail;
               }
             } else {
-              // Create new user
               dbUser = await prisma.user.create({
                 data: {
                   email: user.email,
@@ -131,7 +107,6 @@ export const authOptions: NextAuthOptions = {
             }
           }
 
-          // Update user object with database ID and role for JWT callback
           user.id = dbUser.id;
           user.role = dbUser.role;
 
@@ -144,14 +119,11 @@ export const authOptions: NextAuthOptions = {
       return false;
     },
     async jwt({ token, user }) {
-      // Initial sign-in: store user data in token
       if (user) {
         token.accessToken = user.accessToken;
         token.role = user.role;
       }
 
-      // For OAuth users (no accessToken), fetch fresh data from database
-      // This ensures role changes are reflected in the session
       if (!token.accessToken && token.sub) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub },
@@ -184,13 +156,13 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 7 * 24 * 60 * 60, // 7 days
+    maxAge: 7 * 24 * 60 * 60,
   },
-  secret: process.env.NEXTAUTH_SECRET,
-};
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+});
 
 export async function getSession() {
-  return await getServerSession(authOptions);
+  return await auth();
 }
 
 export async function getCurrentUser() {

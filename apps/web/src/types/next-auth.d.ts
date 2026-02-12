@@ -15,8 +15,8 @@ declare module 'next-auth' {
   interface User {
     id: string;
     email: string;
-    role: string;
-    accessToken: string;
+    role?: string;
+    accessToken?: string;
     oauthProvider?: string;
   }
 }
