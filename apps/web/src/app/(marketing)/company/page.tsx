@@ -128,19 +128,33 @@ export default function CompanyPage() {
         </div>
       </section>
 
-      {/* Location Section */}
-      <section className="py-16 bg-white border-t border-stone-200">
-        <div className="container max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Location Section with Google Maps background */}
+      <section className="relative py-16 overflow-hidden">
+        {/* Google Maps embed as background */}
+        <iframe
+          className="absolute inset-0 w-full h-full"
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3067.5!2d-78.9284!3d39.6581!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89ca5d5e5e5e5e5d%3A0x0!2s2+W+Main+St%2C+Frostburg%2C+MD+21532!5e0!3m2!1sen!2sus!4v1700000000000!5m2!1sen!2sus"
+          style={{ border: 0, filter: 'saturate(0.3) brightness(1.1)' }}
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          title="InnozVerse Location"
+        />
+        {/* Semi-transparent overlay for text readability */}
+        <div className="absolute inset-0 bg-black/50" />
+        <div className="relative container max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center space-y-4">
-            <h3 className="font-serif text-2xl font-bold text-[#1C1917]">
+            <h3 className="font-serif text-2xl font-bold text-white">
               Visit Us
             </h3>
-            <p className="text-stone-600">
+            <p className="text-white font-medium">
               2 W Main St, Frostburg, MD 21532
             </p>
-            <p className="text-sm text-stone-500">
-              Open Monday - Friday, 9 AM - 5 PM
-            </p>
+            <div className="text-sm text-white/90 font-medium space-y-1">
+              <p>Mon - Fri: 6 PM - 9 PM</p>
+              <p>Sat: 1 PM - 8 PM</p>
+              <p>Sun: Closed</p>
+            </div>
           </div>
         </div>
       </section>
