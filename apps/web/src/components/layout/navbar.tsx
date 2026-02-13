@@ -83,7 +83,7 @@ export function Navbar() {
                 {userDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-[#F4F3EE] rounded-lg shadow-lg border border-stone-200/50 py-1 backdrop-blur-md">
                     <Link
-                      href="/dashboard"
+                      href="/user/dashboard"
                       className="flex items-center gap-3 px-4 py-2.5 text-[15px] text-stone-700 hover:text-stone-900 transition-colors"
                       onClick={() => setUserDropdownOpen(false)}
                     >
@@ -183,7 +183,7 @@ export function Navbar() {
               <>
                 <div className="my-6 border-t border-stone-200/50" />
                 <Link
-                  href="/dashboard"
+                  href="/user/dashboard"
                   className="block px-4 py-3 text-lg text-stone-700 hover:text-stone-900 transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >

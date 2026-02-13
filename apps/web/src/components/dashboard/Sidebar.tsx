@@ -46,10 +46,10 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
     {
       title: 'Dashboard',
       items: [
-        { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-        { label: 'My Profile', href: '/dashboard/profile', icon: User },
-        { label: 'My Orders', href: '/dashboard/orders', icon: Package },
-        { label: 'Subscriptions', href: '/dashboard/subscription', icon: CreditCard },
+        { label: 'Overview', href: '/user/dashboard', icon: LayoutDashboard },
+        { label: 'My Profile', href: '/user/profile', icon: User },
+        { label: 'Purchase History', href: '/user/purchase-history', icon: Package },
+        { label: 'Subscriptions', href: '/user/subscription', icon: CreditCard },
       ],
     },
   ]
@@ -71,7 +71,7 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
   const allSections = [...commonNavigation, ...adminNavigation]
 
   const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard'
+    if (href === '/user/dashboard') return pathname === '/user/dashboard'
     return pathname.startsWith(href)
   }
 
@@ -127,10 +127,10 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
       {/* Settings — pinned to bottom */}
       <div className="px-3 py-4 border-t border-gray-100">
         <Link
-          href="/dashboard/settings"
+          href="/user/settings"
           onClick={onMobileClose}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150 w-full ${
-            isActive('/dashboard/settings')
+            isActive('/user/settings')
               ? 'bg-[#4379EE] text-white shadow-md shadow-blue-500/20'
               : 'text-gray-500 hover:bg-gray-50 hover:text-[#4379EE]'
           }`}

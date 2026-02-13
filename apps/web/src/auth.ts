@@ -124,14 +124,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = user.role;
       }
 
-      if (!token.accessToken && token.sub) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.sub },
-          select: { role: true, oauthProvider: true },
-        });
-        if (dbUser) {
-          token.role = dbUser.role;
-          token.oauthProvider = dbUser.oauthProvider ?? undefined;
+      if (!token.accessToken && token.sub && !token.role) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.sub },
+            select: { role: true, oauthProvider: true },
+          });
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.oauthProvider = dbUser.oauthProvider ?? undefined;
+          }
+        } catch {
+          // Prisma is unavailable in Edge Runtime (middleware).
+          // The role will be resolved on the server-side auth() call instead.
         }
       }
 

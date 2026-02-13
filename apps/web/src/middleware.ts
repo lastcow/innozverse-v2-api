@@ -3,6 +3,7 @@ export { auth as default } from '@/auth';
 export const config = {
   matcher: [
     '/dashboard/:path*',
+    '/user/:path*',
     '/orders/:path*',
     '/admin/:path*',
   ],

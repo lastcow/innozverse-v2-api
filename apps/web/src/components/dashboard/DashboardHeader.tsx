@@ -75,13 +75,13 @@ export function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
             </div>
             <DropdownMenuSeparator className="bg-gray-100" />
             <DropdownMenuItem asChild className="rounded-lg cursor-pointer focus:bg-gray-50">
-              <Link href="/dashboard/profile" className="flex items-center gap-3 px-3 py-2">
+              <Link href="/user/profile" className="flex items-center gap-3 px-3 py-2">
                 <User className="w-4 h-4 text-gray-400" />
                 <span className="text-sm text-gray-700">My Profile</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="rounded-lg cursor-pointer focus:bg-gray-50">
-              <Link href="/dashboard/settings" className="flex items-center gap-3 px-3 py-2">
+              <Link href="/user/settings" className="flex items-center gap-3 px-3 py-2">
                 <Settings className="w-4 h-4 text-gray-400" />
                 <span className="text-sm text-gray-700">Settings</span>
               </Link>
