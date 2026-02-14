@@ -75,7 +75,7 @@ export function ProductCard({
                 </span>
               )}
               {showStudentPricing && hasStudentDiscount && (
-                <span className="bg-orange-600 text-white text-xs font-medium px-2 py-1 rounded">
+                <span className="bg-blue-600 text-white text-xs font-medium px-2 py-1 rounded">
                   Student -{formatDiscountPercentage(Number(product.studentDiscountPercentage))}
                 </span>
               )}
@@ -89,7 +89,7 @@ export function ProductCard({
               {product.type}
             </span>
             {product.stock > 0 && product.stock <= 5 && (
-              <span className="text-xs text-orange-600">
+              <span className="text-xs text-blue-600">
                 Only {product.stock} left
               </span>
             )}
@@ -110,7 +110,7 @@ export function ProductCard({
                   <span className="text-sm text-gray-400 line-through">
                     ${basePrice.toFixed(2)}
                   </span>
-                  <span className="text-2xl font-bold text-orange-600">
+                  <span className="text-2xl font-bold text-blue-600">
                     ${finalPrice.toFixed(2)}
                   </span>
                   <span className="text-xs text-green-600 font-medium">

@@ -74,15 +74,15 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
-        <div className="bg-white rounded-2xl shadow-xl shadow-stone-200/50 px-8 py-10 space-y-6">
+        <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 px-8 py-10 space-y-6">
           {/* Header */}
           <div className="text-center space-y-2">
-            <h1 className="font-serif text-4xl font-bold text-stone-900">
+            <h1 className="text-4xl font-bold text-slate-900">
               Join the Community
             </h1>
-            <p className="text-stone-600">
+            <p className="text-slate-600">
               Start your learning journey today
             </p>
           </div>
@@ -94,7 +94,7 @@ export default function RegisterPage() {
               onClick={() => handleSocialLogin('google')}
               variant="outline"
               size="lg"
-              className="w-full border-2 border-stone-300 hover:bg-stone-50 text-stone-700"
+              className="w-full border-2 border-gray-300 hover:bg-slate-50 text-slate-700"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path
@@ -122,7 +122,7 @@ export default function RegisterPage() {
               onClick={() => handleSocialLogin('github')}
               variant="outline"
               size="lg"
-              className="w-full border-2 border-stone-300 hover:bg-stone-50 text-stone-700"
+              className="w-full border-2 border-gray-300 hover:bg-slate-50 text-slate-700"
             >
               <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
@@ -134,10 +134,10 @@ export default function RegisterPage() {
           {/* Divider */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-stone-300" />
+              <div className="w-full border-t border-gray-300" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-stone-500">— Or continue with email —</span>
+              <span className="px-4 bg-white text-slate-500">— Or continue with email —</span>
             </div>
           </div>
 
@@ -150,7 +150,7 @@ export default function RegisterPage() {
             )}
 
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-stone-700">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700">
                 Email address
               </label>
               <input
@@ -161,13 +161,13 @@ export default function RegisterPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none block w-full px-4 py-3 border border-stone-300 rounded-lg text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400 focus:border-transparent transition-all"
+                className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent transition-all"
                 placeholder="you@example.com"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-stone-700">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700">
                 Password
               </label>
               <input
@@ -178,13 +178,13 @@ export default function RegisterPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none block w-full px-4 py-3 border border-stone-300 rounded-lg text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400 focus:border-transparent transition-all"
+                className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent transition-all"
                 placeholder="At least 8 characters"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-stone-700">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700">
                 Confirm Password
               </label>
               <input
@@ -195,7 +195,7 @@ export default function RegisterPage() {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="appearance-none block w-full px-4 py-3 border border-stone-300 rounded-lg text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400 focus:border-transparent transition-all"
+                className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent transition-all"
                 placeholder="Confirm your password"
               />
             </div>
@@ -204,18 +204,18 @@ export default function RegisterPage() {
               type="submit"
               disabled={loading}
               size="lg"
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             >
               {loading ? 'Creating account...' : 'Create account'}
             </Button>
           </form>
 
           {/* Footer Links */}
-          <div className="text-center text-sm text-stone-600">
+          <div className="text-center text-sm text-slate-600">
             Already have an account?{' '}
             <Link
               href="/auth/login"
-              className="font-semibold text-orange-600 hover:text-orange-700 transition-colors"
+              className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
             >
               Sign in
             </Link>

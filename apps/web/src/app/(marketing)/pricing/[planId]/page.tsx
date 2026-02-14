@@ -219,30 +219,30 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
   return (
     <>
       {/* Hero Section */}
-      <section className="relative py-20 bg-gradient-to-br from-stone-50 via-orange-50/30 to-stone-100">
+      <section className="relative py-20 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
         <div className="container px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center">
-                <plan.icon className="w-8 h-8 text-orange-600" />
+              <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center">
+                <plan.icon className="w-8 h-8 text-blue-600" />
               </div>
               <div>
-                <h1 className="font-serif text-5xl sm:text-6xl font-bold text-stone-900">
+                <h1 className="text-5xl sm:text-6xl font-bold text-slate-900">
                   {plan.name} Plan
                 </h1>
                 <div className="mt-2">
-                  <p className="text-2xl text-orange-600 font-bold">
+                  <p className="text-2xl text-blue-600 font-bold">
                     {plan.price}
                   </p>
                   {plan.annualPrice && (
-                    <p className="text-base text-stone-500 mt-1">
+                    <p className="text-base text-slate-500 mt-1">
                       or {plan.annualPrice} <span className="text-sm">(save 10%)</span>
                     </p>
                   )}
                 </div>
               </div>
             </div>
-            <p className="text-xl text-stone-600 leading-relaxed">
+            <p className="text-xl text-slate-600 leading-relaxed">
               {plan.description}
             </p>
           </div>
@@ -253,22 +253,22 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
       <section className="py-24 bg-white">
         <div className="container px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto">
-            <h2 className="font-serif text-4xl font-bold text-stone-900 mb-12">
+            <h2 className="text-4xl font-bold text-slate-900 mb-12">
               What's Included
             </h2>
             <div className="space-y-8">
               {plan.features.map((feature, index) => (
-                <Card key={index} className="border-2 border-stone-200 rounded-2xl shadow-lg hover:shadow-xl transition-all">
+                <Card key={index} className="border-2 border-gray-200 rounded-2xl shadow-lg hover:shadow-xl transition-all">
                   <CardHeader>
                     <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
-                        <feature.icon className="w-6 h-6 text-orange-600" />
+                      <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <feature.icon className="w-6 h-6 text-blue-600" />
                       </div>
                       <div className="flex-1">
-                        <CardTitle className="font-serif text-2xl text-stone-900 mb-3">
+                        <CardTitle className="text-2xl text-slate-900 mb-3">
                           {feature.title}
                         </CardTitle>
-                        <p className="text-stone-600 leading-relaxed">
+                        <p className="text-slate-600 leading-relaxed">
                           {feature.description}
                         </p>
                       </div>
@@ -282,22 +282,22 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
       </section>
 
       {/* Plan-Specific FAQs */}
-      <section className="py-24 bg-gradient-to-br from-orange-50 via-stone-50 to-green-50/30">
+      <section className="py-24 bg-gradient-to-br from-blue-50 via-white to-blue-50/30">
         <div className="container px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto">
-            <h2 className="font-serif text-4xl font-bold text-stone-900 mb-12 text-center">
+            <h2 className="text-4xl font-bold text-slate-900 mb-12 text-center">
               Frequently Asked Questions
             </h2>
             <div className="space-y-6">
               {plan.faqs.map((faq, index) => (
-                <Card key={index} className="bg-white border-2 border-stone-200 rounded-2xl shadow-lg">
+                <Card key={index} className="bg-white border-2 border-gray-200 rounded-2xl shadow-lg">
                   <CardHeader>
-                    <CardTitle className="font-serif text-xl text-stone-900">
+                    <CardTitle className="text-xl text-slate-900">
                       {faq.question}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-stone-600 leading-relaxed">
+                    <p className="text-slate-600 leading-relaxed">
                       {faq.answer}
                     </p>
                   </CardContent>
@@ -339,25 +339,25 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-white border-t-2 border-stone-200">
+      <section className="py-16 bg-white border-t-2 border-gray-200">
         <div className="container px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
               <div>
-                <h3 className="font-serif text-2xl font-bold text-stone-900 mb-2">
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">
                   Ready to get started?
                 </h3>
-                <p className="text-stone-600">
+                <p className="text-slate-600">
                   Join thousands of students building their future with Innozverse.
                 </p>
               </div>
               <div className="flex gap-4">
-                <Button asChild variant="outline" size="lg" className="border-2 border-stone-300 hover:bg-stone-100">
+                <Button asChild variant="outline" size="lg" className="border-2 border-gray-300 hover:bg-slate-100">
                   <Link href="/pricing">
                     Compare Plans
                   </Link>
                 </Button>
-                <Button asChild size="lg" className="bg-orange-600 hover:bg-orange-700 text-white">
+                <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white">
                   <Link href="/auth/register">
                     Subscribe Now
                   </Link>
@@ -369,8 +369,8 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
       </section>
 
       {/* Sticky CTA for Mobile */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t-2 border-stone-200 shadow-lg sm:hidden z-50">
-        <Button asChild size="lg" className="w-full bg-orange-600 hover:bg-orange-700 text-white">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t-2 border-gray-200 shadow-lg sm:hidden z-50">
+        <Button asChild size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
           <Link href="/auth/register">
             Subscribe to {plan.name}
           </Link>

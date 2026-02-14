@@ -179,7 +179,7 @@ export function CartItem({ item, onUpdate, isAuthenticated, accessToken }: CartI
       </div>
 
       {item.product.stock <= 5 && (
-        <p className="mt-2 text-sm text-orange-600">
+        <p className="mt-2 text-sm text-blue-600">
           Only {item.product.stock} left in stock
         </p>
       )}

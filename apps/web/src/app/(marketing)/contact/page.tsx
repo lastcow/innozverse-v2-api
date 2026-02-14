@@ -72,15 +72,15 @@ export default function ContactPage() {
   }
 
   return (
-    <section className="bg-[#F4F3EE] min-h-screen py-24">
+    <section className="bg-white min-h-screen py-24">
       <div className="container px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           {/* Page Header */}
           <div className="text-center mb-16">
-            <h1 className="font-serif text-5xl sm:text-6xl font-bold tracking-tight text-stone-900 mb-4">
+            <h1 className="text-5xl sm:text-6xl font-bold tracking-tight text-slate-900 mb-4">
               Get in Touch
             </h1>
-            <p className="text-lg text-stone-600 max-w-2xl mx-auto">
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
               Have a question, feedback, or partnership inquiry? We'd love to hear from you.
             </p>
           </div>
@@ -90,10 +90,10 @@ export default function ContactPage() {
             {/* Left Column: Info */}
             <div className="space-y-8">
               <div>
-                <h2 className="font-serif text-3xl font-bold text-stone-900 mb-4">
+                <h2 className="text-3xl font-bold text-slate-900 mb-4">
                   Let's start a conversation.
                 </h2>
-                <p className="text-stone-600 leading-relaxed">
+                <p className="text-slate-600 leading-relaxed">
                   Whether you're a student needing lab access or a university looking to partner, we're here.
                 </p>
               </div>
@@ -101,14 +101,14 @@ export default function ContactPage() {
               {/* Contact Details */}
               <div className="space-y-6">
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0 mt-0.5">
-                    <Mail className="w-5 h-5 text-orange-600" />
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <Mail className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-stone-500 mb-1">Email</p>
+                    <p className="text-sm font-medium text-slate-500 mb-1">Email</p>
                     <a
                       href="mailto:info@innozverse.com"
-                      className="text-xl font-medium text-stone-900 hover:text-orange-600 transition-colors"
+                      className="text-xl font-medium text-slate-900 hover:text-blue-600 transition-colors"
                     >
                       info@innozverse.com
                     </a>
@@ -116,12 +116,12 @@ export default function ContactPage() {
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0 mt-0.5">
-                    <MapPin className="w-5 h-5 text-orange-600" />
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <MapPin className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-stone-500 mb-1">HQ</p>
-                    <p className="text-lg font-medium text-stone-900">
+                    <p className="text-sm font-medium text-slate-500 mb-1">HQ</p>
+                    <p className="text-lg font-medium text-slate-900">
                       2 W Main St, Frostburg, MD 21532
                     </p>
                   </div>
@@ -129,7 +129,7 @@ export default function ContactPage() {
               </div>
 
               {/* Google Maps */}
-              <div className="rounded-xl overflow-hidden border border-stone-200 shadow-sm">
+              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
                 <iframe
                   src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3070.8!2d-78.9284!3d39.6581!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89ca7f0d4e4b1b1d%3A0x1c0d0d0d0d0d0d0d!2s2%20W%20Main%20St%2C%20Frostburg%2C%20MD%2021532!5e0!3m2!1sen!2sus!4v1700000000000"
                   width="100%"
@@ -220,7 +220,7 @@ export default function ContactPage() {
                     <Button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                       size="lg"
                     >
                       {isSubmitting ? 'Sending...' : 'Send Message'}

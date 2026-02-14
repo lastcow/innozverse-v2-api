@@ -46,13 +46,13 @@ const categories: { value: CategoryFilter; label: string }[] = [
 const getCategoryIcon = (type: ProductType) => {
   switch (type) {
     case 'SURFACE':
-      return <Monitor className="w-16 h-16 text-stone-400 mx-auto mb-2" />
+      return <Monitor className="w-16 h-16 text-slate-400 mx-auto mb-2" />
     case 'LAPTOP':
-      return <Cpu className="w-16 h-16 text-stone-400 mx-auto mb-2" />
+      return <Cpu className="w-16 h-16 text-slate-400 mx-auto mb-2" />
     case 'XBOX':
-      return <Gamepad2 className="w-16 h-16 text-stone-400 mx-auto mb-2" />
+      return <Gamepad2 className="w-16 h-16 text-slate-400 mx-auto mb-2" />
     default:
-      return <Cpu className="w-16 h-16 text-stone-400 mx-auto mb-2" />
+      return <Cpu className="w-16 h-16 text-slate-400 mx-auto mb-2" />
   }
 }
 
@@ -138,13 +138,14 @@ export default function ProductsPage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative py-20 bg-gradient-to-br from-stone-50 via-orange-50/30 to-stone-100">
-        <div className="container px-4 sm:px-6 lg:px-8">
+      <section className="relative py-20 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+        <div className="absolute inset-0 bg-dot-pattern opacity-40" />
+        <div className="container px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
-            <h1 className="font-serif text-5xl sm:text-6xl font-bold text-stone-900 mb-4">
+            <h1 className="text-5xl sm:text-6xl font-bold text-slate-900 mb-4">
               Tools for Your Journey.
             </h1>
-            <p className="text-xl text-stone-600 leading-relaxed">
+            <p className="text-xl text-slate-600 leading-relaxed">
               Premium hardware to power your studies and downtime. Verified students save up to 40%.
             </p>
           </div>
@@ -152,7 +153,7 @@ export default function ProductsPage() {
       </section>
 
       {/* Filter & Toggle Section */}
-      <section className="py-8 bg-white border-b-2 border-stone-200">
+      <section className="py-8 bg-white border-b-2 border-gray-200">
         <div className="container px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -164,8 +165,8 @@ export default function ProductsPage() {
                     onClick={() => setSelectedCategory(category.value)}
                     className={`px-6 py-2 rounded-full font-medium transition-all ${
                       selectedCategory === category.value
-                        ? 'bg-orange-600 text-white shadow-lg'
-                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                        ? 'bg-blue-600 text-white shadow-lg'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
                     {category.label}
@@ -178,7 +179,7 @@ export default function ProductsPage() {
                 <button
                   onClick={() => setShowStudentPricing(!showStudentPricing)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    showStudentPricing ? 'bg-orange-600' : 'bg-stone-300'
+                    showStudentPricing ? 'bg-blue-600' : 'bg-slate-300'
                   }`}
                 >
                   <span
@@ -188,7 +189,7 @@ export default function ProductsPage() {
                   />
                 </button>
                 <label
-                  className="text-sm font-medium text-stone-900 cursor-pointer"
+                  className="text-sm font-medium text-slate-900 cursor-pointer"
                   onClick={() => setShowStudentPricing(!showStudentPricing)}
                 >
                   Show Student Pricing
@@ -205,22 +206,22 @@ export default function ProductsPage() {
           <div className="max-w-7xl mx-auto">
             {loading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
-                <span className="ml-2 text-stone-600">Loading products...</span>
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <span className="ml-2 text-slate-600">Loading products...</span>
               </div>
             ) : error ? (
               <div className="text-center py-16">
                 <p className="text-red-600 text-lg">{error}</p>
                 <Button
                   onClick={() => fetchProducts(selectedCategory === 'all' ? undefined : selectedCategory)}
-                  className="mt-4 bg-orange-600 hover:bg-orange-700 text-white"
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   Try Again
                 </Button>
               </div>
             ) : products.length === 0 ? (
               <div className="text-center py-16">
-                <p className="text-stone-600 text-lg">
+                <p className="text-slate-600 text-lg">
                   No products found in this category.
                 </p>
               </div>
@@ -229,7 +230,7 @@ export default function ProductsPage() {
               <div className="space-y-12">
                 {(Object.keys(groupedProducts) as ProductType[]).map((type) => (
                   <div key={type}>
-                    <h2 className="font-serif text-3xl font-bold text-stone-900 mb-6">
+                    <h2 className="text-3xl font-bold text-slate-900 mb-6">
                       {getCategoryLabel(type)}
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -263,24 +264,24 @@ export default function ProductsPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-gradient-to-br from-orange-50 via-stone-50 to-green-50/30">
+      <section className="py-16 bg-gradient-to-br from-blue-50 via-white to-blue-50/30">
         <div className="container px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center space-y-6">
-            <h2 className="font-serif text-4xl font-bold text-stone-900">
+            <h2 className="text-4xl font-bold text-slate-900">
               Not a student yet?
             </h2>
-            <p className="text-xl text-stone-600">
+            <p className="text-xl text-slate-600">
               Verify your student status to unlock exclusive discounts on all products.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild size="lg" className="bg-orange-600 hover:bg-orange-700 text-white">
+              <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20">
                 <Link href="/auth/register">Verify Student Status</Link>
               </Button>
               <Button
                 asChild
                 variant="outline"
                 size="lg"
-                className="border-2 border-stone-300 hover:bg-stone-100"
+                className="border-2 border-gray-300 hover:bg-slate-100"
               >
                 <Link href="/pricing">View Plans</Link>
               </Button>
@@ -322,18 +323,18 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
 
   return (
     <Card
-      className="relative rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-stone-200 hover:border-orange-300 bg-white flex flex-col"
+      className="relative rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-gray-200 hover:border-blue-300 bg-white flex flex-col"
     >
       {/* Product Tag */}
       <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-        <Badge className="bg-orange-600 text-white shadow-lg px-4 py-1">
+        <Badge className="bg-blue-600 text-white shadow-lg px-4 py-1">
           {tag}
         </Badge>
       </div>
 
       <CardHeader className="space-y-4 pb-6">
         {/* Product Image or Placeholder */}
-        <div className="aspect-square rounded-xl bg-gradient-to-br from-stone-100 to-stone-200 flex items-center justify-center overflow-hidden">
+        <div className="aspect-square rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center overflow-hidden">
           {product.imageUrls && product.imageUrls.length > 0 ? (
             <img
               src={product.imageUrls[0]}
@@ -343,13 +344,13 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
           ) : (
             <div className="text-center">
               {getCategoryIcon(product.type)}
-              <p className="text-sm text-stone-400 font-medium">{product.name}</p>
+              <p className="text-sm text-slate-400 font-medium">{product.name}</p>
             </div>
           )}
         </div>
 
         {/* Product Title */}
-        <CardTitle className="font-serif text-2xl text-stone-900">
+        <CardTitle className="text-2xl text-slate-900">
           {product.name}
         </CardTitle>
 
@@ -360,7 +361,7 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
               <Badge
                 key={index}
                 variant="outline"
-                className="border-stone-300 text-stone-700 text-xs"
+                className="border-gray-300 text-slate-700 text-xs"
               >
                 {spec}
               </Badge>
@@ -380,7 +381,7 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
               </Badge>
             )}
             {showStudentPricing && hasStudentDiscount && (
-              <Badge className="bg-orange-600 text-white text-xs px-2 py-0.5 flex items-center gap-1">
+              <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5 flex items-center gap-1">
                 <Percent className="w-3 h-3" />
                 Student -{formatDiscountPercentage(Number(product.studentDiscountPercentage))}
               </Badge>
@@ -393,12 +394,12 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
           {hasAnyDiscount ? (
             <>
               <div className="flex items-center gap-2">
-                <span className="text-stone-400 line-through text-lg">
+                <span className="text-slate-400 line-through text-lg">
                   ${basePrice.toFixed(2)}
                 </span>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="font-serif text-4xl font-bold text-orange-600">
+                <span className="text-4xl font-bold text-blue-600">
                   ${finalPrice.toFixed(2)}
                 </span>
               </div>
@@ -420,7 +421,7 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
             </>
           ) : (
             <div className="flex items-baseline gap-1">
-              <span className="font-serif text-4xl font-bold text-stone-900">
+              <span className="text-4xl font-bold text-slate-900">
                 ${basePrice.toFixed(2)}
               </span>
             </div>
@@ -429,7 +430,7 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
 
         {/* Stock indicator */}
         {product.stock <= 5 && product.stock > 0 && (
-          <p className="text-xs text-orange-600 font-medium">
+          <p className="text-xs text-blue-600 font-medium">
             Only {product.stock} left in stock
           </p>
         )}
@@ -442,7 +443,7 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
         <Button
           asChild
           size="lg"
-          className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
           disabled={product.stock === 0}
         >
           <Link href={`/products/${product.id}`}>View Details</Link>

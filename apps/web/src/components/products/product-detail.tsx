@@ -53,7 +53,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
             <div className="flex items-center gap-2">
               <span className="text-green-600 font-medium">In Stock</span>
               {product.stock <= 5 && (
-                <span className="text-orange-600 text-sm">
+                <span className="text-blue-600 text-sm">
                   (Only {product.stock} left)
                 </span>
               )}
@@ -85,7 +85,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
         <div className="space-y-4">
           <Link
             href="/contact"
-            className="block w-full py-3 px-6 bg-orange-600 text-white font-medium rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition text-center"
+            className="block w-full py-3 px-6 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition text-center"
           >
             Contact Us to Buy
           </Link>

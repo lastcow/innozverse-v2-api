@@ -41,7 +41,7 @@ export function CommunityTrust() {
           {/* Testimonials - hidden for now */}
 
           {/* Knowledge Base CTA */}
-          <Card className="bg-gradient-to-br from-orange-600 to-orange-500 border-0 text-white overflow-hidden relative">
+          <Card className="bg-gradient-to-br from-blue-600 to-blue-500 border-0 text-white overflow-hidden relative">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32" />
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24" />
 
@@ -51,10 +51,10 @@ export function CommunityTrust() {
                   <BookOpen className="w-7 h-7" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-3xl font-serif mb-3">
+                  <CardTitle className="text-3xl font-sans mb-3">
                     Explore Our Knowledge Base
                   </CardTitle>
-                  <CardDescription className="text-orange-100 text-lg">
+                  <CardDescription className="text-blue-100 text-lg">
                     Get answers to common questions, learn about our programs,
                     and discover resources to help you succeed.
                   </CardDescription>
@@ -67,7 +67,7 @@ export function CommunityTrust() {
                 <Button
                   asChild
                   size="lg"
-                  className="bg-white text-orange-600 hover:bg-orange-50"
+                  className="bg-white text-blue-600 hover:bg-blue-50"
                 >
                   <a
                     href="https://docs.innozverse.com"

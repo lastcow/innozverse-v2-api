@@ -94,7 +94,7 @@ export function AdminStats() {
         </div>
 
         {/* Total Users */}
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-sm p-6 text-white">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
           <h3 className="text-sm font-medium opacity-90 mb-2">Total Users</h3>
           <p className="text-4xl font-bold">{stats.totalUsers}</p>
         </div>

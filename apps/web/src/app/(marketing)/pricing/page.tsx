@@ -143,14 +143,15 @@ export default function PricingPage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative py-24 bg-gradient-to-br from-stone-50 via-orange-50/30 to-stone-100">
-        <div className="container px-4 sm:px-6 lg:px-8">
+      <section className="relative py-24 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+        <div className="absolute inset-0 bg-dot-pattern opacity-40" />
+        <div className="container px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-3xl mx-auto text-center space-y-6">
-            <h1 className="font-serif text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-stone-900">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-slate-900">
               Simple Pricing.
-              <span className="block text-orange-600 mt-2">Learn at Your Pace.</span>
+              <span className="block text-blue-600 mt-2">Learn at Your Pace.</span>
             </h1>
-            <p className="text-xl text-stone-600 leading-relaxed">
+            <p className="text-xl text-slate-600 leading-relaxed">
               Start for free, pay only for what you use, or unlock full access with a plan that fits you.
             </p>
           </div>
@@ -163,13 +164,13 @@ export default function PricingPage() {
           <div className="max-w-7xl mx-auto">
             {/* Billing Toggle */}
             <div className="flex flex-col items-center gap-6 mb-12">
-              <div className="inline-flex items-center bg-stone-100 rounded-2xl p-2 shadow-inner">
+              <div className="inline-flex items-center bg-slate-100 rounded-2xl p-2 shadow-inner">
                 <button
                   onClick={() => setIsAnnual(false)}
                   className={`px-6 py-3 rounded-xl font-medium transition-all ${
                     !isAnnual
-                      ? 'bg-white text-orange-600 shadow-lg'
-                      : 'text-stone-600 hover:text-stone-900'
+                      ? 'bg-white text-blue-600 shadow-lg'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   Monthly
@@ -178,8 +179,8 @@ export default function PricingPage() {
                   onClick={() => setIsAnnual(true)}
                   className={`px-6 py-3 rounded-xl font-medium transition-all ${
                     isAnnual
-                      ? 'bg-white text-orange-600 shadow-lg'
-                      : 'text-stone-600 hover:text-stone-900'
+                      ? 'bg-white text-blue-600 shadow-lg'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   Annual
@@ -194,7 +195,7 @@ export default function PricingPage() {
                 <button
                   onClick={() => setIsStudent(!isStudent)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    isStudent ? 'bg-orange-600' : 'bg-stone-300'
+                    isStudent ? 'bg-blue-600' : 'bg-slate-300'
                   }`}
                 >
                   <span
@@ -203,9 +204,9 @@ export default function PricingPage() {
                     }`}
                   />
                 </button>
-                <label className="text-sm font-medium text-stone-900 cursor-pointer" onClick={() => setIsStudent(!isStudent)}>
+                <label className="text-sm font-medium text-slate-900 cursor-pointer" onClick={() => setIsStudent(!isStudent)}>
                   Apply Student Discount{' '}
-                  <span className="text-orange-600 font-bold">(Extra 15% OFF)</span>
+                  <span className="text-blue-600 font-bold">(Extra 15% OFF)</span>
                 </label>
               </div>
             </div>
@@ -217,13 +218,13 @@ export default function PricingPage() {
                   key={tier.name}
                   className={`relative rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col ${
                     tier.highlighted
-                      ? 'bg-stone-100 border-2 border-orange-300'
-                      : 'bg-white border-2 border-stone-200'
+                      ? 'bg-blue-50/50 border-2 border-blue-600'
+                      : 'bg-white border-2 border-gray-200'
                   }`}
                 >
                   {tier.badge && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge className="bg-orange-600 text-white shadow-lg px-4 py-1">
+                      <Badge className="bg-blue-600 text-white shadow-lg px-4 py-1">
                         {tier.badge}
                       </Badge>
                     </div>
@@ -231,40 +232,40 @@ export default function PricingPage() {
 
                   <CardHeader className="space-y-4 pb-6">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
-                        <tier.icon className="w-5 h-5 text-orange-600" />
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                        <tier.icon className="w-5 h-5 text-blue-600" />
                       </div>
-                      <CardTitle className="font-serif text-2xl text-stone-900">
+                      <CardTitle className="text-2xl text-slate-900">
                         {tier.name}
                       </CardTitle>
                     </div>
-                    <CardDescription className="text-stone-600 text-sm leading-relaxed">
+                    <CardDescription className="text-slate-600 text-sm leading-relaxed">
                       {tier.description}
                     </CardDescription>
 
                     <div className="space-y-1">
                       {tier.showStudentPrice && tier.regularPrice && (
                         <div className="flex items-center gap-2">
-                          <span className="text-stone-400 line-through text-lg">
+                          <span className="text-slate-400 line-through text-lg">
                             {tier.regularPrice}
                           </span>
-                          <Badge className="bg-orange-600 text-white text-xs px-2 py-0.5">
+                          <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5">
                             Student
                           </Badge>
                         </div>
                       )}
                       <div className="flex items-baseline gap-1">
-                        <span className="font-serif text-4xl font-bold text-stone-900">
+                        <span className="text-4xl font-bold text-slate-900">
                           {tier.displayPrice}
                         </span>
                         {tier.basePrice !== null && (
-                          <span className="text-stone-500 text-sm">
+                          <span className="text-slate-600 text-sm">
                             / {isAnnual ? 'year' : 'month'}
                           </span>
                         )}
                       </div>
                       {tier.basePrice !== null && isAnnual && (
-                        <p className="text-xs text-stone-500">
+                        <p className="text-xs text-slate-500">
                           (Equivalent to ${(parseFloat(tier.displayPrice.replace('$', '')) / 12).toFixed(2)}/mo)
                         </p>
                       )}
@@ -274,12 +275,12 @@ export default function PricingPage() {
                         </p>
                       )}
                       {tier.basePrice !== null && isStudent && !isAnnual && (
-                        <p className="text-xs text-orange-600 font-medium">
+                        <p className="text-xs text-blue-600 font-medium">
                           Student discount: ${((tier.basePrice * 0.15) * 12).toFixed(2)}/year savings
                         </p>
                       )}
                       {tier.basePrice !== null && isStudent && isAnnual && (
-                        <p className="text-xs text-orange-600 font-medium">
+                        <p className="text-xs text-blue-600 font-medium">
                           Total savings: ${(((1 - (0.9 * 0.85)) * tier.basePrice) * 12).toFixed(2)}/year
                         </p>
                       )}
@@ -290,8 +291,8 @@ export default function PricingPage() {
                     <ul className="space-y-3">
                       {tier.features.map((feature, idx) => (
                         <li key={idx} className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                          <span className="text-sm text-stone-700 leading-relaxed">
+                          <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                          <span className="text-sm text-slate-700 leading-relaxed">
                             {feature}
                           </span>
                         </li>
@@ -302,9 +303,14 @@ export default function PricingPage() {
                   <CardFooter className="mt-auto">
                     <Button
                       asChild
-                      variant={tier.variant}
                       size="lg"
-                      className="w-full"
+                      className={`w-full ${
+                        tier.highlighted
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : tier.variant === 'outline'
+                            ? 'bg-white border-2 border-gray-300 text-slate-700 hover:bg-slate-100'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      }`}
                     >
                       <Link href={tier.ctaLink}>{tier.cta}</Link>
                     </Button>
@@ -317,16 +323,16 @@ export default function PricingPage() {
       </section>
 
       {/* Need More Power Section */}
-      <section className="py-16 bg-stone-50 border-y-2 border-stone-200">
+      <section className="py-16 bg-blue-50 border-y-2 border-blue-200">
         <div className="container px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center space-y-6">
-            <h2 className="font-serif text-4xl font-bold text-stone-900">
+            <h2 className="text-4xl font-bold text-slate-900">
               Need More Power?
             </h2>
-            <p className="text-lg text-stone-600">
+            <p className="text-lg text-slate-600">
               Looking for custom configurations, dedicated resources, or enterprise-grade solutions? We can tailor a plan to fit your needs.
             </p>
-            <Button asChild size="lg" className="bg-orange-600 hover:bg-orange-700 text-white">
+            <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white">
               <Link href="/contact">Contact innoZverse</Link>
             </Button>
           </div>
@@ -334,60 +340,60 @@ export default function PricingPage() {
       </section>
 
       {/* Value Props */}
-      <section className="py-24 bg-gradient-to-br from-orange-50 via-stone-50 to-green-50/30">
+      <section className="py-24 bg-gradient-to-br from-blue-50 via-white to-blue-50/30">
         <div className="container px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="font-serif text-4xl sm:text-5xl font-bold text-stone-900 mb-6">
+              <h2 className="text-4xl sm:text-5xl font-bold text-slate-900 mb-6">
                 Why students choose us
               </h2>
               <div className="max-w-3xl mx-auto">
-                <blockquote className="bg-white rounded-xl border-l-4 border-orange-500 shadow-lg px-8 py-6">
-                  <p className="text-lg text-stone-700 leading-relaxed">
-                    <span className="text-stone-900 font-semibold">Architected for Access.</span> We optimize for{' '}
-                    <span className="text-stone-900 font-semibold">impact, not just margins</span>. Our platform delivers{' '}
-                    <span className="text-stone-900 font-semibold">enterprise-grade compute</span> and tooling at a student-friendly scale, ensuring cost is never a bottleneck to innovation.
+                <blockquote className="bg-white rounded-xl border-l-4 border-blue-600 shadow-lg px-8 py-6">
+                  <p className="text-lg text-slate-600 leading-relaxed">
+                    <span className="text-slate-900 font-semibold">Architected for Access.</span> We optimize for{' '}
+                    <span className="text-slate-900 font-semibold">impact, not just margins</span>. Our platform delivers{' '}
+                    <span className="text-slate-900 font-semibold">enterprise-grade compute</span> and tooling at a student-friendly scale, ensuring cost is never a bottleneck to innovation.
                   </p>
                 </blockquote>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <Card className="bg-white border-2 border-stone-200 rounded-2xl shadow-lg hover:shadow-xl transition-all">
+              <Card className="bg-white border-2 border-gray-200 hover:border-blue-300 rounded-2xl shadow-lg hover:shadow-xl transition-all">
                 <CardHeader>
-                  <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mb-4">
-                    <svg className="w-6 h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-4">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
-                  <CardTitle className="font-serif text-xl text-stone-900">No Lock-In</CardTitle>
-                  <CardDescription className="text-stone-600">
+                  <CardTitle className="text-xl text-slate-900">No Lock-In</CardTitle>
+                  <CardDescription className="text-slate-600">
                     Cancel anytime. Keep your access through the end of your billing period. No penalties.
                   </CardDescription>
                 </CardHeader>
               </Card>
 
-              <Card className="bg-white border-2 border-stone-200 rounded-2xl shadow-lg hover:shadow-xl transition-all">
+              <Card className="bg-white border-2 border-gray-200 hover:border-blue-300 rounded-2xl shadow-lg hover:shadow-xl transition-all">
                 <CardHeader>
-                  <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mb-4">
-                    <svg className="w-6 h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-4">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                   </div>
-                  <CardTitle className="font-serif text-xl text-stone-900">Privacy First</CardTitle>
-                  <CardDescription className="text-stone-600">
+                  <CardTitle className="text-xl text-slate-900">Privacy First</CardTitle>
+                  <CardDescription className="text-slate-600">
                     We verify you're a student, then forget about it. Your data stays yours. No tracking, no selling.
                   </CardDescription>
                 </CardHeader>
               </Card>
 
-              <Card className="bg-white border-2 border-stone-200 rounded-2xl shadow-lg hover:shadow-xl transition-all">
+              <Card className="bg-white border-2 border-gray-200 hover:border-blue-300 rounded-2xl shadow-lg hover:shadow-xl transition-all">
                 <CardHeader>
-                  <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mb-4">
-                    <Terminal className="w-6 h-6 text-orange-600" />
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-4">
+                    <Terminal className="w-6 h-6 text-blue-600" />
                   </div>
-                  <CardTitle className="font-serif text-xl text-stone-900">Production-Ready VMs</CardTitle>
-                  <CardDescription className="text-stone-600">
+                  <CardTitle className="text-xl text-slate-900">Production-Ready VMs</CardTitle>
+                  <CardDescription className="text-slate-600">
                     Instant access to Linux environments. From standard dev boxes to specialized security labs.
                   </CardDescription>
                 </CardHeader>
@@ -402,22 +408,22 @@ export default function PricingPage() {
         <div className="container px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="font-serif text-4xl sm:text-5xl font-bold text-stone-900 mb-4">
+              <h2 className="text-4xl sm:text-5xl font-bold text-slate-900 mb-4">
                 Questions?
               </h2>
-              <p className="text-lg text-stone-600">
+              <p className="text-lg text-slate-600">
                 We've got answers. Still confused? Just ask us.
               </p>
             </div>
 
             <div className="space-y-6">
               {faqs.map((faq, index) => (
-                <Card key={index} className="bg-gradient-to-br from-white to-stone-50 border-2 border-stone-200 rounded-2xl shadow-lg">
+                <Card key={index} className="bg-gradient-to-br from-white to-slate-50 border-2 border-gray-200 rounded-2xl shadow-lg">
                   <CardHeader>
-                    <CardTitle className="font-serif text-xl text-stone-900">{faq.question}</CardTitle>
+                    <CardTitle className="text-xl text-slate-900">{faq.question}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-stone-600 leading-relaxed">
+                    <p className="text-slate-600 leading-relaxed">
                       {faq.answer}
                     </p>
                   </CardContent>
@@ -426,10 +432,10 @@ export default function PricingPage() {
             </div>
 
             <div className="mt-12 text-center">
-              <p className="text-stone-600 mb-4">
+              <p className="text-slate-600 mb-4">
                 Still have questions?
               </p>
-              <Button asChild variant="outline" size="lg" className="border-2 border-stone-300 hover:bg-stone-100">
+              <Button asChild variant="outline" size="lg" className="border-2 border-gray-300 text-slate-700 hover:bg-slate-100">
                 <Link href="/contact">Talk to a Human</Link>
               </Button>
             </div>
@@ -468,20 +474,20 @@ export default function PricingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-br from-orange-50 via-stone-50 to-green-50/30">
+      <section className="py-24 bg-gradient-to-br from-blue-600 to-blue-500">
         <div className="container px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center space-y-8">
-            <h2 className="font-serif text-4xl sm:text-5xl font-bold text-stone-900">
+            <h2 className="text-4xl sm:text-5xl font-bold text-white">
               Ready to start learning?
             </h2>
-            <p className="text-xl text-stone-600">
+            <p className="text-xl text-blue-100">
               Join thousands of students who are building their future with Innozverse.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild size="lg" className="bg-orange-600 hover:bg-orange-700 text-white">
+              <Button asChild size="lg" className="bg-white text-blue-600 hover:bg-blue-50 font-semibold">
                 <Link href="/auth/register">Start Free</Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="border-2 border-stone-300 hover:bg-stone-100">
+              <Button asChild variant="outline" size="lg" className="border-2 border-white text-white hover:bg-white/20 bg-transparent">
                 <Link href="/products">Browse Marketplace</Link>
               </Button>
             </div>
