@@ -99,7 +99,15 @@ app.use('*', logger());
 app.use(
   '*',
   cors({
-    origin: [process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000'],
+    origin: (origin) => {
+      const allowed = [
+        process.env.NEXT_PUBLIC_WEB_URL,
+        'https://www.innozverse.com',
+        'https://innozverse.com',
+        'http://localhost:3000',
+      ].filter(Boolean);
+      return allowed.includes(origin) ? origin : allowed[0];
+    },
     credentials: true,
   })
 );
