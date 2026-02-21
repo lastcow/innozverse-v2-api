@@ -2,7 +2,10 @@ import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
-import { prisma, OAuthProvider } from '@repo/database';
+import jwt from 'jsonwebtoken';
+import { prisma, OAuthProvider, UserStatus } from '@repo/database';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -63,6 +66,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return false;
         }
 
+        // Parse name from OAuth profile into fname/lname
+        const nameParts = user.name?.trim().split(/\s+/) || [];
+        const fname = nameParts[0] || null;
+        const lname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
+
         try {
           const userSelect = { id: true, email: true, role: true, oauthProvider: true, oauthId: true };
 
@@ -94,6 +102,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     oauthProvider: OAuthProvider[oauthProvider],
                     oauthId: account.providerAccountId,
                     emailVerified: true,
+                    fname,
+                    lname,
+                    status: UserStatus.ACTIVE,
                   },
                   select: userSelect,
                 });
@@ -104,9 +115,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               dbUser = await prisma.user.create({
                 data: {
                   email: user.email,
+                  fname,
+                  lname,
                   oauthProvider: OAuthProvider[oauthProvider],
                   oauthId: account.providerAccountId,
                   emailVerified: true,
+                  status: UserStatus.ACTIVE,
                 },
                 select: userSelect,
               });
@@ -125,25 +139,42 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       return false;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
-        token.accessToken = user.accessToken;
         token.role = user.role;
+
+        if (account?.provider === 'credentials') {
+          // Credentials login: use the accessToken from API
+          token.accessToken = user.accessToken;
+        } else if (account?.provider) {
+          // OAuth login: generate API-compatible access token
+          token.accessToken = jwt.sign(
+            { userId: user.id, email: user.email, role: user.role },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+          );
+        }
       }
 
-      if (!token.accessToken && token.sub && !token.role) {
+      // Regenerate if token is missing (e.g. existing session without accessToken)
+      if (!token.accessToken && token.sub) {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.sub },
-            select: { role: true, oauthProvider: true },
+            select: { id: true, email: true, role: true, oauthProvider: true },
           });
           if (dbUser) {
             token.role = dbUser.role;
             token.oauthProvider = dbUser.oauthProvider ?? undefined;
+            token.accessToken = jwt.sign(
+              { userId: dbUser.id, email: dbUser.email, role: dbUser.role },
+              JWT_SECRET,
+              { expiresIn: '7d' }
+            );
           }
         } catch {
-          // Prisma is unavailable in Edge Runtime (middleware).
-          // The role will be resolved on the server-side auth() call instead.
+          // Prisma/jsonwebtoken unavailable in Edge Runtime (middleware).
+          // The token will be resolved on the next server-side auth() call.
         }
       }
 
