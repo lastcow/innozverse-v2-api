@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "buildCommand": "cd packages/database && npx prisma generate",
   "builds": [
     {
       "src": "apps/api/vercel-serverless.js",
