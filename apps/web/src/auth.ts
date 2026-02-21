@@ -2,10 +2,18 @@ import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
-import jwt from 'jsonwebtoken';
+import { SignJWT } from 'jose';
 import { prisma, OAuthProvider, UserStatus } from '@repo/database';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+
+async function signApiToken(payload: { userId: string; email: string; role: string }) {
+  return new SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setIssuedAt()
+    .setExpirationTime('7d')
+    .sign(JWT_SECRET);
+}
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -148,11 +156,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.accessToken = user.accessToken;
         } else if (account?.provider) {
           // OAuth login: generate API-compatible access token
-          token.accessToken = jwt.sign(
-            { userId: user.id, email: user.email, role: user.role },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-          );
+          token.accessToken = await signApiToken({
+            userId: user.id!,
+            email: user.email!,
+            role: user.role!,
+          });
         }
       }
 
@@ -166,14 +174,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (dbUser) {
             token.role = dbUser.role;
             token.oauthProvider = dbUser.oauthProvider ?? undefined;
-            token.accessToken = jwt.sign(
-              { userId: dbUser.id, email: dbUser.email, role: dbUser.role },
-              JWT_SECRET,
-              { expiresIn: '7d' }
-            );
+            token.accessToken = await signApiToken({
+              userId: dbUser.id,
+              email: dbUser.email,
+              role: dbUser.role,
+            });
           }
         } catch {
-          // Prisma/jsonwebtoken unavailable in Edge Runtime (middleware).
+          // Prisma unavailable in Edge Runtime (middleware).
           // The token will be resolved on the next server-side auth() call.
         }
       }
