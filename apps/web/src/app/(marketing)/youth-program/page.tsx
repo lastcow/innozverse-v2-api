@@ -1,3 +1,4 @@
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -11,6 +12,14 @@ import {
   Trophy,
 } from 'lucide-react'
 import Link from 'next/link'
+
+const HomeNetworkCanvas = dynamic(
+  () =>
+    import('@/components/home/HomeNetworkCanvas').then(
+      (mod) => mod.HomeNetworkCanvas
+    ),
+  { ssr: false }
+)
 
 const workshopTracks = [
   {
@@ -68,7 +77,10 @@ export default function YouthProgramPage() {
     <>
       {/* Hero Section */}
       <section className="relative py-24 lg:py-32 bg-gradient-to-b from-blue-50 to-white overflow-hidden">
-        <div className="container max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="absolute inset-0">
+          <HomeNetworkCanvas />
+        </div>
+        <div className="container max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">

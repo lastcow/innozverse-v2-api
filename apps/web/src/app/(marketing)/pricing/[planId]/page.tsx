@@ -1,10 +1,19 @@
 'use client'
 
 import { notFound } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Check, Terminal, Server, ShieldCheck, Crown, Cpu, HardDrive, Network, Clock, Users, Zap, BookOpen } from 'lucide-react'
 import Link from 'next/link'
+
+const HomeNetworkCanvas = dynamic(
+  () =>
+    import('@/components/home/HomeNetworkCanvas').then(
+      (mod) => mod.HomeNetworkCanvas
+    ),
+  { ssr: false }
+)
 
 interface PlanData {
   id: string
@@ -29,12 +38,12 @@ const planData: Record<string, PlanData> = {
     id: 'free',
     name: 'Free',
     price: '$0/month',
-    description: 'Perfect for students getting started with cloud development.',
+    description: 'Free for students only. Verify with a valid .edu email to get started with cloud development.',
     icon: Terminal,
     features: [
       {
         title: 'Standard Linux VM Specifications',
-        description: 'Get access to 1 Linux virtual machine with 1 vCPU and 2GB RAM. Perfect for learning the basics, running small projects, or testing code. The VM runs the latest version of Ubuntu with common development tools pre-installed.',
+        description: 'Get access to 1 Linux virtual machine with 1 vCPU and 512MB RAM. Perfect for learning the basics, running small projects, or testing code. The VM runs the latest version of Ubuntu with common development tools pre-installed.',
         icon: Cpu,
       },
       {
@@ -48,8 +57,8 @@ const planData: Record<string, PlanData> = {
         icon: BookOpen,
       },
       {
-        title: '10GB Storage',
-        description: 'Store your projects, code, and configurations with 10GB of persistent SSD storage. Your data is automatically backed up daily.',
+        title: '25GB SSD Disk',
+        description: 'Store your projects, code, and configurations with 25GB of persistent SSD storage.',
         icon: HardDrive,
       },
     ],
@@ -63,7 +72,7 @@ const planData: Record<string, PlanData> = {
         answer: 'Absolutely! You can upgrade anytime from your dashboard. Your existing VM and data will be preserved, and you\'ll immediately gain access to additional resources.',
       },
       {
-        question: 'What happens if I exceed the 10GB storage limit?',
+        question: 'What happens if I exceed the 25GB storage limit?',
         answer: 'You\'ll receive email notifications when you reach 80% and 90% capacity. Once you hit the limit, you can either clean up files or upgrade to a paid plan for more storage.',
       },
       {
@@ -82,12 +91,12 @@ const planData: Record<string, PlanData> = {
     features: [
       {
         title: 'Core Compute',
-        description: '1 Standard Linux VM (2 vCPU, 4GB RAM) for general development. Run your code, build projects, and learn system administration with the latest Ubuntu environment.',
+        description: '1 Standard Linux VM (2 vCPU, 2GB RAM, 25GB NVMe SSD) for general development. Run your code, build projects, and learn system administration with the latest Ubuntu environment.',
         icon: Server,
       },
       {
         title: 'Security Lab (The Key Value)',
-        description: '1 Kali Linux VM pre-loaded with standard penetration testing tools including Nmap, Metasploit, Burp Suite, Wireshark, and John the Ripper. Perfect for cybersecurity coursework and CTF practice.',
+        description: '1 Kali Linux VM (2 vCPU, 2GB RAM, 32GB NVMe SSD) pre-loaded with standard penetration testing tools including Nmap, Metasploit, Burp Suite, Wireshark, and John the Ripper. Perfect for cybersecurity coursework and CTF practice.',
         icon: ShieldCheck,
       },
       {
@@ -108,7 +117,7 @@ const planData: Record<string, PlanData> = {
       },
       {
         question: 'What makes Basic different from Free?',
-        answer: 'Basic includes a dedicated Kali Linux VM with security tools, double the RAM (4GB vs 2GB), and professional-grade storage. Free only provides a single standard Linux VM without security-focused tools.',
+        answer: 'Basic includes a dedicated Kali Linux VM (2 vCPU, 2GB RAM, 32GB NVMe SSD) with security tools, plus a Standard VM with 2 vCPU, 2GB RAM, and 25GB NVMe SSD. Free only provides a single standard Linux VM without security-focused tools.',
       },
       {
         question: 'How does Basic compare to Pro?',
@@ -134,12 +143,12 @@ const planData: Record<string, PlanData> = {
     features: [
       {
         title: 'Kali Linux Security Lab',
-        description: 'Pre-configured Kali Linux VM with 500+ penetration testing tools including Metasploit, Burp Suite, Wireshark, Nmap, John the Ripper, and Aircrack-ng. Perfect for ethical hacking, security research, and CTF competitions. Includes quarterly tool updates.',
+        description: 'Pre-configured Kali Linux VM (2 vCPU, 2GB RAM, 32GB NVMe SSD) with 500+ penetration testing tools including Metasploit, Burp Suite, Wireshark, Nmap, John the Ripper, and Aircrack-ng. Perfect for ethical hacking, security research, and CTF competitions. Includes quarterly tool updates.',
         icon: ShieldCheck,
       },
       {
         title: '2 Standard Linux VMs',
-        description: 'Run two concurrent VMs (4 vCPU, 8GB RAM each). Great for separating development and testing environments, or running microservices. Each VM includes 50GB SSD storage.',
+        description: 'Run two concurrent VMs (2 vCPU, 2GB RAM, 25GB NVMe SSD each). Great for separating development and testing environments, or running microservices.',
         icon: Server,
       },
       {
@@ -173,7 +182,7 @@ const planData: Record<string, PlanData> = {
     features: [
       {
         title: '3 Standard + 2 Kali VMs',
-        description: 'Run up to 3 standard Linux VMs and 2 Kali Linux VMs concurrently. Perfect for complex development workflows, isolated testing environments, or running multiple security scans simultaneously. Each VM: 4 vCPU, 8GB RAM, 50GB storage.',
+        description: 'Run up to 3 standard Linux VMs (4 vCPU, 4GB RAM, 50GB NVMe SSD each) and 2 Kali Linux VMs (4 vCPU, 4GB RAM, 50GB NVMe SSD each) concurrently. Perfect for complex development workflows, isolated testing environments, or running multiple security scans simultaneously.',
         icon: Server,
       },
       {
@@ -188,7 +197,7 @@ const planData: Record<string, PlanData> = {
       },
       {
         title: 'Dedicated Support Channel',
-        description: 'Private Discord channel with 2-hour response time during business hours (9am-5pm PT, Mon-Fri). Direct access to engineering team for complex issues.',
+        description: 'Private Discord channel with direct access to our engineering team for complex issues.',
         icon: Users,
       },
     ],
@@ -219,8 +228,11 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
   return (
     <>
       {/* Hero Section */}
-      <section className="relative py-20 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
-        <div className="container px-4 sm:px-6 lg:px-8">
+      <section className="relative py-20 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 overflow-hidden">
+        <div className="absolute inset-0">
+          <HomeNetworkCanvas />
+        </div>
+        <div className="container px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center gap-4 mb-6">
               <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center">

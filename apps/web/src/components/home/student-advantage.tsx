@@ -48,14 +48,15 @@ const getProductTag = (type: string): string => {
   }
 }
 
-const getProductSpecs = (properties: Record<string, string>): string[] => {
-  const specs: string[] = []
-  if (properties.processor) specs.push(properties.processor)
-  if (properties.ram) specs.push(properties.ram)
-  if (properties.storage) specs.push(properties.storage)
-  if (properties.display) specs.push(properties.display)
-  if (properties.graphics) specs.push(properties.graphics)
-  return specs.slice(0, 3)
+const HIDDEN_KEYS = new Set(['tag'])
+
+const getProductSpecs = (properties: Record<string, string>): { label: string; value: string }[] => {
+  return Object.entries(properties)
+    .filter(([key]) => !HIDDEN_KEYS.has(key))
+    .map(([key, value]) => ({
+      label: key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase()).trim(),
+      value: String(value),
+    }))
 }
 
 export function StudentAdvantage({ products }: StudentAdvantageProps) {
@@ -157,7 +158,7 @@ export function StudentAdvantage({ products }: StudentAdvantageProps) {
                               variant="outline"
                               className="border-gray-300 text-slate-700 text-xs"
                             >
-                              {spec}
+                              {spec.label}: {spec.value}
                             </Badge>
                           ))}
                         </div>

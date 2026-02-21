@@ -1,12 +1,24 @@
+import dynamic from 'next/dynamic'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Building2, Cloud, ShieldCheck, BookOpen } from 'lucide-react'
+
+const HomeNetworkCanvas = dynamic(
+  () =>
+    import('@/components/home/HomeNetworkCanvas').then(
+      (mod) => mod.HomeNetworkCanvas
+    ),
+  { ssr: false }
+)
 
 export default function CompanyPage() {
   return (
     <>
       {/* Hero Section: The Vision */}
-      <section className="relative py-32 bg-white">
-        <div className="container max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative py-32 bg-white overflow-hidden">
+        <div className="absolute inset-0">
+          <HomeNetworkCanvas />
+        </div>
+        <div className="container max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center space-y-8">
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-[blue-600] leading-tight">
               Knowledge has no boundaries.

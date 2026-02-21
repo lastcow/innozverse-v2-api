@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
 import { UserTable } from './components/user-table'
 import { UserForm } from './components/user-form'
+import { UserDeleteDialog } from './components/user-delete-dialog'
 import { UserSearch } from './components/user-search'
 import { UserFilters } from './components/user-filters'
 import { UserPagination } from './components/user-pagination'
@@ -38,6 +39,9 @@ export default function AdminUsersPage() {
 
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<MockUser | null>(null)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [deletingUser, setDeletingUser] = useState<MockUser | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // Get query params
   const search = searchParams.get('search') || ''
@@ -91,31 +95,82 @@ export default function AdminUsersPage() {
     setIsFormOpen(true)
   }
 
-  const handleDelete = async (userId: string) => {
-    // Optimistically remove from UI
-    setUsers((prev) => prev.filter((u) => u.id !== userId))
+  const handleDelete = (user: MockUser) => {
+    setDeletingUser(user)
+    setIsDeleteOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!accessToken || !deletingUser) return
+
+    setDeleteLoading(true)
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/admin/users/${deletingUser.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Failed to delete user')
+      }
+
+      setIsDeleteOpen(false)
+      setDeletingUser(null)
+      fetchUsers()
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete user'
+      setError(errorMessage)
+      setIsDeleteOpen(false)
+      setDeletingUser(null)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setIsDeleteOpen(false)
+    setDeletingUser(null)
   }
 
   const handleFormSubmit = async (
-    data: { name: string; email: string; role: MockUser['role']; status: MockUser['status'] },
+    data: { fname: string; mname?: string; lname: string; email: string; role: MockUser['role']; status: MockUser['status'] },
     userId?: string
   ) => {
-    // For now, handle locally and refetch
-    if (userId) {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, ...data } : u))
-      )
-    } else {
-      const newUser: MockUser = {
-        id: String(Date.now()),
-        ...data,
-        createdAt: new Date().toISOString(),
+    if (!accessToken) return
+
+    try {
+      if (userId) {
+        const response = await fetch(`${apiUrl}/api/v1/admin/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            fname: data.fname,
+            mname: data.mname || null,
+            lname: data.lname,
+            email: data.email,
+            role: data.role,
+            status: data.status,
+          }),
+        })
+
+        if (!response.ok) {
+          const err = await response.json()
+          throw new Error(err.error || 'Failed to update user')
+        }
       }
-      setUsers((prev) => [newUser, ...prev])
+      setIsFormOpen(false)
+      setEditingUser(null)
+      fetchUsers()
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save user'
+      setError(errorMessage)
     }
-    setIsFormOpen(false)
-    setEditingUser(null)
-    fetchUsers()
   }
 
   const handleFormCancel = () => {
@@ -233,6 +288,15 @@ export default function AdminUsersPage() {
         user={editingUser}
         onSubmit={handleFormSubmit}
         onCancel={handleFormCancel}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <UserDeleteDialog
+        open={isDeleteOpen}
+        user={deletingUser}
+        loading={deleteLoading}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
       />
     </div>
   )

@@ -32,7 +32,9 @@ import {
 import type { MockUser } from './user-table'
 
 const userSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  fname: z.string().min(1, 'First name is required'),
+  mname: z.string().optional(),
+  lname: z.string().min(1, 'Last name is required'),
   email: z.string().email('Please enter a valid email address'),
   role: z.enum(['USER', 'ADMIN', 'SYSTEM']),
   status: z.enum(['ACTIVE', 'SUSPENDED', 'PENDING']),
@@ -53,7 +55,9 @@ export function UserForm({ open, user, onSubmit, onCancel }: UserFormProps) {
   const form = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      name: '',
+      fname: '',
+      mname: '',
+      lname: '',
       email: '',
       role: 'USER',
       status: 'ACTIVE',
@@ -63,14 +67,18 @@ export function UserForm({ open, user, onSubmit, onCancel }: UserFormProps) {
   useEffect(() => {
     if (user) {
       form.reset({
-        name: user.name,
+        fname: user.fname || '',
+        mname: user.mname || '',
+        lname: user.lname || '',
         email: user.email,
-        role: user.role,
-        status: user.status,
+        role: user.role || 'USER',
+        status: user.status || 'ACTIVE',
       })
     } else {
       form.reset({
-        name: '',
+        fname: '',
+        mname: '',
+        lname: '',
         email: '',
         role: 'USER',
         status: 'ACTIVE',
@@ -99,19 +107,47 @@ export function UserForm({ open, user, onSubmit, onCancel }: UserFormProps) {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
             <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Jane Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-3 gap-3">
+                <FormField
+                  control={form.control}
+                  name="fname"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Jane" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="mname"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Middle Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="M." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lname"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Doe" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}

@@ -1,11 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Check, Terminal, Zap, ShieldCheck, Crown } from 'lucide-react'
 import Link from 'next/link'
+
+const HomeNetworkCanvas = dynamic(
+  () =>
+    import('@/components/home/HomeNetworkCanvas').then(
+      (mod) => mod.HomeNetworkCanvas
+    ),
+  { ssr: false }
+)
 
 interface PricingTier {
   name: string
@@ -68,7 +77,7 @@ export default function PricingPage() {
         name: 'Free',
         basePrice: null,
         displayPrice: '$0',
-        description: 'Perfect for getting started.',
+        description: 'Free for students only. Verify with a valid .edu email to get started.',
         features: [
           '1 Standard Linux VM',
           'Basic community access',
@@ -143,8 +152,10 @@ export default function PricingPage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative py-24 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
-        <div className="absolute inset-0 bg-dot-pattern opacity-40" />
+      <section className="relative py-24 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 overflow-hidden">
+        <div className="absolute inset-0">
+          <HomeNetworkCanvas />
+        </div>
         <div className="container px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-3xl mx-auto text-center space-y-6">
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-slate-900">

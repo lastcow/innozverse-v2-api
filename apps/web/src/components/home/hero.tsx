@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -12,14 +13,24 @@ import {
 import Link from 'next/link'
 import { GraduationCap, MapPin } from 'lucide-react'
 
+const HomeNetworkCanvas = dynamic(
+  () =>
+    import('@/components/home/HomeNetworkCanvas').then(
+      (mod) => mod.HomeNetworkCanvas
+    ),
+  { ssr: false }
+)
+
 export function Hero() {
   const [mapDialogOpen, setMapDialogOpen] = useState(false)
 
   return (
     <>
       <section className="relative min-h-[85vh] flex items-center overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 bg-dot-pattern opacity-40" />
+        {/* 3D Background */}
+        <div className="absolute inset-0">
+          <HomeNetworkCanvas />
+        </div>
 
         {/* Content */}
         <div className="container relative z-10 px-4 sm:px-6 lg:px-8 py-20">

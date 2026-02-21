@@ -6,7 +6,9 @@ import { Badge } from '@/components/ui/badge'
 
 export interface MockUser {
   id: string
-  name: string
+  fname?: string | null
+  mname?: string | null
+  lname?: string | null
   email: string
   role: 'USER' | 'ADMIN' | 'SYSTEM'
   status: 'ACTIVE' | 'SUSPENDED' | 'PENDING'
@@ -18,7 +20,7 @@ interface UserTableProps {
   users: MockUser[]
   loading: boolean
   onEdit: (user: MockUser) => void
-  onDelete: (userId: string) => void
+  onDelete: (user: MockUser) => void
 }
 
 const getRoleBadge = (role: MockUser['role']) => {
@@ -30,13 +32,19 @@ const getRoleBadge = (role: MockUser['role']) => {
   return styles[role]
 }
 
-const getInitials = (name: string) => {
-  return (name || '')
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
+const getDisplayName = (user: MockUser) => {
+  const parts = [user.fname, user.mname, user.lname].filter(Boolean)
+  return parts.length > 0 ? parts.join(' ') : user.email.split('@')[0]
+}
+
+const getInitials = (user: MockUser) => {
+  if (user.fname || user.lname) {
+    return [(user.fname || '')[0], (user.lname || '')[0]]
+      .filter(Boolean)
+      .join('')
+      .toUpperCase()
+  }
+  return (user.email.split('@')[0] ?? '?')[0]!.toUpperCase()
 }
 
 const formatDate = (dateString: string) => {
@@ -106,10 +114,10 @@ export function UserTable({ users, loading, onEdit, onDelete }: UserTableProps) 
               <td className="px-5 py-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-600">
-                    {getInitials(user.name)}
+                    {getInitials(user)}
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <p className="font-medium text-[#202224] truncate">{user.name}</p>
+                    <p className="font-medium text-[#202224] truncate">{getDisplayName(user)}</p>
                     <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                   </div>
                 </div>
@@ -118,10 +126,12 @@ export function UserTable({ users, loading, onEdit, onDelete }: UserTableProps) 
                 <Badge className={getRoleBadge(user.role)}>{user.role}</Badge>
               </td>
               <td className="px-5 py-4">
-                {user.emailVerified ? (
-                  <Badge className="bg-green-50 text-green-600 border-0">Verified</Badge>
+                {user.status === 'ACTIVE' ? (
+                  <Badge className="bg-green-50 text-green-600 border-0">Active</Badge>
+                ) : user.status === 'SUSPENDED' ? (
+                  <Badge className="bg-red-50 text-red-600 border-0">Suspended</Badge>
                 ) : (
-                  <Badge className="bg-yellow-50 text-yellow-600 border-0">Unverified</Badge>
+                  <Badge className="bg-yellow-50 text-yellow-600 border-0">Pending</Badge>
                 )}
               </td>
               <td className="px-5 py-4 text-gray-500 text-sm">
@@ -141,7 +151,7 @@ export function UserTable({ users, loading, onEdit, onDelete }: UserTableProps) 
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      onDelete(user.id)
+                      onDelete(user)
                     }}
                     className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
                   >

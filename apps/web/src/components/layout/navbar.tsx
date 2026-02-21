@@ -9,6 +9,7 @@ import { signOut } from 'next-auth/react'
 import { X, User, LogOut, LayoutDashboard } from 'lucide-react'
 
 const navLinks = [
+  { href: '/knowledge-base', label: 'Knowledge Base' },
   { href: '/products', label: 'Product' },
   { href: '/youth-program', label: 'Youth Program' },
   { href: '/pricing', label: 'Plans & Pricing' },
@@ -42,14 +43,6 @@ export function Navbar() {
         <div className="flex items-center gap-8">
           {/* Desktop Navigation Links */}
           <div className="hidden md:flex items-center h-16 gap-1">
-            <a
-              href="https://docs.innozverse.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center h-full px-3 text-[15px] text-slate-600 hover:text-blue-600 border-b-2 border-transparent transition-colors"
-            >
-              Knowledge Base
-            </a>
             {navLinks.map((link) => {
               const active = isActive(link.href)
               return (
@@ -158,14 +151,6 @@ export function Navbar() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 top-16 z-40 md:hidden bg-white">
           <div className="container px-4 py-8 space-y-1">
-            <a
-              href="https://docs.innozverse.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block px-4 py-3 text-lg text-slate-700 hover:text-blue-600 transition-colors"
-            >
-              Knowledge Base
-            </a>
             {navLinks.map((link) => {
               const active = isActive(link.href)
               return (

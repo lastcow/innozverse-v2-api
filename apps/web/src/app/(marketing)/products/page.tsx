@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +13,14 @@ import {
   getActiveEventDiscount,
   formatDiscountPercentage,
 } from '@/lib/discount'
+
+const HomeNetworkCanvas = dynamic(
+  () =>
+    import('@/components/home/HomeNetworkCanvas').then(
+      (mod) => mod.HomeNetworkCanvas
+    ),
+  { ssr: false }
+)
 
 type ProductType = 'SURFACE' | 'LAPTOP' | 'XBOX'
 type CategoryFilter = 'all' | ProductType
@@ -61,17 +70,16 @@ const getCategoryLabel = (type: ProductType): string => {
   return category?.label || type
 }
 
-const getProductSpecs = (product: Product): string[] => {
-  const props = product.properties as Record<string, string | undefined>
-  const specs: string[] = []
+const HIDDEN_KEYS = new Set(['tag'])
 
-  if (props.processor) specs.push(props.processor)
-  if (props.ram) specs.push(props.ram)
-  if (props.storage) specs.push(props.storage)
-  if (props.display) specs.push(props.display)
-  if (props.graphics) specs.push(props.graphics)
-
-  return specs.slice(0, 3) // Return max 3 specs
+const getProductSpecs = (product: Product): { label: string; value: string }[] => {
+  const props = product.properties as Record<string, unknown>
+  return Object.entries(props)
+    .filter(([key]) => !HIDDEN_KEYS.has(key))
+    .map(([key, value]) => ({
+      label: key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase()).trim(),
+      value: String(value),
+    }))
 }
 
 const getProductTag = (product: Product): string => {
@@ -139,7 +147,9 @@ export default function ProductsPage() {
     <>
       {/* Hero Section */}
       <section className="relative py-20 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
-        <div className="absolute inset-0 bg-dot-pattern opacity-40" />
+        <div className="absolute inset-0">
+          <HomeNetworkCanvas />
+        </div>
         <div className="container px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-5xl sm:text-6xl font-bold text-slate-900 mb-4">
@@ -363,7 +373,7 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
                 variant="outline"
                 className="border-gray-300 text-slate-700 text-xs"
               >
-                {spec}
+                {spec.label}: {spec.value}
               </Badge>
             ))}
           </div>

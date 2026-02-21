@@ -1265,14 +1265,16 @@ app.get('/api/v1/admin/users', authMiddleware, requireRole('ADMIN'), async (c) =
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    // Build filter
-    const where = {};
+    // Build filter — exclude soft-deleted users
+    const where = { deletedAt: null };
     if (role) {
       where.role = role;
     }
     if (search) {
       where.OR = [
         { email: { contains: search, mode: 'insensitive' } },
+        { fname: { contains: search, mode: 'insensitive' } },
+        { lname: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -1286,7 +1288,11 @@ app.get('/api/v1/admin/users', authMiddleware, requireRole('ADMIN'), async (c) =
         select: {
           id: true,
           email: true,
+          fname: true,
+          mname: true,
+          lname: true,
           role: true,
+          status: true,
           emailVerified: true,
           createdAt: true,
           updatedAt: true,
@@ -1326,7 +1332,11 @@ app.get('/api/v1/admin/users/:id', authMiddleware, requireRole('ADMIN'), async (
       select: {
         id: true,
         email: true,
+        fname: true,
+        mname: true,
+        lname: true,
         role: true,
+        status: true,
         emailVerified: true,
         oauthProvider: true,
         createdAt: true,
@@ -1363,6 +1373,105 @@ app.get('/api/v1/admin/users/:id', authMiddleware, requireRole('ADMIN'), async (
   } catch (error) {
     console.error('Get admin user error:', error);
     return c.json({ error: 'Failed to fetch user', message: error.message }, 500);
+  }
+});
+
+// PUT /api/v1/admin/users/:id - Update user (admin only)
+app.put('/api/v1/admin/users/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const body = await c.req.json();
+    const { email, role, fname, mname, lname, status } = body;
+
+    // Validate the user exists
+    const existingUser = await prisma.user.findUnique({ where: { id } });
+    if (!existingUser) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    // Build update data
+    const updateData = {};
+    if (email !== undefined) updateData.email = email;
+    if (fname !== undefined) updateData.fname = fname;
+    if (mname !== undefined) updateData.mname = mname;
+    if (lname !== undefined) updateData.lname = lname;
+    if (role !== undefined) {
+      if (!['USER', 'ADMIN', 'SYSTEM'].includes(role)) {
+        return c.json({ error: 'Invalid role. Must be USER, ADMIN, or SYSTEM' }, 400);
+      }
+      updateData.role = role;
+    }
+    if (status !== undefined) {
+      if (!['ACTIVE', 'SUSPENDED', 'PENDING'].includes(status)) {
+        return c.json({ error: 'Invalid status. Must be ACTIVE, SUSPENDED, or PENDING' }, 400);
+      }
+      updateData.status = status;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        fname: true,
+        mname: true,
+        lname: true,
+        role: true,
+        status: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return c.json({ user: updatedUser });
+  } catch (error) {
+    console.error('Update admin user error:', error);
+    if (error.code === 'P2002') {
+      return c.json({ error: 'A user with that email already exists' }, 409);
+    }
+    return c.json({ error: 'Failed to update user', message: error.message }, 500);
+  }
+});
+
+// DELETE /api/v1/admin/users/:id - Soft delete user (admin only)
+app.delete('/api/v1/admin/users/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const admin = c.get('user');
+
+    // Prevent self-deletion
+    if (id === admin.userId) {
+      return c.json({ error: 'You cannot delete your own account' }, 400);
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { id } });
+    if (!existingUser) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    if (existingUser.deletedAt) {
+      return c.json({ error: 'User is already deleted' }, 400);
+    }
+
+    await prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    return c.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete admin user error:', error);
+    return c.json({ error: 'Failed to delete user', message: error.message }, 500);
   }
 });
 
