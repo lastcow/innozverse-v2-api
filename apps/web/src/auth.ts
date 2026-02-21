@@ -64,6 +64,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         try {
+          const userSelect = { id: true, email: true, role: true, oauthProvider: true, oauthId: true };
+
           let dbUser = await prisma.user.findUnique({
             where: {
               oauthProvider_oauthId: {
@@ -71,11 +73,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 oauthId: account.providerAccountId,
               },
             },
+            select: userSelect,
           });
 
           if (!dbUser) {
             const existingUserByEmail = await prisma.user.findUnique({
               where: { email: user.email },
+              select: userSelect,
             });
 
             if (existingUserByEmail) {
@@ -91,6 +95,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     oauthId: account.providerAccountId,
                     emailVerified: true,
                   },
+                  select: userSelect,
                 });
               } else {
                 dbUser = existingUserByEmail;
@@ -103,6 +108,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                   oauthId: account.providerAccountId,
                   emailVerified: true,
                 },
+                select: userSelect,
               });
             }
           }
@@ -112,6 +118,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           return true;
         } catch (error) {
+          console.error('OAuth signIn DB sync error:', error);
           return false;
         }
       }
