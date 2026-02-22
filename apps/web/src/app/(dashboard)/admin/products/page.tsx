@@ -1,15 +1,19 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { PackagePlus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/use-auth'
 import { ProductTable } from './components/product-table'
 import { ProductForm } from './components/product-form'
 import { ProductSearch } from './components/product-search'
 import { ProductFilters } from './components/product-filters'
 import type { Product } from '@repo/database'
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
 export default function AdminProductsPage() {
+  const { accessToken, isLoading: authLoading } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -22,10 +26,15 @@ export default function AdminProductsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(20)
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
+    if (!accessToken) return
     try {
       setLoading(true)
-      const response = await fetch('/api/products')
+      const response = await fetch(`${apiUrl}/api/v1/products?limit=1000`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
       if (response.ok) {
         const data = await response.json()
         setProducts(data.products)
@@ -35,11 +44,13 @@ export default function AdminProductsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [accessToken])
 
   useEffect(() => {
-    fetchProducts()
-  }, [])
+    if (accessToken) {
+      fetchProducts()
+    }
+  }, [accessToken, fetchProducts])
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product)
@@ -50,8 +61,11 @@ export default function AdminProductsPage() {
     if (!confirm('Are you sure you want to delete this product?')) return
 
     try {
-      const response = await fetch(`/api/products/${productId}`, {
+      const response = await fetch(`${apiUrl}/api/v1/products/${productId}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       })
 
       if (response.ok) {
@@ -123,6 +137,14 @@ export default function AdminProductsPage() {
   // Stats (from all products, not filtered)
   const inStock = products.filter((p) => p.stock > 0).length
   const outOfStock = products.filter((p) => p.stock === 0).length
+
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center py-16">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#4379EE] border-r-transparent"></div>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -259,6 +281,7 @@ export default function AdminProductsPage() {
       <ProductForm
         open={isFormOpen}
         product={editingProduct}
+        accessToken={accessToken}
         onSuccess={handleFormSuccess}
         onCancel={handleFormCancel}
       />

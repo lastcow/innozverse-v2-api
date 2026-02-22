@@ -55,14 +55,17 @@ const productSchema = z.object({
 
 type ProductFormData = z.infer<typeof productSchema>
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
 interface ProductFormProps {
   open: boolean
   product: Product | null
+  accessToken?: string | null
   onSuccess: () => void
   onCancel: () => void
 }
 
-export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormProps) {
+export function ProductForm({ open, product, accessToken, onSuccess, onCancel }: ProductFormProps) {
   const isEditing = !!product
 
   const form = useForm<ProductFormData>({
@@ -138,12 +141,17 @@ export function ProductForm({ open, product, onSuccess, onCancel }: ProductFormP
         studentDiscountPercentage: data.studentDiscountPercentage ?? null,
       }
 
-      const url = isEditing ? `/api/products/${product.id}` : '/api/products'
+      const url = isEditing
+        ? `${apiUrl}/api/v1/products/${product.id}`
+        : `${apiUrl}/api/v1/products`
       const method = isEditing ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify(payload),
       })
 

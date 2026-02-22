@@ -1,36 +1,47 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/use-auth'
 import { DiscountTable } from './components/discount-table'
 import { DiscountForm } from './components/discount-form'
 import type { EventDiscount } from '@repo/types'
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
 export default function AdminDiscountsPage() {
+  const { accessToken, isLoading: authLoading } = useAuth()
   const [discounts, setDiscounts] = useState<EventDiscount[]>([])
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingDiscount, setEditingDiscount] = useState<EventDiscount | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchDiscounts = async () => {
+  const fetchDiscounts = useCallback(async () => {
+    if (!accessToken) return
     try {
       setLoading(true)
-      const response = await fetch('/api/discounts')
+      const response = await fetch(`${apiUrl}/api/v1/discounts`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
       if (response.ok) {
         const data = await response.json()
-        setDiscounts(data)
+        setDiscounts(data.discounts)
       }
     } catch {
       // Error fetching discounts
     } finally {
       setLoading(false)
     }
-  }
+  }, [accessToken])
 
   useEffect(() => {
-    fetchDiscounts()
-  }, [])
+    if (accessToken) {
+      fetchDiscounts()
+    }
+  }, [accessToken, fetchDiscounts])
 
   const handleEdit = (discount: EventDiscount) => {
     setEditingDiscount(discount)
@@ -41,8 +52,11 @@ export default function AdminDiscountsPage() {
     if (!confirm('Are you sure you want to delete this discount?')) return
 
     try {
-      const response = await fetch(`/api/discounts/${discountId}`, {
+      const response = await fetch(`${apiUrl}/api/v1/discounts/${discountId}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       })
 
       if (response.ok) {
@@ -57,9 +71,12 @@ export default function AdminDiscountsPage() {
 
   const handleToggleActive = async (discountId: string, active: boolean) => {
     try {
-      const response = await fetch(`/api/discounts/${discountId}`, {
+      const response = await fetch(`${apiUrl}/api/v1/discounts/${discountId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ active }),
       })
 
@@ -82,6 +99,14 @@ export default function AdminDiscountsPage() {
   const handleFormCancel = () => {
     setIsFormOpen(false)
     setEditingDiscount(null)
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center py-16">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#4379EE] border-r-transparent"></div>
+      </div>
+    )
   }
 
   return (
@@ -121,6 +146,7 @@ export default function AdminDiscountsPage() {
       <DiscountForm
         open={isFormOpen}
         discount={editingDiscount}
+        accessToken={accessToken}
         onSuccess={handleFormSuccess}
         onCancel={handleFormCancel}
       />

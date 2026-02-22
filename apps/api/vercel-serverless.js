@@ -485,6 +485,145 @@ app.delete('/api/v1/products/:id', authMiddleware, requireRole('ADMIN'), async (
 });
 
 // ============================================================
+// Discount Routes
+// ============================================================
+
+// GET /api/v1/discounts - List all discounts (admin, auth required)
+app.get('/api/v1/discounts', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const discounts = await prisma.eventDiscount.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return c.json({ discounts });
+
+  } catch (error) {
+    console.error('Get discounts error:', error);
+    return c.json({ error: 'Failed to fetch discounts', message: error.message }, 500);
+  }
+});
+
+// POST /api/v1/discounts - Create discount (admin only)
+app.post('/api/v1/discounts', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { name, description, percentage, startDate, endDate, active = true } = body;
+
+    if (!name || percentage === undefined || !startDate || !endDate) {
+      return c.json({ error: 'Missing required fields: name, percentage, startDate, endDate' }, 400);
+    }
+
+    if (percentage < 0 || percentage > 100) {
+      return c.json({ error: 'Percentage must be between 0 and 100' }, 400);
+    }
+
+    if (new Date(endDate) <= new Date(startDate)) {
+      return c.json({ error: 'End date must be after start date' }, 400);
+    }
+
+    const discount = await prisma.eventDiscount.create({
+      data: {
+        name,
+        description: description || null,
+        percentage,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        active
+      }
+    });
+
+    return c.json({ discount, message: 'Discount created successfully' }, 201);
+
+  } catch (error) {
+    console.error('Create discount error:', error);
+    return c.json({ error: 'Failed to create discount', message: error.message }, 500);
+  }
+});
+
+// PUT /api/v1/discounts/:id - Update discount (admin only)
+app.put('/api/v1/discounts/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const body = await c.req.json();
+    const { name, description, percentage, startDate, endDate, active } = body;
+
+    const existingDiscount = await prisma.eventDiscount.findUnique({ where: { id } });
+    if (!existingDiscount) {
+      return c.json({ error: 'Discount not found' }, 404);
+    }
+
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (percentage !== undefined) {
+      if (percentage < 0 || percentage > 100) {
+        return c.json({ error: 'Percentage must be between 0 and 100' }, 400);
+      }
+      updateData.percentage = percentage;
+    }
+    if (startDate !== undefined) updateData.startDate = new Date(startDate);
+    if (endDate !== undefined) updateData.endDate = new Date(endDate);
+    if (active !== undefined) updateData.active = active;
+
+    // Validate dates if both are being set
+    const finalStart = updateData.startDate || existingDiscount.startDate;
+    const finalEnd = updateData.endDate || existingDiscount.endDate;
+    if (new Date(finalEnd) <= new Date(finalStart)) {
+      return c.json({ error: 'End date must be after start date' }, 400);
+    }
+
+    const discount = await prisma.eventDiscount.update({
+      where: { id },
+      data: updateData
+    });
+
+    return c.json({ discount, message: 'Discount updated successfully' });
+
+  } catch (error) {
+    console.error('Update discount error:', error);
+    return c.json({ error: 'Failed to update discount', message: error.message }, 500);
+  }
+});
+
+// DELETE /api/v1/discounts/:id - Delete discount (admin only)
+app.delete('/api/v1/discounts/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+
+    const existingDiscount = await prisma.eventDiscount.findUnique({ where: { id } });
+    if (!existingDiscount) {
+      return c.json({ error: 'Discount not found' }, 404);
+    }
+
+    await prisma.eventDiscount.delete({
+      where: { id }
+    });
+
+    return c.json({ message: 'Discount deleted successfully' });
+
+  } catch (error) {
+    console.error('Delete discount error:', error);
+    return c.json({ error: 'Failed to delete discount', message: error.message }, 500);
+  }
+});
+
+// ============================================================
 // Cart Routes
 // ============================================================
 

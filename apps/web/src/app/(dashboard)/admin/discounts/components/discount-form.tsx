@@ -51,9 +51,12 @@ const discountSchema = z.object({
 
 type DiscountFormData = z.infer<typeof discountSchema>
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
 interface DiscountFormProps {
   open: boolean
   discount: EventDiscount | null
+  accessToken?: string | null
   onSuccess: () => void
   onCancel: () => void
 }
@@ -77,7 +80,7 @@ const getNextWeekDate = () => {
   return formatDateForInput(nextWeek)
 }
 
-export function DiscountForm({ open, discount, onSuccess, onCancel }: DiscountFormProps) {
+export function DiscountForm({ open, discount, accessToken, onSuccess, onCancel }: DiscountFormProps) {
   const isEditing = !!discount
 
   const form = useForm<DiscountFormData>({
@@ -125,12 +128,17 @@ export function DiscountForm({ open, discount, onSuccess, onCancel }: DiscountFo
         active: data.active,
       }
 
-      const url = isEditing ? `/api/discounts/${discount.id}` : '/api/discounts'
+      const url = isEditing
+        ? `${apiUrl}/api/v1/discounts/${discount.id}`
+        : `${apiUrl}/api/v1/discounts`
       const method = isEditing ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify(payload),
       })
 
