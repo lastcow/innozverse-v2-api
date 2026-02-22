@@ -4,9 +4,11 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { bookStudioSession } from '@/app/actions/studio'
+import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 import { Clock, Users, Loader2, CheckCircle2, CalendarDays } from 'lucide-react'
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 interface SlotData {
   id: string
@@ -59,6 +61,7 @@ export function StudioBookingPanel({
   currentMonth,
   isAuthenticated,
 }: StudioBookingPanelProps) {
+  const { accessToken } = useAuth()
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null)
   const [acknowledged, setAcknowledged] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -88,14 +91,23 @@ export function StudioBookingPanel({
     if (!selectedSlotId) return
     setLoading(true)
     try {
-      const result = await bookStudioSession(selectedSlotId)
-      if (result.success) {
+      const res = await fetch(`${apiUrl}/api/v1/studio-bookings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ slotId: selectedSlotId }),
+      })
+
+      if (res.ok) {
         toast.success('Session booked successfully!')
         setBookedSlots((prev) => new Set(prev).add(selectedSlotId))
         setSelectedSlotId(null)
         setAcknowledged(false)
       } else {
-        toast.error(result.error || 'Failed to book session.')
+        const data = await res.json()
+        toast.error(data.error || 'Failed to book session.')
       }
     } catch {
       toast.error('Something went wrong.')

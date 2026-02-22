@@ -1,34 +1,21 @@
-import { prisma } from '@repo/database'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import { MyWorkshops } from '@/components/dashboard/my-workshops'
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 export default async function UserWorkshopsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/auth/login')
 
-  const registrations = await prisma.workshopRegistration.findMany({
-    where: { userId: session.user.id },
-    include: {
-      workshop: {
-        include: { _count: { select: { registrations: true } } },
-      },
+  const res = await fetch(`${apiUrl}/api/v1/workshops/my-registrations`, {
+    cache: 'no-store',
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
     },
-    orderBy: { workshop: { startDate: 'asc' } },
   })
 
-  const workshops = registrations.map((r) => ({
-    registrationId: r.id,
-    workshopId: r.workshop.id,
-    title: r.workshop.title,
-    description: r.workshop.description,
-    imageUrls: r.workshop.imageUrls as string[],
-    startDate: r.workshop.startDate.toISOString(),
-    endDate: r.workshop.endDate.toISOString(),
-    capacity: r.workshop.capacity,
-    registered: r.workshop._count.registrations,
-    registeredAt: r.createdAt.toISOString(),
-  }))
+  const { workshops } = await res.json()
 
   return (
     <div>

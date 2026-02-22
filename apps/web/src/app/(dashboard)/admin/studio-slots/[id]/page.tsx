@@ -1,27 +1,28 @@
-import { prisma } from '@repo/database'
 import { auth } from '@/auth'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Clock, Users, Mail } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
-const formatDate = (date: Date) =>
-  date.toLocaleDateString('en-US', {
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+const formatDate = (date: string) =>
+  new Date(date).toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   })
 
-const formatTime = (date: Date) =>
-  date.toLocaleTimeString('en-US', {
+const formatTime = (date: string) =>
+  new Date(date).toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   })
 
-const formatDateTime = (date: Date) =>
-  date.toLocaleDateString('en-US', {
+const formatDateTime = (date: string) =>
+  new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -30,11 +31,23 @@ const formatDateTime = (date: Date) =>
     hour12: true,
   })
 
-function getStatus(slot: { isAvailable: boolean; startTime: Date; endTime: Date }, confirmedCount: number, capacity: number) {
+interface Booking {
+  id: string
+  status: string
+  createdAt: string
+  user: {
+    id: string
+    email: string
+    fname: string | null
+    lname: string | null
+  }
+}
+
+function getStatus(slot: { isAvailable: boolean; startTime: string; endTime: string }, confirmedCount: number, capacity: number) {
   const now = new Date()
   if (!slot.isAvailable) return { label: 'Disabled', color: 'bg-gray-50 text-gray-600 border-0' }
-  if (now > slot.endTime) return { label: 'Past', color: 'bg-gray-50 text-gray-400 border-0' }
-  if (now >= slot.startTime && now <= slot.endTime) return { label: 'Active', color: 'bg-green-50 text-green-600 border-0' }
+  if (now > new Date(slot.endTime)) return { label: 'Past', color: 'bg-gray-50 text-gray-400 border-0' }
+  if (now >= new Date(slot.startTime) && now <= new Date(slot.endTime)) return { label: 'Active', color: 'bg-green-50 text-green-600 border-0' }
   if (confirmedCount >= capacity) return { label: 'Full', color: 'bg-orange-50 text-orange-600 border-0' }
   return { label: 'Open', color: 'bg-blue-50 text-blue-600 border-0' }
 }
@@ -52,27 +65,22 @@ export default async function AdminStudioSlotDetailPage({
   const session = await auth()
   if (!session?.user?.id) redirect('/auth/login')
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } })
-  if (!user || (user.role !== 'ADMIN' && user.role !== 'SYSTEM')) redirect('/user/dashboard')
-
-  const slot = await prisma.studioSlot.findUnique({
-    where: { id: params.id },
-    include: {
-      bookings: {
-        include: {
-          user: {
-            select: { id: true, email: true, fname: true, lname: true },
-          },
-        },
-        orderBy: { createdAt: 'asc' },
-      },
+  const res = await fetch(`${apiUrl}/api/v1/studio-slots/${params.id}/bookings`, {
+    cache: 'no-store',
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
     },
   })
 
-  if (!slot) notFound()
+  if (!res.ok) {
+    if (res.status === 403) redirect('/user/dashboard')
+    notFound()
+  }
 
-  const confirmedBookings = slot.bookings.filter((b) => b.status === 'CONFIRMED')
-  const cancelledBookings = slot.bookings.filter((b) => b.status === 'CANCELLED')
+  const { slot } = await res.json()
+
+  const confirmedBookings = slot.bookings.filter((b: Booking) => b.status === 'CONFIRMED')
+  const cancelledBookings = slot.bookings.filter((b: Booking) => b.status === 'CANCELLED')
   const status = getStatus(slot, confirmedBookings.length, slot.capacity)
 
   return (
@@ -132,7 +140,7 @@ export default async function AdminStudioSlotDetailPage({
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {confirmedBookings.map((booking, i) => {
+            {confirmedBookings.map((booking: Booking, i: number) => {
               const name =
                 [booking.user.fname, booking.user.lname].filter(Boolean).join(' ') || null
               return (
@@ -173,7 +181,7 @@ export default async function AdminStudioSlotDetailPage({
             </h2>
           </div>
           <div className="divide-y divide-gray-50">
-            {cancelledBookings.map((booking) => {
+            {cancelledBookings.map((booking: Booking) => {
               const name =
                 [booking.user.fname, booking.user.lname].filter(Boolean).join(' ') || null
               return (

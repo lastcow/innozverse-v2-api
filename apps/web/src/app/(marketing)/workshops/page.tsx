@@ -1,20 +1,33 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import { prisma } from '@repo/database'
 import { CalendarDays, Users, ImageIcon } from 'lucide-react'
 import { WorkshopCalendar } from '@/components/workshops/workshop-calendar'
 import { WorkshopHero } from '@/components/workshops/workshop-hero'
 
-function formatDateRange(start: Date, end: Date) {
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+interface WorkshopData {
+  id: string
+  title: string
+  description: string
+  imageUrls: string[]
+  startDate: string
+  endDate: string
+  capacity: number
+  isPublished: boolean
+  _count: { registrations: number }
+}
+
+function formatDateRange(start: string, end: string) {
   const opts: Intl.DateTimeFormatOptions = {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   }
-  return `${start.toLocaleDateString('en-US', opts)} - ${end.toLocaleDateString('en-US', opts)}`
+  return `${new Date(start).toLocaleDateString('en-US', opts)} - ${new Date(end).toLocaleDateString('en-US', opts)}`
 }
 
-function getWorkshopDays(workshops: { startDate: Date; endDate: Date }[]) {
+function getWorkshopDays(workshops: { startDate: string; endDate: string }[]) {
   const days: string[] = []
   workshops.forEach((w) => {
     const current = new Date(w.startDate)
@@ -30,11 +43,8 @@ function getWorkshopDays(workshops: { startDate: Date; endDate: Date }[]) {
 }
 
 export default async function WorkshopsPage() {
-  const workshops = await prisma.workshop.findMany({
-    where: { isPublished: true },
-    orderBy: { startDate: 'asc' },
-    include: { _count: { select: { registrations: true } } },
-  })
+  const res = await fetch(`${apiUrl}/api/v1/workshops`, { cache: 'no-store' })
+  const { workshops } = (await res.json()) as { workshops: WorkshopData[] }
 
   const now = new Date()
   const upcoming = workshops.filter((w) => new Date(w.startDate) > now)

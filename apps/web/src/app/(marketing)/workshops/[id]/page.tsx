@@ -1,23 +1,24 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { prisma } from '@repo/database'
 import { auth } from '@/auth'
 import { CalendarDays, Users, ArrowLeft } from 'lucide-react'
 import { RegisterButton } from '@/components/workshops/register-button'
 
-function formatDateRange(start: Date, end: Date) {
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+function formatDateRange(start: string, end: string) {
   const opts: Intl.DateTimeFormatOptions = {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric',
   }
-  return `${start.toLocaleDateString('en-US', opts)} - ${end.toLocaleDateString('en-US', opts)}`
+  return `${new Date(start).toLocaleDateString('en-US', opts)} - ${new Date(end).toLocaleDateString('en-US', opts)}`
 }
 
-function formatTime(date: Date) {
-  return date.toLocaleTimeString('en-US', {
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
   })
@@ -28,30 +29,24 @@ export default async function WorkshopDetailPage({
 }: {
   params: { id: string }
 }) {
-  const workshop = await prisma.workshop.findUnique({
-    where: { id: params.id },
-    include: { _count: { select: { registrations: true } } },
-  })
-
-  if (!workshop || !workshop.isPublished) {
-    notFound()
-  }
-
   const session = await auth()
   const isAuthenticated = !!session?.user?.id
 
-  let isRegistered = false
-  if (isAuthenticated) {
-    const registration = await prisma.workshopRegistration.findUnique({
-      where: {
-        userId_workshopId: {
-          userId: session!.user.id,
-          workshopId: workshop.id,
-        },
-      },
-    })
-    isRegistered = !!registration
+  const headers: Record<string, string> = {}
+  if (session?.accessToken) {
+    headers['Authorization'] = `Bearer ${session.accessToken}`
   }
+
+  const res = await fetch(`${apiUrl}/api/v1/workshops/${params.id}`, {
+    cache: 'no-store',
+    headers,
+  })
+
+  if (!res.ok) {
+    notFound()
+  }
+
+  const { workshop, isRegistered } = await res.json()
 
   const images = Array.isArray(workshop.imageUrls)
     ? (workshop.imageUrls as string[])
@@ -134,7 +129,7 @@ export default async function WorkshopDetailPage({
         <div>
           <h2 className="text-xl font-bold text-[#202224] mb-4">Gallery</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {images.slice(1).map((url, i) => (
+            {images.slice(1).map((url: string, i: number) => (
               <div
                 key={url}
                 className="relative aspect-square rounded-xl overflow-hidden"

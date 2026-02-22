@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { registerForWorkshop } from '@/app/actions/workshop'
+import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 interface RegisterButtonProps {
   workshopId: string
@@ -22,6 +24,7 @@ export function RegisterButton({
   isFull,
   isPast,
 }: RegisterButtonProps) {
+  const { accessToken } = useAuth()
   const [registered, setRegistered] = useState(initialRegistered)
   const [loading, setLoading] = useState(false)
 
@@ -66,12 +69,19 @@ export function RegisterButton({
   async function handleRegister() {
     setLoading(true)
     try {
-      const result = await registerForWorkshop(workshopId)
-      if (result.success) {
+      const res = await fetch(`${apiUrl}/api/v1/workshops/${workshopId}/register`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (res.ok) {
         setRegistered(true)
         toast.success('You have been registered for this workshop!')
       } else {
-        toast.error(result.error || 'Registration failed.')
+        const data = await res.json()
+        toast.error(data.error || 'Registration failed.')
       }
     } catch {
       toast.error('Something went wrong. Please try again.')

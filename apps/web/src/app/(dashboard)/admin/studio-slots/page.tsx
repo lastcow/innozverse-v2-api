@@ -3,38 +3,45 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 import { StudioSlotTable, type StudioSlotRow } from './components/studio-slot-table'
 import { StudioSlotForm } from './components/studio-slot-form'
-import {
-  getStudioSlots,
-  createStudioSlot,
-  updateStudioSlot,
-  deleteStudioSlot,
-  toggleSlotAvailability,
-} from '@/app/actions/admin-studio'
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 export default function AdminStudioSlotsPage() {
+  const { accessToken, isLoading: authLoading } = useAuth()
   const [slots, setSlots] = useState<StudioSlotRow[]>([])
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingSlot, setEditingSlot] = useState<StudioSlotRow | null>(null)
   const [loading, setLoading] = useState(true)
 
   const fetchSlots = useCallback(async () => {
+    if (!accessToken) return
     try {
       setLoading(true)
-      const data = await getStudioSlots()
-      setSlots(data)
+      const res = await fetch(`${apiUrl}/api/v1/studio-slots/admin`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setSlots(data.slots)
+      } else {
+        toast.error('Failed to load studio slots.')
+      }
     } catch {
       toast.error('Failed to load studio slots.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [accessToken])
 
   useEffect(() => {
-    fetchSlots()
-  }, [fetchSlots])
+    if (accessToken) {
+      fetchSlots()
+    }
+  }, [accessToken, fetchSlots])
 
   const handleEdit = (slot: StudioSlotRow) => {
     setEditingSlot(slot)
@@ -42,24 +49,44 @@ export default function AdminStudioSlotsPage() {
   }
 
   const handleDelete = async (slotId: string) => {
-    if (!confirm('Are you sure you want to delete this slot? All bookings will be removed.')) return
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/studio-slots/${slotId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
 
-    const result = await deleteStudioSlot(slotId)
-    if (result.success) {
-      toast.success('Slot deleted.')
-      fetchSlots()
-    } else {
-      toast.error(result.error || 'Failed to delete slot.')
+      if (res.ok) {
+        toast.success('Slot deleted.')
+        fetchSlots()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to delete slot.')
+      }
+    } catch {
+      toast.error('Failed to delete slot.')
     }
   }
 
   const handleToggleAvailability = async (slotId: string, isAvailable: boolean) => {
-    const result = await toggleSlotAvailability(slotId, isAvailable)
-    if (result.success) {
-      toast.success(isAvailable ? 'Slot enabled.' : 'Slot disabled.')
-      fetchSlots()
-    } else {
-      toast.error(result.error || 'Failed to update slot.')
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/studio-slots/${slotId}/availability`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ isAvailable }),
+      })
+
+      if (res.ok) {
+        toast.success(isAvailable ? 'Slot enabled.' : 'Slot disabled.')
+        fetchSlots()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to update slot.')
+      }
+    } catch {
+      toast.error('Failed to update slot.')
     }
   }
 
@@ -69,23 +96,46 @@ export default function AdminStudioSlotsPage() {
     capacity: number
     isAvailable: boolean
   }) => {
-    const result = editingSlot
-      ? await updateStudioSlot(editingSlot.id, data)
-      : await createStudioSlot(data)
+    try {
+      const url = editingSlot
+        ? `${apiUrl}/api/v1/studio-slots/${editingSlot.id}`
+        : `${apiUrl}/api/v1/studio-slots`
+      const method = editingSlot ? 'PUT' : 'POST'
 
-    if (result.success) {
-      toast.success(editingSlot ? 'Slot updated.' : 'Slot created.')
-      setIsFormOpen(false)
-      setEditingSlot(null)
-      fetchSlots()
-    } else {
-      toast.error(result.error || 'Something went wrong.')
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (res.ok) {
+        toast.success(editingSlot ? 'Slot updated.' : 'Slot created.')
+        setIsFormOpen(false)
+        setEditingSlot(null)
+        fetchSlots()
+      } else {
+        const result = await res.json()
+        toast.error(result.error || 'Something went wrong.')
+      }
+    } catch {
+      toast.error('Something went wrong.')
     }
   }
 
   const handleFormCancel = () => {
     setIsFormOpen(false)
     setEditingSlot(null)
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center py-16">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#4379EE] border-r-transparent"></div>
+      </div>
+    )
   }
 
   return (

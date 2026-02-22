@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
+import { toast } from 'sonner'
 import { WorkshopTable } from './components/workshop-table'
 import { WorkshopForm } from './components/workshop-form'
 import type { Workshop } from '@repo/types'
@@ -49,8 +50,6 @@ export default function AdminWorkshopsPage() {
   }
 
   const handleDelete = async (workshopId: string) => {
-    if (!confirm('Are you sure you want to delete this workshop?')) return
-
     try {
       const response = await fetch(`${apiUrl}/api/v1/workshops/${workshopId}`, {
         method: 'DELETE',
@@ -60,12 +59,13 @@ export default function AdminWorkshopsPage() {
       })
 
       if (response.ok) {
+        toast.success('Workshop deleted.')
         await fetchWorkshops()
       } else {
-        alert('Failed to delete workshop')
+        toast.error('Failed to delete workshop')
       }
     } catch {
-      alert('Failed to delete workshop')
+      toast.error('Failed to delete workshop')
     }
   }
 
@@ -83,7 +83,7 @@ export default function AdminWorkshopsPage() {
       if (response.ok) {
         await fetchWorkshops()
       } else {
-        alert('Failed to update workshop status')
+        toast.error('Failed to update workshop status')
       }
     } catch {
       alert('Failed to update workshop status')

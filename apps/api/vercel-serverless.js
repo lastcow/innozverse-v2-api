@@ -636,7 +636,8 @@ app.get('/api/v1/workshops', async (c) => {
   try {
     const workshops = await prisma.workshop.findMany({
       where: { isPublished: true },
-      orderBy: { startDate: 'asc' }
+      orderBy: { startDate: 'asc' },
+      include: { _count: { select: { registrations: true } } }
     });
 
     return c.json({ workshops });
@@ -772,6 +773,589 @@ app.delete('/api/v1/workshops/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM
   } catch (error) {
     console.error('Delete workshop error:', error);
     return c.json({ error: 'Failed to delete workshop', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/workshops/my-registrations - User's registered workshops
+app.get('/api/v1/workshops/my-registrations', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+
+    const registrations = await prisma.workshopRegistration.findMany({
+      where: { userId: user.userId },
+      include: {
+        workshop: {
+          include: { _count: { select: { registrations: true } } },
+        },
+      },
+      orderBy: { workshop: { startDate: 'asc' } },
+    });
+
+    const workshops = registrations.map((r) => ({
+      registrationId: r.id,
+      workshopId: r.workshop.id,
+      title: r.workshop.title,
+      description: r.workshop.description,
+      imageUrls: r.workshop.imageUrls,
+      startDate: r.workshop.startDate.toISOString(),
+      endDate: r.workshop.endDate.toISOString(),
+      capacity: r.workshop.capacity,
+      registered: r.workshop._count.registrations,
+      registeredAt: r.createdAt.toISOString(),
+    }));
+
+    return c.json({ workshops });
+
+  } catch (error) {
+    console.error('Get my registrations error:', error);
+    return c.json({ error: 'Failed to fetch registrations', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/workshops/:id - Public workshop detail
+app.get('/api/v1/workshops/:id', optionalAuthMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const user = c.get('user');
+
+    const workshop = await prisma.workshop.findUnique({
+      where: { id },
+      include: { _count: { select: { registrations: true } } },
+    });
+
+    if (!workshop || !workshop.isPublished) {
+      return c.json({ error: 'Workshop not found' }, 404);
+    }
+
+    let isRegistered = false;
+    if (user) {
+      const registration = await prisma.workshopRegistration.findUnique({
+        where: { userId_workshopId: { userId: user.userId, workshopId: id } },
+      });
+      isRegistered = !!registration;
+    }
+
+    return c.json({ workshop, isRegistered });
+
+  } catch (error) {
+    console.error('Get workshop detail error:', error);
+    return c.json({ error: 'Failed to fetch workshop', message: error.message }, 500);
+  }
+});
+
+// POST /api/v1/workshops/:id/register - Register for workshop
+app.post('/api/v1/workshops/:id/register', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id: workshopId } = c.req.param();
+    const user = c.get('user');
+    const userId = user.userId;
+
+    const workshop = await prisma.workshop.findUnique({
+      where: { id: workshopId },
+      include: { _count: { select: { registrations: true } } },
+    });
+
+    if (!workshop || !workshop.isPublished) {
+      return c.json({ error: 'Workshop not found.' }, 404);
+    }
+
+    if (new Date(workshop.endDate) < new Date()) {
+      return c.json({ error: 'This workshop has already ended.' }, 400);
+    }
+
+    if (workshop.capacity > 0 && workshop._count.registrations >= workshop.capacity) {
+      return c.json({ error: 'This workshop is full.' }, 400);
+    }
+
+    const existing = await prisma.workshopRegistration.findUnique({
+      where: { userId_workshopId: { userId, workshopId } },
+    });
+
+    if (existing) {
+      return c.json({ error: 'You are already registered for this workshop.' }, 409);
+    }
+
+    await prisma.workshopRegistration.create({
+      data: { userId, workshopId },
+    });
+
+    return c.json({ message: 'Registered successfully' }, 201);
+
+  } catch (error) {
+    if (error.code === 'P2002') {
+      return c.json({ error: 'You are already registered for this workshop.' }, 409);
+    }
+    console.error('Workshop register error:', error);
+    return c.json({ error: 'Failed to register. Please try again.', message: error.message }, 500);
+  }
+});
+
+// DELETE /api/v1/workshops/:id/register - Cancel workshop registration
+app.delete('/api/v1/workshops/:id/register', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id: workshopId } = c.req.param();
+    const user = c.get('user');
+
+    await prisma.workshopRegistration.delete({
+      where: {
+        userId_workshopId: {
+          userId: user.userId,
+          workshopId,
+        },
+      },
+    });
+
+    return c.json({ message: 'Registration cancelled successfully' });
+
+  } catch (error) {
+    console.error('Cancel registration error:', error);
+    return c.json({ error: 'Failed to cancel registration.', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/workshops/:id/registrations - Admin: all registrations for a workshop
+app.get('/api/v1/workshops/:id/registrations', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+
+    const workshop = await prisma.workshop.findUnique({
+      where: { id },
+      include: {
+        registrations: {
+          include: {
+            user: {
+              select: { id: true, email: true, fname: true, lname: true, createdAt: true },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!workshop) {
+      return c.json({ error: 'Workshop not found' }, 404);
+    }
+
+    return c.json({ workshop });
+
+  } catch (error) {
+    console.error('Get workshop registrations error:', error);
+    return c.json({ error: 'Failed to fetch registrations', message: error.message }, 500);
+  }
+});
+
+// ============================================================
+// Studio Slot Routes
+// ============================================================
+
+// GET /api/v1/studio-slots - Public: future available slots
+app.get('/api/v1/studio-slots', optionalAuthMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const now = new Date();
+
+    const slots = await prisma.studioSlot.findMany({
+      where: {
+        isAvailable: true,
+        startTime: { gte: now },
+      },
+      include: {
+        _count: {
+          select: { bookings: { where: { status: 'CONFIRMED' } } },
+        },
+        ...(user
+          ? {
+              bookings: {
+                where: { userId: user.userId, status: 'CONFIRMED' },
+                select: { id: true },
+              },
+            }
+          : {}),
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    const result = slots.map((slot) => ({
+      id: slot.id,
+      startTime: slot.startTime.toISOString(),
+      endTime: slot.endTime.toISOString(),
+      capacity: slot.capacity,
+      confirmedCount: slot._count.bookings,
+      userBooked:
+        'bookings' in slot && Array.isArray(slot.bookings)
+          ? slot.bookings.length > 0
+          : false,
+    }));
+
+    return c.json({ slots: result });
+
+  } catch (error) {
+    console.error('Get studio slots error:', error);
+    return c.json({ error: 'Failed to fetch studio slots', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/studio-slots/admin - Admin: all slots
+app.get('/api/v1/studio-slots/admin', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const slots = await prisma.studioSlot.findMany({
+      orderBy: { startTime: 'asc' },
+      include: {
+        _count: {
+          select: { bookings: { where: { status: 'CONFIRMED' } } },
+        },
+      },
+    });
+
+    const result = slots.map((s) => ({
+      id: s.id,
+      startTime: s.startTime.toISOString(),
+      endTime: s.endTime.toISOString(),
+      capacity: s.capacity,
+      isAvailable: s.isAvailable,
+      confirmedBookings: s._count.bookings,
+      createdAt: s.createdAt.toISOString(),
+    }));
+
+    return c.json({ slots: result });
+
+  } catch (error) {
+    console.error('Get admin studio slots error:', error);
+    return c.json({ error: 'Failed to fetch studio slots', message: error.message }, 500);
+  }
+});
+
+// POST /api/v1/studio-slots - Admin: create slot
+app.post('/api/v1/studio-slots', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { startTime, endTime, capacity, isAvailable = true } = body;
+
+    if (!startTime || !endTime) {
+      return c.json({ error: 'startTime and endTime are required' }, 400);
+    }
+
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+
+    if (end <= start) {
+      return c.json({ error: 'End time must be after start time.' }, 400);
+    }
+
+    const slot = await prisma.studioSlot.create({
+      data: {
+        startTime: start,
+        endTime: end,
+        capacity: capacity !== undefined ? Number(capacity) : 1,
+        isAvailable,
+      },
+    });
+
+    return c.json({ slot, message: 'Slot created successfully' }, 201);
+
+  } catch (error) {
+    console.error('Create studio slot error:', error);
+    return c.json({ error: 'Failed to create slot.', message: error.message }, 500);
+  }
+});
+
+// PUT /api/v1/studio-slots/:id - Admin: update slot
+app.put('/api/v1/studio-slots/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const body = await c.req.json();
+    const { startTime, endTime, capacity, isAvailable } = body;
+
+    const existing = await prisma.studioSlot.findUnique({ where: { id } });
+    if (!existing) {
+      return c.json({ error: 'Studio slot not found' }, 404);
+    }
+
+    const start = startTime ? new Date(startTime) : existing.startTime;
+    const end = endTime ? new Date(endTime) : existing.endTime;
+
+    if (end <= start) {
+      return c.json({ error: 'End time must be after start time.' }, 400);
+    }
+
+    const slot = await prisma.studioSlot.update({
+      where: { id },
+      data: {
+        startTime: start,
+        endTime: end,
+        capacity: capacity !== undefined ? Number(capacity) : undefined,
+        isAvailable: isAvailable !== undefined ? isAvailable : undefined,
+      },
+    });
+
+    return c.json({ slot, message: 'Slot updated successfully' });
+
+  } catch (error) {
+    console.error('Update studio slot error:', error);
+    return c.json({ error: 'Failed to update slot.', message: error.message }, 500);
+  }
+});
+
+// DELETE /api/v1/studio-slots/:id - Admin: delete slot
+app.delete('/api/v1/studio-slots/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+
+    const existing = await prisma.studioSlot.findUnique({ where: { id } });
+    if (!existing) {
+      return c.json({ error: 'Studio slot not found' }, 404);
+    }
+
+    await prisma.studioSlot.delete({ where: { id } });
+
+    return c.json({ message: 'Slot deleted successfully' });
+
+  } catch (error) {
+    console.error('Delete studio slot error:', error);
+    return c.json({ error: 'Failed to delete slot. It may have active bookings.', message: error.message }, 500);
+  }
+});
+
+// PATCH /api/v1/studio-slots/:id/availability - Admin: toggle availability
+app.patch('/api/v1/studio-slots/:id/availability', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const body = await c.req.json();
+    const { isAvailable } = body;
+
+    if (isAvailable === undefined) {
+      return c.json({ error: 'isAvailable is required' }, 400);
+    }
+
+    const existing = await prisma.studioSlot.findUnique({ where: { id } });
+    if (!existing) {
+      return c.json({ error: 'Studio slot not found' }, 404);
+    }
+
+    const slot = await prisma.studioSlot.update({
+      where: { id },
+      data: { isAvailable },
+    });
+
+    return c.json({ slot, message: 'Slot availability updated' });
+
+  } catch (error) {
+    console.error('Toggle slot availability error:', error);
+    return c.json({ error: 'Failed to update slot.', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/studio-slots/:id/bookings - Admin: slot bookings detail
+app.get('/api/v1/studio-slots/:id/bookings', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+
+    const slot = await prisma.studioSlot.findUnique({
+      where: { id },
+      include: {
+        bookings: {
+          include: {
+            user: {
+              select: { id: true, email: true, fname: true, lname: true },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!slot) {
+      return c.json({ error: 'Studio slot not found' }, 404);
+    }
+
+    return c.json({ slot });
+
+  } catch (error) {
+    console.error('Get slot bookings error:', error);
+    return c.json({ error: 'Failed to fetch bookings', message: error.message }, 500);
+  }
+});
+
+// ============================================================
+// Studio Booking Routes
+// ============================================================
+
+// POST /api/v1/studio-bookings - Book a studio session
+app.post('/api/v1/studio-bookings', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const userId = user.userId;
+    const body = await c.req.json();
+    const { slotId } = body;
+
+    if (!slotId) {
+      return c.json({ error: 'slotId is required' }, 400);
+    }
+
+    const slot = await prisma.studioSlot.findUnique({
+      where: { id: slotId },
+      include: {
+        _count: {
+          select: { bookings: { where: { status: 'CONFIRMED' } } },
+        },
+      },
+    });
+
+    if (!slot || !slot.isAvailable) {
+      return c.json({ error: 'This time slot is not available.' }, 404);
+    }
+
+    if (slot._count.bookings >= slot.capacity) {
+      return c.json({ error: 'This time slot is full.' }, 400);
+    }
+
+    const existing = await prisma.studioBooking.findUnique({
+      where: { userId_slotId: { userId, slotId } },
+    });
+
+    if (existing) {
+      if (existing.status === 'CONFIRMED') {
+        return c.json({ error: 'You have already booked this session.' }, 409);
+      }
+      // Re-confirm a previously cancelled booking
+      await prisma.studioBooking.update({
+        where: { id: existing.id },
+        data: { status: 'CONFIRMED' },
+      });
+      return c.json({ message: 'Booking re-confirmed' }, 201);
+    }
+
+    await prisma.studioBooking.create({
+      data: { userId, slotId },
+    });
+
+    return c.json({ message: 'Session booked successfully' }, 201);
+
+  } catch (error) {
+    if (error.code === 'P2002') {
+      return c.json({ error: 'You have already booked this session.' }, 409);
+    }
+    console.error('Book studio session error:', error);
+    return c.json({ error: 'Failed to book. Please try again.', message: error.message }, 500);
+  }
+});
+
+// DELETE /api/v1/studio-bookings/:id - Cancel a studio booking
+app.delete('/api/v1/studio-bookings/:id', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const user = c.get('user');
+
+    const booking = await prisma.studioBooking.findUnique({
+      where: { id },
+    });
+
+    if (!booking || booking.userId !== user.userId) {
+      return c.json({ error: 'Booking not found.' }, 404);
+    }
+
+    if (booking.status !== 'CONFIRMED') {
+      return c.json({ error: 'This booking is not active.' }, 400);
+    }
+
+    await prisma.studioBooking.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+    });
+
+    return c.json({ message: 'Booking cancelled successfully' });
+
+  } catch (error) {
+    console.error('Cancel studio booking error:', error);
+    return c.json({ error: 'Failed to cancel booking.', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/studio-bookings/mine - User's studio bookings
+app.get('/api/v1/studio-bookings/mine', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+
+    const bookings = await prisma.studioBooking.findMany({
+      where: { userId: user.userId },
+      include: { slot: true },
+      orderBy: { slot: { startTime: 'asc' } },
+    });
+
+    const data = bookings.map((b) => ({
+      bookingId: b.id,
+      slotId: b.slot.id,
+      startTime: b.slot.startTime.toISOString(),
+      endTime: b.slot.endTime.toISOString(),
+      status: b.status,
+      bookedAt: b.createdAt.toISOString(),
+    }));
+
+    return c.json({ bookings: data });
+
+  } catch (error) {
+    console.error('Get my studio bookings error:', error);
+    return c.json({ error: 'Failed to fetch bookings', message: error.message }, 500);
   }
 });
 

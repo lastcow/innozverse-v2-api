@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { cancelStudioBooking } from '@/app/actions/studio'
+import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 import { Clock, Loader2 } from 'lucide-react'
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 interface StudioBookingItem {
   bookingId: string
@@ -39,6 +41,7 @@ function formatTime(iso: string) {
 }
 
 export function MyStudioBookings({ bookings }: MyStudioBookingsProps) {
+  const { accessToken } = useAuth()
   const [items, setItems] = useState(bookings)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
 
@@ -51,8 +54,14 @@ export function MyStudioBookings({ bookings }: MyStudioBookingsProps) {
   async function handleCancel(bookingId: string) {
     setCancellingId(bookingId)
     try {
-      const result = await cancelStudioBooking(bookingId)
-      if (result.success) {
+      const res = await fetch(`${apiUrl}/api/v1/studio-bookings/${bookingId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (res.ok) {
         setItems((prev) =>
           prev.map((b) =>
             b.bookingId === bookingId ? { ...b, status: 'CANCELLED' } : b
@@ -60,7 +69,8 @@ export function MyStudioBookings({ bookings }: MyStudioBookingsProps) {
         )
         toast.success('Booking cancelled.')
       } else {
-        toast.error(result.error || 'Failed to cancel.')
+        const data = await res.json()
+        toast.error(data.error || 'Failed to cancel.')
       }
     } catch {
       toast.error('Something went wrong.')

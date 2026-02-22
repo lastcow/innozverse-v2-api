@@ -1,4 +1,3 @@
-import { prisma } from '@repo/database'
 import { auth } from '@/auth'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -6,11 +5,13 @@ import Image from 'next/image'
 import { ArrowLeft, CalendarDays, Users, Mail } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
-const formatDate = (date: Date) =>
-  date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
-const formatDateTime = (date: Date) =>
-  date.toLocaleDateString('en-US', {
+const formatDate = (date: string) =>
+  new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+
+const formatDateTime = (date: string) =>
+  new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -19,11 +20,11 @@ const formatDateTime = (date: Date) =>
     hour12: true,
   })
 
-function getStatus(workshop: { isPublished: boolean; startDate: Date; endDate: Date }) {
+function getStatus(workshop: { isPublished: boolean; startDate: string; endDate: string }) {
   const now = new Date()
   if (!workshop.isPublished) return { label: 'Draft', color: 'bg-gray-50 text-gray-600 border-0' }
-  if (now < workshop.startDate) return { label: 'Upcoming', color: 'bg-blue-50 text-blue-600 border-0' }
-  if (now > workshop.endDate) return { label: 'Past', color: 'bg-gray-50 text-gray-400 border-0' }
+  if (now < new Date(workshop.startDate)) return { label: 'Upcoming', color: 'bg-blue-50 text-blue-600 border-0' }
+  if (now > new Date(workshop.endDate)) return { label: 'Past', color: 'bg-gray-50 text-gray-400 border-0' }
   return { label: 'Active', color: 'bg-green-50 text-green-600 border-0' }
 }
 
@@ -35,24 +36,19 @@ export default async function AdminWorkshopDetailPage({
   const session = await auth()
   if (!session?.user?.id) redirect('/auth/login')
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } })
-  if (!user || (user.role !== 'ADMIN' && user.role !== 'SYSTEM')) redirect('/user/dashboard')
-
-  const workshop = await prisma.workshop.findUnique({
-    where: { id: params.id },
-    include: {
-      registrations: {
-        include: {
-          user: {
-            select: { id: true, email: true, fname: true, lname: true, createdAt: true },
-          },
-        },
-        orderBy: { createdAt: 'asc' },
-      },
+  const res = await fetch(`${apiUrl}/api/v1/workshops/${params.id}/registrations`, {
+    cache: 'no-store',
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
     },
   })
 
-  if (!workshop) notFound()
+  if (!res.ok) {
+    if (res.status === 403) redirect('/user/dashboard')
+    notFound()
+  }
+
+  const { workshop } = await res.json()
 
   const images = Array.isArray(workshop.imageUrls) ? (workshop.imageUrls as string[]) : []
   const status = getStatus(workshop)
@@ -98,7 +94,7 @@ export default async function AdminWorkshopDetailPage({
               </div>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-gray-400" />
-                {workshop.registrations.length} / {workshop.capacity || '∞'} registered
+                {workshop.registrations.length} / {workshop.capacity || '\u221e'} registered
               </div>
             </div>
           </div>
@@ -121,7 +117,7 @@ export default async function AdminWorkshopDetailPage({
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {workshop.registrations.map((reg, i) => {
+            {workshop.registrations.map((reg: { id: string; createdAt: string; user: { email: string; fname: string | null; lname: string | null } }, i: number) => {
               const name =
                 [reg.user.fname, reg.user.lname].filter(Boolean).join(' ') || null
               return (

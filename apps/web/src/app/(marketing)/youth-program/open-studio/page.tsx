@@ -1,34 +1,33 @@
-import { prisma } from '@repo/database'
 import { auth } from '@/auth'
 import { OpenStudioClient } from './client'
 import { StudioHero } from '@/components/studio/studio-hero'
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+interface SlotData {
+  id: string
+  startTime: string
+  endTime: string
+  capacity: number
+  confirmedCount: number
+  userBooked: boolean
+}
 
 export default async function OpenStudioPage() {
   const session = await auth()
   const userId = session?.user?.id ?? null
 
-  const now = new Date()
+  const headers: Record<string, string> = {}
+  if (session?.accessToken) {
+    headers['Authorization'] = `Bearer ${session.accessToken}`
+  }
 
-  const slots = await prisma.studioSlot.findMany({
-    where: {
-      isAvailable: true,
-      startTime: { gte: now },
-    },
-    include: {
-      _count: {
-        select: { bookings: { where: { status: 'CONFIRMED' } } },
-      },
-      ...(userId
-        ? {
-            bookings: {
-              where: { userId, status: 'CONFIRMED' },
-              select: { id: true },
-            },
-          }
-        : {}),
-    },
-    orderBy: { startTime: 'asc' },
+  const res = await fetch(`${apiUrl}/api/v1/studio-slots`, {
+    cache: 'no-store',
+    headers,
   })
+
+  const { slots } = (await res.json()) as { slots: SlotData[] }
 
   // Build slotsByDate and availableDays
   const slotsByDate: Record<
@@ -46,19 +45,16 @@ export default async function OpenStudioPage() {
   const availableDaysSet = new Set<string>()
 
   for (const slot of slots) {
-    const dateKey = slot.startTime.toISOString().split('T')[0]!
+    const dateKey = slot.startTime.split('T')[0]!
     availableDaysSet.add(dateKey)
     if (!slotsByDate[dateKey]) slotsByDate[dateKey] = []
     slotsByDate[dateKey]!.push({
       id: slot.id,
-      startTime: slot.startTime.toISOString(),
-      endTime: slot.endTime.toISOString(),
+      startTime: slot.startTime,
+      endTime: slot.endTime,
       capacity: slot.capacity,
-      confirmedCount: slot._count.bookings,
-      userBooked:
-        'bookings' in slot && Array.isArray(slot.bookings)
-          ? slot.bookings.length > 0
-          : false,
+      confirmedCount: slot.confirmedCount,
+      userBooked: slot.userBooked,
     })
   }
 

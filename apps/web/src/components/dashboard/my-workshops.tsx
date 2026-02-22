@@ -4,9 +4,11 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { cancelWorkshopRegistration } from '@/app/actions/workshop'
+import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 import { CalendarDays, Users, ExternalLink, Loader2 } from 'lucide-react'
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 interface WorkshopRegistration {
   registrationId: string
@@ -44,6 +46,7 @@ function getStatus(startDate: string, endDate: string) {
 }
 
 export function MyWorkshops({ workshops }: MyWorkshopsProps) {
+  const { accessToken } = useAuth()
   const [items, setItems] = useState(workshops)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
 
@@ -54,12 +57,19 @@ export function MyWorkshops({ workshops }: MyWorkshopsProps) {
   async function handleCancel(workshopId: string) {
     setCancellingId(workshopId)
     try {
-      const result = await cancelWorkshopRegistration(workshopId)
-      if (result.success) {
+      const res = await fetch(`${apiUrl}/api/v1/workshops/${workshopId}/register`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (res.ok) {
         setItems((prev) => prev.filter((w) => w.workshopId !== workshopId))
         toast.success('Registration cancelled.')
       } else {
-        toast.error(result.error || 'Failed to cancel.')
+        const data = await res.json()
+        toast.error(data.error || 'Failed to cancel.')
       }
     } catch {
       toast.error('Something went wrong.')

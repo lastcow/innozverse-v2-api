@@ -1,26 +1,21 @@
-import { prisma } from '@repo/database'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import { MyStudioBookings } from '@/components/dashboard/my-studio-bookings'
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 export default async function UserStudioBookingsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/auth/login')
 
-  const bookings = await prisma.studioBooking.findMany({
-    where: { userId: session.user.id },
-    include: { slot: true },
-    orderBy: { slot: { startTime: 'asc' } },
+  const res = await fetch(`${apiUrl}/api/v1/studio-bookings/mine`, {
+    cache: 'no-store',
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
+    },
   })
 
-  const data = bookings.map((b) => ({
-    bookingId: b.id,
-    slotId: b.slot.id,
-    startTime: b.slot.startTime.toISOString(),
-    endTime: b.slot.endTime.toISOString(),
-    status: b.status,
-    bookedAt: b.createdAt.toISOString(),
-  }))
+  const { bookings } = await res.json()
 
   return (
     <div>
@@ -28,7 +23,7 @@ export default async function UserStudioBookingsPage() {
       <p className="text-gray-500 mb-8">
         Manage your Open Studio session reservations.
       </p>
-      <MyStudioBookings bookings={data} />
+      <MyStudioBookings bookings={bookings} />
     </div>
   )
 }
