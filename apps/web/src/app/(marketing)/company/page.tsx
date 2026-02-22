@@ -164,7 +164,7 @@ export default function CompanyPage() {
             </p>
             <div className="text-sm text-white/90 font-medium space-y-1">
               <p>Mon - Fri: 6 PM - 9 PM</p>
-              <p>Sat: 1 PM - 8 PM</p>
+              <p>Sat: 1 PM - 6 PM</p>
               <p>Sun: Closed</p>
             </div>
           </div>

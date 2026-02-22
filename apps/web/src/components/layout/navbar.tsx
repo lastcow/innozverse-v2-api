@@ -6,12 +6,26 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { signOut } from 'next-auth/react'
-import { X, User, LogOut, LayoutDashboard } from 'lucide-react'
+import { X, User, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react'
 
-const navLinks = [
+interface NavLink {
+  href: string
+  label: string
+  children?: { href: string; label: string }[]
+}
+
+const navLinks: NavLink[] = [
   { href: '/knowledge-base', label: 'Knowledge Base' },
   { href: '/products', label: 'Product' },
-  { href: '/youth-program', label: 'Youth Program' },
+  {
+    href: '/youth-program',
+    label: 'Youth Program',
+    children: [
+      { href: '/youth-program', label: 'Overview' },
+      { href: '/workshops', label: 'Workshops' },
+      { href: '/youth-program/open-studio', label: 'Open Studio' },
+    ],
+  },
   { href: '/pricing', label: 'Plans & Pricing' },
   { href: '/company', label: 'Company' },
 ]
@@ -21,6 +35,8 @@ export function Navbar() {
   const { user, isAuthenticated, isLoading } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+  const [navDropdown, setNavDropdown] = useState<string | null>(null)
+  const [mobileExpanded, setMobileExpanded] = useState<string | null>(null)
 
   const isActive = (href: string) => pathname.startsWith(href)
 
@@ -45,6 +61,45 @@ export function Navbar() {
           <div className="hidden md:flex items-center h-16 gap-1">
             {navLinks.map((link) => {
               const active = isActive(link.href)
+
+              if (link.children) {
+                const childActive = link.children.some((c) => isActive(c.href))
+                return (
+                  <div key={link.href} className="relative h-full flex items-center">
+                    <button
+                      onClick={() => setNavDropdown(navDropdown === link.href ? null : link.href)}
+                      onBlur={() => setTimeout(() => setNavDropdown(null), 200)}
+                      className={`flex items-center h-full px-3 text-[15px] border-b-2 transition-colors gap-1 ${
+                        childActive
+                          ? 'text-blue-600 border-blue-600 font-medium'
+                          : 'text-slate-600 border-transparent hover:text-blue-600'
+                      }`}
+                    >
+                      {link.label}
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${navDropdown === link.href ? 'rotate-180' : ''}`} />
+                    </button>
+                    {navDropdown === link.href && (
+                      <div className="absolute top-full left-0 mt-0 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                        {link.children.map((child) => (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={`block px-4 py-2.5 text-[15px] transition-colors ${
+                              isActive(child.href)
+                                ? 'text-blue-600 font-medium'
+                                : 'text-slate-700 hover:text-blue-600'
+                            }`}
+                            onClick={() => setNavDropdown(null)}
+                          >
+                            {child.label}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+
               return (
                 <Link
                   key={link.href}
@@ -153,6 +208,44 @@ export function Navbar() {
           <div className="container px-4 py-8 space-y-1">
             {navLinks.map((link) => {
               const active = isActive(link.href)
+
+              if (link.children) {
+                const expanded = mobileExpanded === link.href
+                return (
+                  <div key={link.href}>
+                    <button
+                      onClick={() => setMobileExpanded(expanded ? null : link.href)}
+                      className={`flex items-center justify-between w-full px-4 py-3 text-lg transition-colors ${
+                        link.children.some((c) => isActive(c.href))
+                          ? 'text-blue-600 font-medium'
+                          : 'text-slate-700 hover:text-blue-600'
+                      }`}
+                    >
+                      {link.label}
+                      <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                    </button>
+                    {expanded && (
+                      <div className="pl-4">
+                        {link.children.map((child) => (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={`block px-4 py-2.5 text-base transition-colors ${
+                              isActive(child.href)
+                                ? 'text-blue-600 font-medium'
+                                : 'text-slate-600 hover:text-blue-600'
+                            }`}
+                            onClick={() => setMobileMenuOpen(false)}
+                          >
+                            {child.label}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+
               return (
                 <Link
                   key={link.href}

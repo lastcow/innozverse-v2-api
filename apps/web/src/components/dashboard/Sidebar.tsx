@@ -13,6 +13,8 @@ import {
   BarChart,
   Settings,
   Tag,
+  Calendar,
+  Clock,
 } from 'lucide-react'
 import {
   Sheet,
@@ -49,6 +51,8 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
         { label: 'Overview', href: '/user/dashboard', icon: LayoutDashboard },
         { label: 'My Profile', href: '/user/profile', icon: User },
         { label: 'Purchase History', href: '/user/purchase-history', icon: Package },
+        { label: 'My Workshops', href: '/user/workshops', icon: Calendar },
+        { label: 'Studio Bookings', href: '/user/studio-bookings', icon: Clock },
         { label: 'Subscriptions', href: '/user/subscription', icon: CreditCard },
       ],
     },
@@ -61,6 +65,8 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
           items: [
             { label: 'Products', href: '/admin/products', icon: ShoppingBag },
             { label: 'Discounts', href: '/admin/discounts', icon: Tag },
+            { label: 'Workshops', href: '/admin/workshops', icon: Calendar },
+            { label: 'Studio Slots', href: '/admin/studio-slots', icon: Clock },
             { label: 'Users', href: '/admin/users', icon: Users },
             { label: 'Analytics', href: '/admin/analytics', icon: BarChart },
           ],

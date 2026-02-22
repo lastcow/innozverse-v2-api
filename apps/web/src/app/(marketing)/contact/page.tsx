@@ -107,10 +107,10 @@ export default function ContactPage() {
                   <div>
                     <p className="text-sm font-medium text-slate-500 mb-1">Email</p>
                     <a
-                      href="mailto:info@innozverse.com"
+                      href="mailto:contact@innozverse.com"
                       className="text-xl font-medium text-slate-900 hover:text-blue-600 transition-colors"
                     >
-                      info@innozverse.com
+                      contact@innozverse.com
                     </a>
                   </div>
                 </div>

@@ -624,6 +624,158 @@ app.delete('/api/v1/discounts/:id', authMiddleware, requireRole('ADMIN'), async 
 });
 
 // ============================================================
+// Workshop Routes
+// ============================================================
+
+// GET /api/v1/workshops - List published workshops (public)
+app.get('/api/v1/workshops', async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const workshops = await prisma.workshop.findMany({
+      where: { isPublished: true },
+      orderBy: { startDate: 'asc' }
+    });
+
+    return c.json({ workshops });
+
+  } catch (error) {
+    console.error('Get workshops error:', error);
+    return c.json({ error: 'Failed to fetch workshops', message: error.message }, 500);
+  }
+});
+
+// GET /api/v1/workshops/admin - List ALL workshops (admin only)
+app.get('/api/v1/workshops/admin', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const workshops = await prisma.workshop.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return c.json({ workshops });
+
+  } catch (error) {
+    console.error('Get admin workshops error:', error);
+    return c.json({ error: 'Failed to fetch workshops', message: error.message }, 500);
+  }
+});
+
+// POST /api/v1/workshops - Create workshop (admin only)
+app.post('/api/v1/workshops', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { title, description, imageUrls, startDate, endDate, capacity, isPublished = false } = body;
+
+    if (!title || !description || !startDate || !endDate) {
+      return c.json({ error: 'Missing required fields: title, description, startDate, endDate' }, 400);
+    }
+
+    if (new Date(endDate) <= new Date(startDate)) {
+      return c.json({ error: 'End date must be after start date' }, 400);
+    }
+
+    const workshop = await prisma.workshop.create({
+      data: {
+        title,
+        description,
+        imageUrls: imageUrls || [],
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        capacity: capacity !== undefined ? Number(capacity) : 0,
+        isPublished
+      }
+    });
+
+    return c.json({ workshop, message: 'Workshop created successfully' }, 201);
+
+  } catch (error) {
+    console.error('Create workshop error:', error);
+    return c.json({ error: 'Failed to create workshop', message: error.message }, 500);
+  }
+});
+
+// PUT /api/v1/workshops/:id - Update workshop (admin only)
+app.put('/api/v1/workshops/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const body = await c.req.json();
+    const { title, description, imageUrls, startDate, endDate, capacity, isPublished } = body;
+
+    const existingWorkshop = await prisma.workshop.findUnique({ where: { id } });
+    if (!existingWorkshop) {
+      return c.json({ error: 'Workshop not found' }, 404);
+    }
+
+    const updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (imageUrls !== undefined) updateData.imageUrls = imageUrls;
+    if (startDate !== undefined) updateData.startDate = new Date(startDate);
+    if (endDate !== undefined) updateData.endDate = new Date(endDate);
+    if (capacity !== undefined) updateData.capacity = Number(capacity);
+    if (isPublished !== undefined) updateData.isPublished = isPublished;
+
+    // Validate dates if both are being set
+    const finalStart = updateData.startDate || existingWorkshop.startDate;
+    const finalEnd = updateData.endDate || existingWorkshop.endDate;
+    if (new Date(finalEnd) <= new Date(finalStart)) {
+      return c.json({ error: 'End date must be after start date' }, 400);
+    }
+
+    const workshop = await prisma.workshop.update({
+      where: { id },
+      data: updateData
+    });
+
+    return c.json({ workshop, message: 'Workshop updated successfully' });
+
+  } catch (error) {
+    console.error('Update workshop error:', error);
+    return c.json({ error: 'Failed to update workshop', message: error.message }, 500);
+  }
+});
+
+// DELETE /api/v1/workshops/:id - Delete workshop (admin only)
+app.delete('/api/v1/workshops/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { id } = c.req.param();
+
+    const existingWorkshop = await prisma.workshop.findUnique({ where: { id } });
+    if (!existingWorkshop) {
+      return c.json({ error: 'Workshop not found' }, 404);
+    }
+
+    await prisma.workshop.delete({
+      where: { id }
+    });
+
+    return c.json({ message: 'Workshop deleted successfully' });
+
+  } catch (error) {
+    console.error('Delete workshop error:', error);
+    return c.json({ error: 'Failed to delete workshop', message: error.message }, 500);
+  }
+});
+
+// ============================================================
 // Cart Routes
 // ============================================================
 

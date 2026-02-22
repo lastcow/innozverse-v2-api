@@ -56,6 +56,8 @@ model User {
   verificationsApproved StudentVerification[] @relation("ApprovedBy")
   carts                 Cart[]
   orders                Order[]
+  workshopRegistrations WorkshopRegistration[]
+  studioBookings        StudioBooking[]
 
   @@unique([oauthProvider, oauthId])
   @@map("users")
@@ -207,4 +209,67 @@ model EventDiscount {
 
   @@index([active, startDate, endDate])
   @@map("event_discounts")
+}
+
+model Workshop {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  imageUrls   Json     @default("[]") @map("image_urls")
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  capacity    Int      @default(0)
+  isPublished Boolean  @default(false) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  registrations WorkshopRegistration[]
+
+  @@index([isPublished, startDate])
+  @@map("workshops")
+}
+
+model WorkshopRegistration {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  workshopId String   @map("workshop_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workshop Workshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workshopId])
+  @@index([workshopId])
+  @@map("workshop_registrations")
+}
+
+model StudioSlot {
+  id          String   @id @default(uuid())
+  startTime   DateTime @map("start_time")
+  endTime     DateTime @map("end_time")
+  capacity    Int      @default(10)
+  isAvailable Boolean  @default(true) @map("is_available")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  bookings StudioBooking[]
+
+  @@index([startTime, isAvailable])
+  @@map("studio_slots")
+}
+
+model StudioBooking {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  slotId    String   @map("slot_id")
+  status    String   @default("CONFIRMED")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slot StudioSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, slotId])
+  @@index([slotId])
+  @@index([userId])
+  @@map("studio_bookings")
 }
