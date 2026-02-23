@@ -2,7 +2,7 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
   transpilePackages: ['@repo/api-client', '@repo/types'],
   experimental: {
     outputFileTracingRoot: path.join(__dirname, '../../'),

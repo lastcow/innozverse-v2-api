@@ -4,6 +4,7 @@ import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, Suspense } from 'react'
 import Link from 'next/link'
+import { AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function LoginPage() {
@@ -23,6 +24,8 @@ function LoginContent() {
   const [loading, setLoading] = useState(false)
 
   const callbackUrl = searchParams.get('callbackUrl') || '/'
+  const urlError = searchParams.get('error')
+  const isDeactivated = urlError === 'AccountDeactivated'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,7 +40,11 @@ function LoginContent() {
       })
 
       if (result?.error) {
-        setError(result.error)
+        if (result.error.includes('AccountDeactivated')) {
+          setError('AccountDeactivated')
+        } else {
+          setError(result.error)
+        }
       } else {
         router.push(callbackUrl)
         router.refresh()
@@ -121,9 +128,22 @@ function LoginContent() {
             </div>
           </div>
 
+          {/* Deactivated account alert */}
+          {(isDeactivated || error === 'AccountDeactivated') && (
+            <div className="rounded-lg bg-red-50 border border-red-300 p-4 flex gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-red-800">Account Deactivated</p>
+                <p className="text-sm text-red-700 mt-1">
+                  Your account has been deactivated. Please contact support if you believe this is an error.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Email/Password Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+            {error && error !== 'AccountDeactivated' && (
               <div className="rounded-lg bg-red-50 border border-red-200 p-4">
                 <div className="text-sm text-red-800">{error}</div>
               </div>

@@ -1,7 +1,9 @@
+import 'dotenv/config';
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import vmRoutes from './routes/vms';
 
 const app = new Hono();
 
@@ -20,10 +22,11 @@ app.get('/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Routes (to be added)
+// Routes
 app.get('/api/v1', (c) => {
   return c.json({ message: 'Innozverse API v1' });
 });
+app.route('/', vmRoutes);
 
 export default app;
 

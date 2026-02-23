@@ -109,14 +109,15 @@ export default function ProductsPage() {
   // Get the best active event discount (highest percentage)
   const activeEventDiscount = getActiveEventDiscount(activeEventDiscounts)
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
   const fetchProducts = async (typeFilter?: ProductType) => {
     try {
       setLoading(true)
       setError(null)
-      const url = typeFilter
-        ? `/api/products?type=${typeFilter}&activeOnly=true`
-        : '/api/products?activeOnly=true'
-      const response = await fetch(url)
+      const params = new URLSearchParams({ active: 'true' })
+      if (typeFilter) params.set('type', typeFilter)
+      const response = await fetch(`${apiUrl}/api/v1/products?${params}`)
       if (response.ok) {
         const data: ApiResponse = await response.json()
         setProducts(data.products)

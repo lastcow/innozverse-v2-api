@@ -1,11 +1,12 @@
 'use client'
 
-import { notFound } from 'next/navigation'
+import { notFound, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Check, Terminal, Server, ShieldCheck, Crown, Cpu, HardDrive, Network, Clock, Users, Zap, BookOpen } from 'lucide-react'
 import Link from 'next/link'
+import { useAuth } from '@/hooks/use-auth'
 
 const HomeNetworkCanvas = dynamic(
   () =>
@@ -19,7 +20,7 @@ interface PlanData {
   id: string
   name: string
   price: string
-  annualPrice?: string
+  monthlyAmount: number
   description: string
   icon: typeof Terminal
   features: {
@@ -38,6 +39,7 @@ const planData: Record<string, PlanData> = {
     id: 'free',
     name: 'Free',
     price: '$0/month',
+    monthlyAmount: 0,
     description: 'Free for students only. Verify with a valid .edu email to get started with cloud development.',
     icon: Terminal,
     features: [
@@ -85,7 +87,7 @@ const planData: Record<string, PlanData> = {
     id: 'basic',
     name: 'Basic',
     price: '$19.99/month',
-    annualPrice: '$215.89/year',
+    monthlyAmount: 19.99,
     description: 'The perfect starting point for cybersecurity students. Get a dedicated Kali Linux environment without the Pro price tag.',
     icon: Zap,
     features: [
@@ -137,7 +139,7 @@ const planData: Record<string, PlanData> = {
     id: 'pro',
     name: 'Pro',
     price: '$29.99/month',
-    annualPrice: '$323.89/year',
+    monthlyAmount: 29.99,
     description: 'Built for serious developers and security professionals.',
     icon: ShieldCheck,
     features: [
@@ -176,7 +178,7 @@ const planData: Record<string, PlanData> = {
     id: 'premium',
     name: 'Premium',
     price: '$59.99/month',
-    annualPrice: '$647.89/year',
+    monthlyAmount: 59.99,
     description: 'The ultimate toolkit for professionals and advanced learners.',
     icon: Crown,
     features: [
@@ -220,9 +222,26 @@ const planData: Record<string, PlanData> = {
 
 export default function PlanDetailPage({ params }: { params: { planId: string } }) {
   const plan = planData[params.planId]
+  const { isAuthenticated } = useAuth()
+  const router = useRouter()
 
   if (!plan) {
     notFound()
+  }
+
+  const isPaid = plan.monthlyAmount > 0
+
+  const handleSubscribe = () => {
+    if (!isPaid) {
+      router.push(isAuthenticated ? '/user/subscription' : '/auth/register')
+      return
+    }
+
+    if (isAuthenticated) {
+      router.push('/user/subscription')
+    } else {
+      router.push('/auth/login?callbackUrl=%2Fuser%2Fsubscription')
+    }
   }
 
   return (
@@ -246,17 +265,22 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
                   <p className="text-2xl text-blue-600 font-bold">
                     {plan.price}
                   </p>
-                  {plan.annualPrice && (
-                    <p className="text-base text-slate-500 mt-1">
-                      or {plan.annualPrice} <span className="text-sm">(save 10%)</span>
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
             <p className="text-xl text-slate-600 leading-relaxed">
               {plan.description}
             </p>
+
+            <div className="mt-8">
+              <Button
+                onClick={handleSubscribe}
+                size="lg"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isPaid ? 'Subscribe' : 'Get Started Free'}
+              </Button>
+            </div>
           </div>
         </div>
       </section>
@@ -369,10 +393,12 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
                     Compare Plans
                   </Link>
                 </Button>
-                <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white">
-                  <Link href="/auth/register">
-                    Subscribe Now
-                  </Link>
+                <Button
+                  onClick={handleSubscribe}
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isPaid ? 'Subscribe' : 'Get Started Free'}
                 </Button>
               </div>
             </div>
@@ -382,10 +408,12 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
 
       {/* Sticky CTA for Mobile */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t-2 border-gray-200 shadow-lg sm:hidden z-50">
-        <Button asChild size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-          <Link href="/auth/register">
-            Subscribe to {plan.name}
-          </Link>
+        <Button
+          onClick={handleSubscribe}
+          size="lg"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          {isPaid ? 'Subscribe' : 'Get Started Free'}
         </Button>
       </div>
     </>

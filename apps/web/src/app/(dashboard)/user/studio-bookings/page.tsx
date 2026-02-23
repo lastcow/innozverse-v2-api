@@ -15,7 +15,7 @@ export default async function UserStudioBookingsPage() {
     },
   })
 
-  const { bookings } = await res.json()
+  const bookings = res.ok ? (await res.json()).bookings ?? [] : []
 
   return (
     <div>

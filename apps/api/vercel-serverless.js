@@ -233,6 +233,11 @@ app.post('/api/v1/auth/login', async (c) => {
       return c.json({ error: 'Invalid email or password' }, 401);
     }
 
+    // Block soft-deleted users
+    if (user.deletedAt) {
+      return c.json({ error: 'AccountDeactivated' }, 403);
+    }
+
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.passwordHash);
     if (!isValidPassword) {
@@ -305,19 +310,30 @@ app.get('/api/v1/products', async (c) => {
       ];
     }
 
-    // Get products and total count
-    const [products, total] = await Promise.all([
+    const now = new Date();
+
+    // Get products, total count, and active event discounts
+    const [products, total, activeEventDiscounts] = await Promise.all([
       prisma.product.findMany({
         where,
         skip,
         take: limitNum,
         orderBy: { createdAt: 'desc' }
       }),
-      prisma.product.count({ where })
+      prisma.product.count({ where }),
+      prisma.eventDiscount.findMany({
+        where: {
+          active: true,
+          startDate: { lte: now },
+          endDate: { gte: now },
+        },
+        orderBy: { percentage: 'desc' },
+      }),
     ]);
 
     return c.json({
       products,
+      activeEventDiscounts,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -341,15 +357,24 @@ app.get('/api/v1/products/:id', async (c) => {
   try {
     const { id } = c.req.param();
 
-    const product = await prisma.product.findUnique({
-      where: { id }
-    });
+    const now = new Date();
+    const [product, activeEventDiscounts] = await Promise.all([
+      prisma.product.findUnique({ where: { id } }),
+      prisma.eventDiscount.findMany({
+        where: {
+          active: true,
+          startDate: { lte: now },
+          endDate: { gte: now },
+        },
+        orderBy: { percentage: 'desc' },
+      }),
+    ]);
 
     if (!product) {
       return c.json({ error: 'Product not found' }, 404);
     }
 
-    return c.json({ product });
+    return c.json({ product, activeEventDiscounts });
 
   } catch (error) {
     console.error('Get product error:', error);
@@ -487,6 +512,30 @@ app.delete('/api/v1/products/:id', authMiddleware, requireRole('ADMIN'), async (
 // ============================================================
 // Discount Routes
 // ============================================================
+
+// GET /api/v1/discounts/active - Public: list currently active discounts
+app.get('/api/v1/discounts/active', async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const now = new Date();
+    const discounts = await prisma.eventDiscount.findMany({
+      where: {
+        active: true,
+        startDate: { lte: now },
+        endDate: { gte: now },
+      },
+      orderBy: { percentage: 'desc' },
+    });
+
+    return c.json({ discounts });
+  } catch (error) {
+    console.error('Get active discounts error:', error);
+    return c.json({ error: 'Failed to fetch discounts', message: error.message }, 500);
+  }
+});
 
 // GET /api/v1/discounts - List all discounts (admin, auth required)
 app.get('/api/v1/discounts', authMiddleware, requireRole('ADMIN'), async (c) => {
@@ -1829,6 +1878,125 @@ app.post('/api/v1/orders', authMiddleware, async (c) => {
   }
 });
 
+// POST /api/v1/orders/from-stripe - Create order from Stripe webhook
+app.post('/api/v1/orders/from-stripe', async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  // Verify internal secret
+  const internalSecret = c.req.header('X-Internal-Secret');
+  const expectedSecret = process.env.INTERNAL_WEBHOOK_SECRET;
+
+  if (!expectedSecret || internalSecret !== expectedSecret) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { userId, stripeSessionId, stripePaymentIntentId, amountTotal, items } = body;
+
+    if (!userId || !stripeSessionId || !items || !items.length) {
+      return c.json({ error: 'Missing required fields' }, 400);
+    }
+
+    // Idempotency check
+    const existingOrder = await prisma.order.findUnique({
+      where: { stripeSessionId }
+    });
+
+    if (existingOrder) {
+      return c.json({ order: existingOrder, message: 'Order already exists' });
+    }
+
+    // Create order in transaction
+    const order = await prisma.$transaction(async (tx) => {
+      // Fetch products for snapshots and stock validation
+      const productIds = items.map((i) => i.productId);
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } }
+      });
+
+      const productMap = {};
+      for (const p of products) {
+        productMap[p.id] = p;
+      }
+
+      // Build order items and validate
+      const orderItems = [];
+      let subtotal = 0;
+
+      for (const item of items) {
+        const product = productMap[item.productId];
+        if (!product) {
+          throw new Error(`Product not found: ${item.productId}`);
+        }
+
+        const priceAtPurchase = parseFloat(product.basePrice);
+        subtotal += priceAtPurchase * item.quantity;
+
+        orderItems.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          priceAtPurchase: product.basePrice,
+          productSnapshot: {
+            name: product.name,
+            description: product.description,
+            type: product.type,
+            imageUrls: product.imageUrls,
+            properties: product.properties,
+          },
+        });
+      }
+
+      // Use Stripe's amount as the total (authoritative)
+      const total = amountTotal ? amountTotal / 100 : subtotal;
+
+      // Create the order
+      const newOrder = await tx.order.create({
+        data: {
+          userId,
+          status: 'PROCESSING',
+          subtotal,
+          discountAmount: 0,
+          tax: 0,
+          total,
+          stripeSessionId,
+          stripePaymentIntentId: stripePaymentIntentId || null,
+          items: {
+            create: orderItems,
+          },
+        },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      });
+
+      // Deduct stock
+      for (const item of items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: { decrement: item.quantity },
+            soldCount: { increment: item.quantity },
+          },
+        });
+      }
+
+      return newOrder;
+    });
+
+    return c.json({ order, message: 'Order created successfully' }, 201);
+  } catch (error) {
+    console.error('Create order from Stripe error:', error);
+    return c.json({ error: 'Failed to create order', message: error.message }, 500);
+  }
+});
+
 // GET /api/v1/orders - Get user's orders
 app.get('/api/v1/orders', authMiddleware, async (c) => {
   if (!prisma) {
@@ -2758,6 +2926,351 @@ app.get('/test/jwt', async (c) => {
       error: error.message,
       timestamp: new Date().toISOString()
     }, 500);
+  }
+});
+
+// ============================================================
+// Virtual Machine Routes
+// ============================================================
+
+// Helper: Proxmox API fetch
+const proxmoxFetch = async (path, options = {}) => {
+  const https = require('node:https');
+  const host = process.env.PROXMOX_HOST;
+  const tokenId = process.env.PROXMOX_TOKEN_ID;
+  const tokenSecret = process.env.PROXMOX_TOKEN_SECRET;
+
+  if (!host || !tokenId || !tokenSecret) {
+    throw new Error('Proxmox environment variables not configured');
+  }
+
+  const url = `${host}/api2/json${path}`;
+  const method = options.method || 'GET';
+  const contentType = options.contentType || 'json';
+
+  let bodyStr;
+  let contentTypeHeader;
+  if (options.body) {
+    if (contentType === 'form') {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(options.body)) {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      }
+      bodyStr = params.toString();
+      contentTypeHeader = 'application/x-www-form-urlencoded';
+    } else {
+      bodyStr = JSON.stringify(options.body);
+      contentTypeHeader = 'application/json';
+    }
+  }
+
+  const parsed = new URL(url);
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: parsed.hostname,
+        port: parsed.port || 8006,
+        path: parsed.pathname + parsed.search,
+        method,
+        headers: {
+          Authorization: `PVEAPIToken=${tokenId}=${tokenSecret}`,
+          ...(contentTypeHeader ? { 'Content-Type': contentTypeHeader } : {}),
+          ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {}),
+        },
+        rejectUnauthorized: false,
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          const raw = Buffer.concat(chunks).toString();
+          if (!res.statusCode || res.statusCode >= 400) {
+            reject(new Error(`Proxmox API error ${res.statusCode}: ${raw}`));
+            return;
+          }
+          try {
+            const json = JSON.parse(raw);
+            resolve(json.data);
+          } catch {
+            reject(new Error(`Failed to parse Proxmox response: ${raw}`));
+          }
+        });
+      }
+    );
+    req.on('error', reject);
+    if (bodyStr) req.write(bodyStr);
+    req.end();
+  });
+};
+
+const getProxmoxNode = () => process.env.PROXMOX_NODE || 'pve';
+const VM_TEMPLATE_IDS = [11001, 11002];
+
+const parseIpConfig = (ipconfig0) => {
+  if (!ipconfig0) return {};
+  let ip, gateway;
+  const ipMatch = ipconfig0.match(/ip=([^/,\s]+)/);
+  if (ipMatch) ip = ipMatch[1];
+  const gwMatch = ipconfig0.match(/gw=([^,\s]+)/);
+  if (gwMatch) gateway = gwMatch[1];
+  return { ip, gateway };
+};
+
+// POST /api/v1/vms/sync - Sync VMs from Proxmox into local DB
+app.post('/api/v1/vms/sync', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+
+  try {
+    const node = getProxmoxNode();
+    const proxmoxVMs = await proxmoxFetch(`/nodes/${node}/qemu`);
+    const activeVMs = proxmoxVMs.filter((vm) => !VM_TEMPLATE_IDS.includes(vm.vmid));
+
+    // Fetch config for each VM in parallel
+    const configResults = await Promise.allSettled(
+      activeVMs.map((vm) =>
+        proxmoxFetch(`/nodes/${node}/qemu/${vm.vmid}/config`)
+          .then((config) => ({ vmid: vm.vmid, config }))
+      )
+    );
+
+    const configMap = new Map();
+    for (const result of configResults) {
+      if (result.status === 'fulfilled') {
+        configMap.set(result.value.vmid, result.value.config);
+      }
+    }
+
+    // Upsert each VM
+    const proxmoxVmIds = new Set();
+    for (const vm of activeVMs) {
+      proxmoxVmIds.add(vm.vmid);
+      const config = configMap.get(vm.vmid);
+      const { ip, gateway } = parseIpConfig(config?.ipconfig0);
+      const memory = parseInt(config?.memory ?? Math.round(vm.maxmem / (1024 * 1024)), 10) || 2048;
+      const cpuCores = parseInt(config?.cores ?? vm.cpus, 10) || 2;
+
+      await prisma.virtualMachine.upsert({
+        where: { vmid: vm.vmid },
+        update: {
+          name: vm.name || `VM ${vm.vmid}`,
+          node,
+          status: vm.status,
+          memory,
+          cpuCores,
+          ipAddress: ip ?? null,
+          gateway: gateway ?? null,
+          username: config?.ciuser ?? null,
+          password: config?.cipassword ?? null,
+          deletedAt: null,
+        },
+        create: {
+          vmid: vm.vmid,
+          name: vm.name || `VM ${vm.vmid}`,
+          node,
+          status: vm.status,
+          memory,
+          cpuCores,
+          ipAddress: ip ?? null,
+          gateway: gateway ?? null,
+          username: config?.ciuser ?? null,
+          password: config?.cipassword ?? null,
+        },
+      });
+    }
+
+    // Soft-delete VMs no longer in Proxmox
+    const dbVMs = await prisma.virtualMachine.findMany({
+      where: { deletedAt: null },
+      select: { vmid: true },
+    });
+
+    const missingVmIds = dbVMs
+      .filter((dbVm) => !proxmoxVmIds.has(dbVm.vmid))
+      .map((dbVm) => dbVm.vmid);
+
+    if (missingVmIds.length > 0) {
+      await prisma.virtualMachine.updateMany({
+        where: { vmid: { in: missingVmIds } },
+        data: { deletedAt: new Date(), status: 'deleted' },
+      });
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to sync VMs:', error);
+    return c.json({ error: error.message || 'Failed to sync VMs' }, 500);
+  }
+});
+
+// GET /api/v1/vms - List active VMs from local DB
+app.get('/api/v1/vms', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+
+  try {
+    const vms = await prisma.virtualMachine.findMany({
+      where: { deletedAt: null },
+      orderBy: { vmid: 'asc' },
+    });
+
+    return c.json({
+      vms: vms.map((vm) => ({
+        id: vm.id,
+        vmid: vm.vmid,
+        name: vm.name,
+        node: vm.node,
+        status: vm.status,
+        memory: vm.memory,
+        cpuCores: vm.cpuCores,
+        ipAddress: vm.ipAddress,
+        gateway: vm.gateway,
+        username: vm.username,
+        password: vm.password,
+        createdAt: vm.createdAt.toISOString(),
+      })),
+    });
+  } catch (error) {
+    console.error('Failed to fetch VMs:', error);
+    return c.json({ error: 'Failed to fetch VMs' }, 500);
+  }
+});
+
+// POST /api/v1/vms/clone - Clone a VM from template
+app.post('/api/v1/vms/clone', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+
+  try {
+    const body = await c.req.json();
+    const { name, template, storage } = body;
+
+    if (!name || !template || !storage) {
+      return c.json({ error: 'name, template, and storage are required' }, 400);
+    }
+
+    const templateId = template === 'ubuntu' ? 11001 : 11002;
+    const node = getProxmoxNode();
+
+    // Get next VM ID
+    const allVMs = await proxmoxFetch(`/nodes/${node}/qemu`);
+    const existingIds = allVMs.map((vm) => vm.vmid).filter((id) => !VM_TEMPLATE_IDS.includes(id));
+    const newid = existingIds.length === 0 ? 200 : Math.max(...existingIds) + 1;
+
+    const upid = await proxmoxFetch(`/nodes/${node}/qemu/${templateId}/clone`, {
+      method: 'POST',
+      contentType: 'form',
+      body: { newid, name, full: 1, storage },
+    });
+
+    return c.json({ upid, newid });
+  } catch (error) {
+    console.error('Failed to clone VM:', error);
+    return c.json({ error: error.message || 'Failed to clone VM' }, 500);
+  }
+});
+
+// GET /api/v1/vms/tasks/:upid - Get clone task status
+app.get('/api/v1/vms/tasks/:upid', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  try {
+    const upid = c.req.param('upid');
+    const node = getProxmoxNode();
+    const encodedUpid = encodeURIComponent(upid);
+
+    const status = await proxmoxFetch(`/nodes/${node}/tasks/${encodedUpid}/status`);
+    const log = await proxmoxFetch(`/nodes/${node}/tasks/${encodedUpid}/log`);
+
+    let percentage = 0;
+    if (log && Array.isArray(log)) {
+      for (const line of log) {
+        const match = line.t?.match(/(\d+(?:\.\d+)?)%/);
+        if (match) {
+          percentage = Math.round(parseFloat(match[1]));
+        }
+      }
+    }
+
+    return c.json({ status: status.status, exitstatus: status.exitstatus, percentage });
+  } catch (error) {
+    console.error('Failed to get task status:', error);
+    return c.json({ error: error.message || 'Failed to get task status' }, 500);
+  }
+});
+
+// PUT /api/v1/vms/:vmid/config - Configure a VM (cloud-init, resources)
+app.put('/api/v1/vms/:vmid/config', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  try {
+    const vmid = parseInt(c.req.param('vmid'), 10);
+    const body = await c.req.json();
+    const node = getProxmoxNode();
+
+    const configBody = {};
+    if (body.memory) configBody.memory = body.memory;
+    if (body.cores) configBody.cores = body.cores;
+    if (body.ciuser) configBody.ciuser = body.ciuser;
+    if (body.cipassword) configBody.cipassword = body.cipassword;
+    if (body.ipconfig0) configBody.ipconfig0 = body.ipconfig0;
+
+    await proxmoxFetch(`/nodes/${node}/qemu/${vmid}/config`, {
+      method: 'PUT',
+      contentType: 'form',
+      body: configBody,
+    });
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to configure VM:', error);
+    return c.json({ error: error.message || 'Failed to configure VM' }, 500);
+  }
+});
+
+// POST /api/v1/vms/:vmid/status - Start or stop a VM
+app.post('/api/v1/vms/:vmid/status', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  try {
+    const vmid = parseInt(c.req.param('vmid'), 10);
+    const { action } = await c.req.json();
+
+    if (action !== 'start' && action !== 'stop') {
+      return c.json({ error: 'action must be "start" or "stop"' }, 400);
+    }
+
+    const node = getProxmoxNode();
+    await proxmoxFetch(`/nodes/${node}/qemu/${vmid}/status/${action}`, { method: 'POST' });
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error(`Failed to ${c.req.param('action')} VM:`, error);
+    return c.json({ error: error.message || 'Failed to change VM status' }, 500);
+  }
+});
+
+// DELETE /api/v1/vms/:vmid - Delete a VM (Proxmox + soft-delete in DB)
+app.delete('/api/v1/vms/:vmid', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+
+  try {
+    const vmid = parseInt(c.req.param('vmid'), 10);
+    const node = getProxmoxNode();
+
+    // Check if running
+    const allVMs = await proxmoxFetch(`/nodes/${node}/qemu`);
+    const vm = allVMs.find((v) => v.vmid === vmid);
+    if (vm && vm.status === 'running') {
+      return c.json({ error: 'Cannot delete a running VM. Stop it first.' }, 400);
+    }
+
+    await proxmoxFetch(`/nodes/${node}/qemu/${vmid}`, { method: 'DELETE' });
+
+    // Soft-delete in DB
+    await prisma.virtualMachine.updateMany({
+      where: { vmid },
+      data: { deletedAt: new Date(), status: 'deleted' },
+    });
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete VM:', error);
+    return c.json({ error: error.message || 'Failed to delete VM' }, 500);
   }
 });
 

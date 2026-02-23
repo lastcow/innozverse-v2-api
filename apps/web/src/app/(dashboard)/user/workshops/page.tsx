@@ -15,7 +15,7 @@ export default async function UserWorkshopsPage() {
     },
   })
 
-  const { workshops } = await res.json()
+  const workshops = res.ok ? (await res.json()).workshops ?? [] : []
 
   return (
     <div>

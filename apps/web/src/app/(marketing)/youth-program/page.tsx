@@ -97,7 +97,7 @@ export default function YouthProgramPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base">
-                  <Link href="#workshops">View Upcoming Workshops</Link>
+                  <Link href="/workshops">View Upcoming Workshops</Link>
                 </Button>
                 <Button asChild variant="outline" size="lg" className="bg-white border-gray-200 text-slate-700 hover:bg-gray-50 rounded-lg text-base">
                   <Link href="/contact">Contact Us</Link>
@@ -265,9 +265,6 @@ export default function YouthProgramPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base">
               <Link href="/contact">Contact Us</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="bg-white border-gray-200 text-slate-700 hover:bg-gray-50 rounded-lg text-base">
-              <Link href="/pricing">View Pricing</Link>
             </Button>
           </div>
         </div>

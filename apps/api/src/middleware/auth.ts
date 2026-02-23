@@ -1,10 +1,10 @@
 import { Context, Next } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import jwt from 'jsonwebtoken';
+import { jwtVerify } from 'jose';
 import type { JWTPayload, AuthContext } from '../types';
 import type { Role } from '@repo/types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
 
 export async function authMiddleware(c: Context, next: Next) {
   const authHeader = c.req.header('Authorization');
@@ -16,8 +16,8 @@ export async function authMiddleware(c: Context, next: Next) {
   const token = authHeader.substring(7);
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as JWTPayload;
-    c.set('user', payload);
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    c.set('user', payload as unknown as JWTPayload);
     await next();
   } catch (error) {
     throw new HTTPException(401, { message: 'Invalid or expired token' });

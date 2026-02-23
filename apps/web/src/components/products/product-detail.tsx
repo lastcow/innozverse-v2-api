@@ -1,7 +1,9 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
+import { ShoppingCart } from 'lucide-react';
+import { toast } from 'sonner';
+import { useCartStore } from '@/store/useCartStore';
 
 interface ProductDetailProps {
   product: {
@@ -18,9 +20,21 @@ interface ProductDetailProps {
 }
 
 export function ProductDetail({ product }: ProductDetailProps) {
+  const addItem = useCartStore((s) => s.addItem);
+
   const imageUrl = Array.isArray(product.imageUrls) && product.imageUrls.length > 0
     ? product.imageUrls[0]!
     : '/placeholder.png';
+
+  const handleAddToCart = () => {
+    addItem({
+      productId: product.id,
+      name: product.name,
+      price: parseFloat(product.basePrice.toString()),
+      image: imageUrl,
+    });
+    toast.success(`${product.name} added to cart`);
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -83,12 +97,14 @@ export function ProductDetail({ product }: ProductDetailProps) {
         )}
 
         <div className="space-y-4">
-          <Link
-            href="/contact"
-            className="block w-full py-3 px-6 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition text-center"
+          <button
+            onClick={handleAddToCart}
+            disabled={product.stock <= 0}
+            className="flex items-center justify-center gap-2 w-full py-3 px-6 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Contact Us to Buy
-          </Link>
+            <ShoppingCart className="w-5 h-5" />
+            Add to Cart
+          </button>
         </div>
       </div>
     </div>

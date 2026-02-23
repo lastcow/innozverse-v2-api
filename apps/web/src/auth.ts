@@ -80,7 +80,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const lname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
 
         try {
-          const userSelect = { id: true, email: true, role: true, oauthProvider: true, oauthId: true };
+          const userSelect = { id: true, email: true, role: true, oauthProvider: true, oauthId: true, deletedAt: true };
 
           let dbUser = await prisma.user.findUnique({
             where: {
@@ -99,6 +99,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             });
 
             if (existingUserByEmail) {
+              // Block soft-deleted users
+              if (existingUserByEmail.deletedAt) {
+                return '/auth/login?error=AccountDeactivated';
+              }
+
               if (existingUserByEmail.oauthProvider && existingUserByEmail.oauthProvider !== OAuthProvider[oauthProvider]) {
                 return false;
               }
@@ -133,6 +138,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 select: userSelect,
               });
             }
+          }
+
+          // Block soft-deleted users (found by OAuth ID)
+          if (dbUser.deletedAt) {
+            return '/auth/login?error=AccountDeactivated';
           }
 
           user.id = dbUser.id;

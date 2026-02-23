@@ -37,7 +37,7 @@ export async function submitContactForm(data: ContactFormData) {
 
     await mg.messages.create(domain, {
       from: `Contact Form <noreply@${domain}>`,
-      to: ['info@innozverse.com'],
+      to: ['contact@innozverse.com'],
       subject: `New Inquiry: ${subject}`,
       text: [
         `Name: ${name}`,

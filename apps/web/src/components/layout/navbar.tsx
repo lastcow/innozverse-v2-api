@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { signOut } from 'next-auth/react'
-import { X, User, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react'
+import { X, User, LogOut, LayoutDashboard, ChevronDown, ShoppingCart } from 'lucide-react'
+import { useCartStore } from '@/store/useCartStore'
+import { CartDrawer } from '@/components/cart/cart-drawer'
 
 interface NavLink {
   href: string
@@ -37,6 +39,13 @@ export function Navbar() {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
   const [navDropdown, setNavDropdown] = useState<string | null>(null)
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null)
+  const [cartOpen, setCartOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const cartTotalItems = useCartStore((s) => s.totalItems)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const isActive = (href: string) => pathname.startsWith(href)
 
@@ -115,6 +124,20 @@ export function Navbar() {
               )
             })}
           </div>
+
+          {/* Cart Icon */}
+          <button
+            onClick={() => setCartOpen(true)}
+            className="relative text-slate-600 hover:text-slate-900 transition-colors"
+            aria-label="Shopping cart"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            {mounted && cartTotalItems() > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {cartTotalItems() > 99 ? '99+' : cartTotalItems()}
+              </span>
+            )}
+          </button>
 
           {/* Auth Section */}
           <div className="flex items-center gap-6">
@@ -202,6 +225,8 @@ export function Navbar() {
         </div>
       </div>
 
+      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
+
       {/* Mobile Menu - Full Screen Overlay */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 top-16 z-40 md:hidden bg-white">
@@ -261,6 +286,22 @@ export function Navbar() {
                 </Link>
               )
             })}
+
+            <button
+              onClick={() => {
+                setCartOpen(true)
+                setMobileMenuOpen(false)
+              }}
+              className="flex items-center gap-3 w-full px-4 py-3 text-lg text-slate-700 hover:text-blue-600 transition-colors"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              Cart
+              {mounted && cartTotalItems() > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                  {cartTotalItems()}
+                </span>
+              )}
+            </button>
 
             {isAuthenticated ? (
               <>

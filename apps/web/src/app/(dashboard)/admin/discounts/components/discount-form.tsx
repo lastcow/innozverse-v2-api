@@ -31,6 +31,7 @@ import {
   FormMessage,
   FormDescription,
 } from '@/components/ui/form'
+import { toast } from 'sonner'
 import type { EventDiscount } from '@repo/types'
 
 const discountSchema = z.object({
@@ -63,7 +64,12 @@ interface DiscountFormProps {
 
 const formatDateForInput = (date: Date | string) => {
   const d = new Date(date)
-  return d.toISOString().slice(0, 16) // Format: YYYY-MM-DDTHH:mm
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
 const getTomorrowDate = () => {
@@ -146,10 +152,10 @@ export function DiscountForm({ open, discount, accessToken, onSuccess, onCancel 
         onSuccess()
       } else {
         const error = await response.json()
-        alert(`Failed to ${isEditing ? 'update' : 'create'} discount: ${error.error}`)
+        toast.error(`Failed to ${isEditing ? 'update' : 'create'} discount: ${error.error}`)
       }
     } catch {
-      alert(`Failed to ${isEditing ? 'update' : 'create'} discount`)
+      toast.error(`Failed to ${isEditing ? 'update' : 'create'} discount`)
     }
   }
 

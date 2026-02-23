@@ -1,5 +1,6 @@
 // Local development server that uses the same code as Vercel deployment
-require('dotenv').config({ path: '../../.env' });
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const { serve } = require('@hono/node-server');
 
 // Import the Hono app from vercel-serverless

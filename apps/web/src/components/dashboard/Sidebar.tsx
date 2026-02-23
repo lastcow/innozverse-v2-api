@@ -15,6 +15,7 @@ import {
   Tag,
   Calendar,
   Clock,
+  Server,
 } from 'lucide-react'
 import {
   Sheet,
@@ -67,6 +68,7 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
             { label: 'Discounts', href: '/admin/discounts', icon: Tag },
             { label: 'Workshops', href: '/admin/workshops', icon: Calendar },
             { label: 'Studio Slots', href: '/admin/studio-slots', icon: Clock },
+            { label: 'VMs', href: '/admin/vms', icon: Server },
             { label: 'Users', href: '/admin/users', icon: Users },
             { label: 'Analytics', href: '/admin/analytics', icon: BarChart },
           ],

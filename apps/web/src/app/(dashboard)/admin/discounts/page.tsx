@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
+import { toast } from 'sonner'
 import { DiscountTable } from './components/discount-table'
 import { DiscountForm } from './components/discount-form'
 import type { EventDiscount } from '@repo/types'
@@ -49,8 +50,6 @@ export default function AdminDiscountsPage() {
   }
 
   const handleDelete = async (discountId: string) => {
-    if (!confirm('Are you sure you want to delete this discount?')) return
-
     try {
       const response = await fetch(`${apiUrl}/api/v1/discounts/${discountId}`, {
         method: 'DELETE',
@@ -60,12 +59,13 @@ export default function AdminDiscountsPage() {
       })
 
       if (response.ok) {
+        toast.success('Discount deleted.')
         await fetchDiscounts()
       } else {
-        alert('Failed to delete discount')
+        toast.error('Failed to delete discount')
       }
     } catch {
-      alert('Failed to delete discount')
+      toast.error('Failed to delete discount')
     }
   }
 
@@ -83,10 +83,10 @@ export default function AdminDiscountsPage() {
       if (response.ok) {
         await fetchDiscounts()
       } else {
-        alert('Failed to update discount status')
+        toast.error('Failed to update discount status')
       }
     } catch {
-      alert('Failed to update discount status')
+      toast.error('Failed to update discount status')
     }
   }
 

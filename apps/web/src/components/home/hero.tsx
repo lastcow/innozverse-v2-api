@@ -151,7 +151,7 @@ export function Hero() {
                 <span className="font-semibold text-slate-900">Open Hours:</span>
                 <span className="ml-1">Mon - Fri: 6 PM - 9 PM</span>
                 <span className="mx-1">|</span>
-                <span>Sat: 1 PM - 8 PM</span>
+                <span>Sat: 1 PM - 6 PM</span>
                 <span className="mx-1">|</span>
                 <span>Sun: Closed</span>
               </div>
