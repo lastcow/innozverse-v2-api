@@ -281,6 +281,7 @@ model VirtualMachine {
   id        String    @id @default(cuid())
   vmid      Int       @unique
   name      String
+  type      String?
   node      String    @default("pve")
   status    String    @default("stopped")
   memory    Int       @default(2048)

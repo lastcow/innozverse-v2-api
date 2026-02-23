@@ -66,6 +66,7 @@ export interface VMRow {
   id: string
   vmid: number
   name: string
+  type: string | null
   node: string
   status: string
   memory: number
@@ -123,6 +124,19 @@ const columns = [
         String(row.original.vmid).includes(search) ||
         (row.original.ipAddress?.toLowerCase().includes(search) ?? false) ||
         (row.original.username?.toLowerCase().includes(search) ?? false)
+      )
+    },
+  }),
+  columnHelper.accessor('type', {
+    header: 'Type',
+    cell: (info) => {
+      const type = info.getValue()
+      if (!type) return <span className="text-sm text-gray-400">-</span>
+      const color = type === 'Ubuntu' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+      return (
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${color}`}>
+          {type}
+        </span>
       )
     },
   }),

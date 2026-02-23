@@ -141,6 +141,7 @@ app.get('/api/v1/vms', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), async (
         id: vm.id,
         vmid: vm.vmid,
         name: vm.name,
+        type: vm.type,
         node: vm.node,
         status: vm.status,
         memory: vm.memory,
@@ -180,6 +181,14 @@ app.post('/api/v1/vms/clone', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), 
       method: 'POST',
       contentType: 'form',
       body: { newid, name, full: 1, storage },
+    })
+
+    // Store VM type in DB
+    const vmType = template === 'ubuntu' ? 'Ubuntu' : 'Kali'
+    await prisma.virtualMachine.upsert({
+      where: { vmid: newid },
+      update: { name, type: vmType, node, status: 'stopped', deletedAt: null },
+      create: { vmid: newid, name, type: vmType, node, status: 'stopped' },
     })
 
     return c.json({ upid, newid })

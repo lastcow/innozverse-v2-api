@@ -1997,6 +1997,70 @@ app.post('/api/v1/orders/from-stripe', async (c) => {
   }
 });
 
+// POST /api/v1/orders/payment-failed - Handle Stripe payment failure from webhook
+app.post('/api/v1/orders/payment-failed', async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  // Verify internal secret
+  const internalSecret = c.req.header('X-Internal-Secret');
+  const expectedSecret = process.env.INTERNAL_WEBHOOK_SECRET;
+
+  if (!expectedSecret || internalSecret !== expectedSecret) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { userId, stripeSessionId, stripePaymentIntentId, eventType } = body;
+
+    console.warn('Payment failed event received:', { userId, stripeSessionId, stripePaymentIntentId, eventType });
+
+    if (!userId) {
+      return c.json({ error: 'Missing userId' }, 400);
+    }
+
+    // If we have a stripeSessionId, look for an existing order and cancel it
+    if (stripeSessionId) {
+      const existingOrder = await prisma.order.findUnique({
+        where: { stripeSessionId }
+      });
+
+      if (existingOrder) {
+        await prisma.order.update({
+          where: { id: existingOrder.id },
+          data: { status: 'CANCELLED' },
+        });
+        console.warn('Order cancelled due to payment failure:', existingOrder.id);
+        return c.json({ cancelled: true, orderId: existingOrder.id });
+      }
+    }
+
+    // If we have a stripePaymentIntentId, try finding by that
+    if (stripePaymentIntentId) {
+      const existingOrder = await prisma.order.findFirst({
+        where: { stripePaymentIntentId }
+      });
+
+      if (existingOrder) {
+        await prisma.order.update({
+          where: { id: existingOrder.id },
+          data: { status: 'CANCELLED' },
+        });
+        console.warn('Order cancelled due to payment failure:', existingOrder.id);
+        return c.json({ cancelled: true, orderId: existingOrder.id });
+      }
+    }
+
+    // No matching order found — payment failed before order was created
+    return c.json({ cancelled: false, message: 'No matching order found' });
+  } catch (error) {
+    console.error('Payment failed handler error:', error);
+    return c.json({ error: 'Failed to process payment failure', message: error.message }, 500);
+  }
+});
+
 // GET /api/v1/orders - Get user's orders
 app.get('/api/v1/orders', authMiddleware, async (c) => {
   if (!prisma) {
@@ -3120,6 +3184,7 @@ app.get('/api/v1/vms', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c)
         id: vm.id,
         vmid: vm.vmid,
         name: vm.name,
+        type: vm.type,
         node: vm.node,
         status: vm.status,
         memory: vm.memory,
@@ -3161,6 +3226,14 @@ app.post('/api/v1/vms/clone', authMiddleware, requireRole('ADMIN', 'SYSTEM'), as
       method: 'POST',
       contentType: 'form',
       body: { newid, name, full: 1, storage },
+    });
+
+    // Store VM type in DB
+    const vmType = template === 'ubuntu' ? 'Ubuntu' : 'Kali';
+    await prisma.virtualMachine.upsert({
+      where: { vmid: newid },
+      update: { name, type: vmType, node, status: 'stopped', deletedAt: null },
+      create: { vmid: newid, name, type: vmType, node, status: 'stopped' },
     });
 
     return c.json({ upid, newid });

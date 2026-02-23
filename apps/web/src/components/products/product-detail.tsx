@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCartStore } from '@/store/useCartStore';
 
@@ -105,6 +105,13 @@ export function ProductDetail({ product }: ProductDetailProps) {
             <ShoppingCart className="w-5 h-5" />
             Add to Cart
           </button>
+          <div className="flex items-start gap-3 rounded-lg bg-blue-50 border border-blue-100 p-3">
+            <MapPin className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-blue-700">
+              <span className="font-semibold">Local Pickup Only.</span>{' '}
+              All physical items must be picked up at our company location. No shipping is available.
+            </p>
+          </div>
         </div>
       </div>
     </div>

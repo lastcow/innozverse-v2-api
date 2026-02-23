@@ -75,7 +75,7 @@ export function VmForm({ open, accessToken, onSuccess, onCancel }: VmFormProps) 
       ciuser: '',
       cipassword: '',
       ip: '',
-      subnet: '24',
+      subnet: '20',
       gateway: '',
     },
   })

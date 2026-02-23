@@ -1,6 +1,7 @@
 'use server'
 
 import Stripe from 'stripe'
+import { auth } from '@/auth'
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -26,8 +27,10 @@ export async function createCheckoutSession(
     return { error: 'Cart is empty' }
   }
 
-  if (!userId) {
-    return { error: 'You must be signed in to checkout' }
+  // Server-side auth verification — prevents direct API abuse
+  const session = await auth()
+  if (!session?.user || !userId) {
+    return { error: 'Unauthorized' }
   }
 
   try {

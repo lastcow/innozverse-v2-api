@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Trash2, Minus, Plus, ShoppingBag, CreditCard } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Trash2, Minus, Plus, ShoppingBag, CreditCard, MapPin, LogIn } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -25,11 +26,12 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
   const { items, removeItem, updateQuantity, updateBillingPeriod, subtotal, totalItems, hasSubscription } = useCartStore()
   const { user, isAuthenticated } = useAuth()
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
   const handleCheckout = async () => {
     if (!isAuthenticated || !user) {
-      toast.error('Please sign in to checkout')
       onOpenChange(false)
+      router.push('/auth/login?callbackUrl=/cart')
       return
     }
 
@@ -206,6 +208,13 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
 
             {/* Footer */}
             <div className="border-t pt-4 space-y-4">
+              {/* Local Pickup Reminder */}
+              <div className="flex items-start gap-2.5 rounded-lg bg-blue-50 border border-blue-100 p-3">
+                <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-700">
+                  <span className="font-semibold">Reminder:</span> All items are for local pickup only.
+                </p>
+              </div>
               <div className="flex justify-between text-base font-medium text-gray-900">
                 <span>Subtotal</span>
                 <span>${subtotal().toFixed(2)}</span>
@@ -215,15 +224,21 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                   Subscription will be processed as a recurring payment via Stripe.
                 </p>
               )}
-              <p className="text-sm text-gray-500">
-                Shipping and taxes calculated at checkout.
-              </p>
               <button
                 onClick={handleCheckout}
                 disabled={loading}
-                className="w-full py-3 px-6 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 py-3 px-6 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Redirecting...' : 'Proceed to Checkout'}
+                {loading ? (
+                  'Redirecting...'
+                ) : isAuthenticated ? (
+                  'Proceed to Checkout'
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    Log in to Checkout
+                  </>
+                )}
               </button>
             </div>
           </>
