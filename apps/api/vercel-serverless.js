@@ -3267,12 +3267,12 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
       return c.json({ error: `Plan not found: ${planName}` }, 404);
     }
 
-    // Idempotency: check if subscription already exists with this stripeSubscriptionId
+    // Idempotency: only skip if the existing record already has the same status
     if (stripeSubscriptionId) {
       const existing = await prisma.userSubscription.findUnique({
         where: { stripeSubscriptionId },
       });
-      if (existing) {
+      if (existing && existing.status === (status ?? 'ACTIVE')) {
         return c.json({ subscription: existing, message: 'Subscription already exists' });
       }
     }
