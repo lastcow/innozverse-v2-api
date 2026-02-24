@@ -373,16 +373,6 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                         </Badge>
                       )}
                     </div>
-                    {currentSubscription.currentPeriodStart && currentSubscription.currentPeriodEnd ? (
-                      <span className="text-sm text-slate-500 text-right ml-auto whitespace-nowrap">
-                        {formatShortDate(currentSubscription.currentPeriodStart)} &ndash;{' '}
-                        {formatShortDate(currentSubscription.currentPeriodEnd)}
-                      </span>
-                    ) : currentSubscription.createdAt ? (
-                      <span className="text-sm text-slate-500 text-right ml-auto whitespace-nowrap">
-                        Since {formatShortDate(currentSubscription.createdAt)}
-                      </span>
-                    ) : null}
                   </div>
                 </CardHeader>
 
@@ -396,7 +386,7 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                   </div>
 
                   {/* Billing period */}
-                  {currentSubscription.currentPeriodStart && currentSubscription.currentPeriodEnd && (
+                  {currentSubscription.currentPeriodStart && currentSubscription.currentPeriodEnd ? (
                     <div className="rounded-lg border border-blue-100 bg-white px-4 py-3">
                       <p className="text-sm text-slate-600">
                         <span className="font-medium text-slate-700">Current billing period:</span>{' '}
@@ -404,7 +394,14 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                         {formatDate(currentSubscription.currentPeriodEnd)}
                       </p>
                     </div>
-                  )}
+                  ) : currentSubscription.createdAt ? (
+                    <div className="rounded-lg border border-blue-100 bg-white px-4 py-3">
+                      <p className="text-sm text-slate-600">
+                        <span className="font-medium text-slate-700">Subscribed since:</span>{' '}
+                        {formatDate(currentSubscription.createdAt)}
+                      </p>
+                    </div>
+                  ) : null}
 
                   {/* Nested feature cards */}
                   {features.length > 0 && (
