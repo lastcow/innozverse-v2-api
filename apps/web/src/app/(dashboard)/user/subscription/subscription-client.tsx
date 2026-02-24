@@ -331,7 +331,7 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                 className="relative border-2 border-blue-600 bg-blue-50/30 rounded-2xl overflow-hidden"
               >
                 <CardHeader className="pb-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <CardTitle className="text-2xl text-slate-900">
                         {plan.name} Plan
@@ -341,7 +341,7 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                       </Badge>
                     </div>
                     {currentSubscription.currentPeriodStart && currentSubscription.currentPeriodEnd && (
-                      <span className="text-sm text-slate-500">
+                      <span className="text-sm text-slate-500 text-right ml-auto whitespace-nowrap">
                         {formatShortDate(currentSubscription.currentPeriodStart)} &ndash;{' '}
                         {formatShortDate(currentSubscription.currentPeriodEnd)}
                       </span>
