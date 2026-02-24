@@ -9,9 +9,16 @@ import {
   Terminal, Zap, ShieldCheck, Crown, ArrowUp, ArrowDown,
   ChevronDown, ChevronUp, Cpu, Server, Users, HardDrive, BookOpen,
 } from 'lucide-react'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { useCartStore, type BillingPeriod } from '@/store/useCartStore'
 import { formatCurrency } from '@/lib/utils'
 import { getStudentVerificationStatus } from '@/app/actions/student'
+import { cancelSubscription } from '@/app/actions/subscription'
+import { toast } from 'sonner'
 
 /* ── Feature detail type ── */
 interface FeatureDetail {
@@ -173,6 +180,7 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly')
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null)
   const [isStudent, setIsStudent] = useState(false)
+  const [canceling, setCanceling] = useState(false)
 
   useEffect(() => {
     getStudentVerificationStatus()
@@ -238,6 +246,19 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
       planId: plan.name.toLowerCase(),
     })
     router.push('/checkout')
+  }
+
+  const handleCancelSubscription = async () => {
+    if (!currentSubscription?.stripeSubscriptionId) return
+    setCanceling(true)
+    const result = await cancelSubscription(currentSubscription.stripeSubscriptionId)
+    setCanceling(false)
+    if (result.success) {
+      toast.success('Subscription canceled successfully')
+      router.refresh()
+    } else {
+      toast.error(result.error || 'Failed to cancel subscription')
+    }
   }
 
   const toggleExpand = (planId: string) => {
@@ -383,14 +404,40 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                   )}
 
                   {/* Action row */}
-                  <div className="flex items-center gap-3 pt-1">
-                    <Button
-                      variant="outline"
-                      className="border-blue-200 text-blue-600 hover:bg-blue-50"
-                    >
-                      Manage Plan
-                    </Button>
-                  </div>
+                  {isPaid && currentSubscription?.stripeSubscriptionId && (
+                    <div className="flex items-center gap-3 pt-1">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="border-red-200 text-red-600 hover:bg-red-50"
+                            disabled={canceling}
+                          >
+                            {canceling ? 'Canceling...' : 'Cancel Subscription'}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to cancel your <strong>{plan.name}</strong> plan?
+                              Your subscription will be canceled immediately and you will lose access
+                              to all plan features.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={handleCancelSubscription}
+                              className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Yes, Cancel
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )

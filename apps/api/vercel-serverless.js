@@ -3309,6 +3309,43 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
   }
 });
 
+// POST /api/v1/subscriptions/cancel - JWT auth
+app.post('/api/v1/subscriptions/cancel', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const { stripeSubscriptionId } = await c.req.json();
+
+    if (!stripeSubscriptionId) {
+      return c.json({ error: 'Missing stripeSubscriptionId' }, 400);
+    }
+
+    const subscription = await prisma.userSubscription.findUnique({
+      where: { userId: user.userId },
+    });
+
+    if (!subscription || subscription.stripeSubscriptionId !== stripeSubscriptionId) {
+      return c.json({ error: 'Subscription not found or does not belong to user' }, 404);
+    }
+
+    await prisma.userSubscription.update({
+      where: { userId: user.userId },
+      data: {
+        status: 'CANCELED',
+        canceledAt: new Date(),
+      },
+    });
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to cancel subscription:', error);
+    return c.json({ error: 'Failed to cancel subscription' }, 500);
+  }
+});
+
 // GET /api/v1/subscriptions/me - JWT auth
 app.get('/api/v1/subscriptions/me', authMiddleware, async (c) => {
   if (!prisma) {
