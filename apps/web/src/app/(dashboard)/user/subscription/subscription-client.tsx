@@ -373,6 +373,22 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                         </Badge>
                       )}
                     </div>
+                    {currentSubscription.currentPeriodStart && currentSubscription.currentPeriodEnd ? (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 ml-auto">
+                        <p className="text-xs text-blue-700 whitespace-nowrap">
+                          <span className="font-semibold">Billing:</span>{' '}
+                          {formatShortDate(currentSubscription.currentPeriodStart)} &ndash;{' '}
+                          {formatShortDate(currentSubscription.currentPeriodEnd)}
+                        </p>
+                      </div>
+                    ) : currentSubscription.createdAt ? (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 ml-auto">
+                        <p className="text-xs text-blue-700 whitespace-nowrap">
+                          <span className="font-semibold">Since:</span>{' '}
+                          {formatShortDate(currentSubscription.createdAt)}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                 </CardHeader>
 
@@ -384,24 +400,6 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                     </span>
                     <span className="text-sm text-slate-500">{getPriceSuffix(plan)}</span>
                   </div>
-
-                  {/* Billing period */}
-                  {currentSubscription.currentPeriodStart && currentSubscription.currentPeriodEnd ? (
-                    <div className="rounded-lg border border-blue-100 bg-white px-4 py-3">
-                      <p className="text-sm text-slate-600">
-                        <span className="font-medium text-slate-700">Current billing period:</span>{' '}
-                        {formatDate(currentSubscription.currentPeriodStart)} &ndash;{' '}
-                        {formatDate(currentSubscription.currentPeriodEnd)}
-                      </p>
-                    </div>
-                  ) : currentSubscription.createdAt ? (
-                    <div className="rounded-lg border border-blue-100 bg-white px-4 py-3">
-                      <p className="text-sm text-slate-600">
-                        <span className="font-medium text-slate-700">Subscribed since:</span>{' '}
-                        {formatDate(currentSubscription.createdAt)}
-                      </p>
-                    </div>
-                  ) : null}
 
                   {/* Nested feature cards */}
                   {features.length > 0 && (
