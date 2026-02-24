@@ -3,85 +3,62 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe-js'
-import { ShoppingBag, CreditCard, MapPin } from 'lucide-react'
-import Image from 'next/image'
+import { ShoppingBag, MapPin, Clock, Info } from 'lucide-react'
 import Link from 'next/link'
 import { stripePromise } from '@/lib/stripe'
-import { formatCurrency } from '@/lib/utils'
 import { useCartStore } from '@/store/useCartStore'
 import { useAuth } from '@/hooks/use-auth'
 import { createEmbeddedCheckoutSession } from '@/app/actions/stripe'
 
 function OrderSummary() {
-  const items = useCartStore((s) => s.items)
-  const subtotal = useCartStore((s) => s.subtotal)
-
   return (
-    <div className="space-y-6">
-      {/* Items */}
+    <div className="space-y-4">
+      {/* Pickup location */}
       <div className="bg-white rounded-lg border border-gray-200 p-5">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Order Summary ({items.length} {items.length === 1 ? 'item' : 'items'})
-        </h2>
-        <div className="divide-y divide-gray-100">
-          {items.map((item) => {
-            const isSubscription = item.type === 'subscription'
-            return (
-              <div key={item.productId} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-                <div className="relative w-14 h-14 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      className="object-cover"
-                      sizes="56px"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      {isSubscription ? (
-                        <CreditCard className="w-5 h-5 text-gray-400" />
-                      ) : (
-                        <ShoppingBag className="w-5 h-5 text-gray-400" />
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                  {isSubscription ? (
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {item.billingPeriod === 'annual' ? 'Annual' : 'Monthly'} subscription
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-0.5">Qty: {item.quantity}</p>
-                  )}
-                </div>
-                <p className="text-sm font-medium text-gray-900 flex-shrink-0">
-                  ${formatCurrency(item.price * item.quantity)}
-                  {isSubscription && (
-                    <span className="text-xs text-gray-500 font-normal">
-                      /{item.billingPeriod === 'annual' ? 'yr' : 'mo'}
-                    </span>
-                  )}
-                </p>
-              </div>
-            )
-          })}
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Pickup Location</h2>
+        <div className="flex items-start gap-3 mb-4">
+          <MapPin className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-gray-900">Innozverse</p>
+            <p className="text-sm text-gray-600">2 W Main St, Frostburg, MD 21532</p>
+          </div>
         </div>
-
-        {/* Subtotal */}
-        <div className="border-t border-gray-200 mt-4 pt-4 flex justify-between items-center">
-          <span className="text-sm font-medium text-gray-700">Subtotal</span>
-          <span className="text-lg font-semibold text-gray-900">${formatCurrency(subtotal())}</span>
+        <div className="flex items-start gap-3 mb-4">
+          <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-gray-600">
+            <p>Mon–Fri: 6 PM – 9 PM</p>
+            <p>Sat: 1 PM – 6 PM</p>
+            <p>Sun: Closed</p>
+          </div>
+        </div>
+        <div className="rounded-lg overflow-hidden border border-gray-200">
+          <iframe
+            src="https://www.google.com/maps?q=2+W+Main+St,+Frostburg,+MD,+21532&output=embed"
+            width="100%"
+            height="200"
+            style={{ border: 0 }}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            title="Pickup Location"
+            className="w-full h-[200px]"
+          />
         </div>
       </div>
 
-      {/* Pickup notice */}
+      {/* Pickup info */}
       <div className="flex items-start gap-3 rounded-lg bg-blue-50 border border-blue-100 p-4">
         <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
         <p className="text-sm text-blue-700">
-          Any physical items need to be picked up at our company location. You will receive pickup details after your order is confirmed.
+          Any physical items need to be picked up at our location. You will receive pickup details after your order is confirmed.
+        </p>
+      </div>
+
+      {/* Backorder notice */}
+      <div className="flex items-start gap-3 rounded-lg bg-amber-50 border border-amber-200 p-4">
+        <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-amber-700">
+          If your item is on backorder, please wait for a notification before coming to pick up. We will email you once your order is ready.
         </p>
       </div>
     </div>

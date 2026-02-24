@@ -1,7 +1,10 @@
 import { Hono } from 'hono'
+import Stripe from 'stripe'
 import { prisma } from '@repo/database'
 import { authMiddleware, requireRole } from '../middleware/auth'
 import type { AuthContext } from '../types'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 const app = new Hono<{ Variables: AuthContext }>()
 
@@ -190,6 +193,221 @@ app.delete('/api/v1/subscriptions/plans/:id', authMiddleware, requireRole(['ADMI
   } catch (error) {
     console.error('Failed to delete plan:', error)
     return c.json({ error: 'Failed to delete plan' }, 500)
+  }
+})
+
+// ============================================================
+// Admin Subscription Management
+// ============================================================
+
+// GET /api/v1/admin/subscriptions - List subscriptions with stats
+app.get('/api/v1/admin/subscriptions', authMiddleware, requireRole(['ADMIN']), async (c) => {
+  try {
+    const page = parseInt(c.req.query('page') || '1')
+    const limit = parseInt(c.req.query('limit') || '10')
+    const planFilter = c.req.query('plan')
+    const statusFilter = c.req.query('status')
+    const billingFilter = c.req.query('billingPeriod')
+    const search = c.req.query('search')
+
+    const where: Record<string, unknown> = {}
+
+    // Exclude CANCELED by default unless explicitly requested
+    if (statusFilter && statusFilter !== 'ALL') {
+      where.status = statusFilter
+    } else if (!statusFilter) {
+      where.status = { not: 'CANCELED' }
+    }
+
+    if (planFilter) {
+      where.planId = planFilter
+    }
+
+    if (billingFilter) {
+      where.billingPeriod = billingFilter
+    }
+
+    if (search) {
+      where.user = {
+        email: { contains: search, mode: 'insensitive' },
+      }
+    }
+
+    const [subscriptions, total] = await Promise.all([
+      prisma.userSubscription.findMany({
+        where,
+        include: {
+          user: { select: { id: true, email: true, fname: true, lname: true } },
+          plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true } },
+        },
+        orderBy: { plan: { name: 'asc' } },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.userSubscription.count({ where }),
+    ])
+
+    // Stats (always exclude CANCELED)
+    const allActive = await prisma.userSubscription.findMany({
+      where: { status: { not: 'CANCELED' } },
+      include: { plan: { select: { monthlyPrice: true, annualTotalPrice: true } } },
+    })
+
+    const totalActive = allActive.filter((s) => s.status === 'ACTIVE').length
+    const totalPastDue = allActive.filter((s) => s.status === 'PAST_DUE').length
+
+    // MRR: monthly subs * monthlyPrice + annual subs * (annualTotalPrice / 12)
+    const mrr = allActive
+      .filter((s) => s.status === 'ACTIVE')
+      .reduce((sum, s) => {
+        if (s.billingPeriod === 'annual') {
+          return sum + (s.plan.annualTotalPrice / 12)
+        }
+        return sum + s.plan.monthlyPrice
+      }, 0)
+
+    // Group by plan
+    const totalByPlan: Record<string, number> = {}
+    for (const s of allActive) {
+      totalByPlan[s.planId] = (totalByPlan[s.planId] || 0) + 1
+    }
+
+    // Group by status
+    const totalByStatus: Record<string, number> = {}
+    for (const s of allActive) {
+      totalByStatus[s.status] = (totalByStatus[s.status] || 0) + 1
+    }
+
+    return c.json({
+      subscriptions,
+      stats: { totalActive, totalPastDue, totalSubscriptions: allActive.length, mrr, totalByPlan, totalByStatus },
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    })
+  } catch (error) {
+    console.error('Failed to fetch admin subscriptions:', error)
+    return c.json({ error: 'Failed to fetch subscriptions' }, 500)
+  }
+})
+
+// POST /api/v1/admin/subscriptions/:id/cancel - Cancel subscription at period end
+app.post('/api/v1/admin/subscriptions/:id/cancel', authMiddleware, requireRole(['ADMIN']), async (c) => {
+  try {
+    const id = c.req.param('id')
+    const subscription = await prisma.userSubscription.findUnique({ where: { id } })
+
+    if (!subscription) {
+      return c.json({ error: 'Subscription not found' }, 404)
+    }
+
+    if (subscription.stripeSubscriptionId) {
+      try {
+        await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+          cancel_at_period_end: true,
+        })
+      } catch (err: unknown) {
+        const stripeErr = err as { code?: string; message?: string }
+        if (stripeErr.code === 'resource_missing') {
+          console.warn(`Stripe subscription ${subscription.stripeSubscriptionId} not found, proceeding with DB update`)
+        } else {
+          throw err
+        }
+      }
+    }
+
+    const updated = await prisma.userSubscription.update({
+      where: { id },
+      data: { canceledAt: new Date() },
+      include: {
+        user: { select: { id: true, email: true, fname: true, lname: true } },
+        plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true } },
+      },
+    })
+
+    return c.json({ subscription: updated })
+  } catch (error) {
+    console.error('Failed to cancel subscription:', error)
+    return c.json({ error: 'Failed to cancel subscription' }, 500)
+  }
+})
+
+// POST /api/v1/admin/subscriptions/:id/refund - Full or partial refund
+app.post('/api/v1/admin/subscriptions/:id/refund', authMiddleware, requireRole(['ADMIN']), async (c) => {
+  try {
+    const id = c.req.param('id')
+    const body = await c.req.json()
+    const amount = body.amount // optional, in dollars
+
+    const subscription = await prisma.userSubscription.findUnique({ where: { id } })
+
+    if (!subscription) {
+      return c.json({ error: 'Subscription not found' }, 404)
+    }
+
+    if (!subscription.stripeSubscriptionId) {
+      return c.json({ error: 'No Stripe subscription associated' }, 400)
+    }
+
+    // Get latest paid invoice with expanded payments
+    const invoices = await stripe.invoices.list({
+      subscription: subscription.stripeSubscriptionId,
+      status: 'paid',
+      limit: 1,
+      expand: ['data.payments'],
+    })
+
+    if (!invoices.data.length) {
+      return c.json({ error: 'No paid invoices found for this subscription' }, 404)
+    }
+
+    const invoice = invoices.data[0]! as unknown as Record<string, unknown>
+
+    // In 2025+ API, payment info is in invoice.payments.data[]
+    const payments = invoice.payments as { data: Array<{ payment: Record<string, unknown> }> } | undefined
+    let paymentIntent: string | null = null
+    let charge: string | null = null
+
+    if (payments?.data?.length) {
+      const payment = payments.data[0]!.payment
+      if (payment.type === 'payment_intent') {
+        const pi = payment.payment_intent
+        paymentIntent = typeof pi === 'string' ? pi : (pi as Record<string, string>)?.id ?? null
+      } else if (payment.type === 'charge') {
+        const ch = payment.charge
+        charge = typeof ch === 'string' ? ch : (ch as Record<string, string>)?.id ?? null
+      }
+    }
+
+    // Fallback: legacy fields
+    if (!paymentIntent && !charge) {
+      paymentIntent = (invoice.payment_intent as string) || null
+      charge = (invoice.charge as string) || null
+    }
+
+    if (!paymentIntent && !charge) {
+      return c.json({ error: 'No payment found on invoice' }, 400)
+    }
+
+    const refundParams: Stripe.RefundCreateParams = paymentIntent
+      ? { payment_intent: paymentIntent }
+      : { charge: charge! }
+    if (amount) {
+      refundParams.amount = Math.round(amount * 100) // Convert dollars to cents
+    }
+
+    const refund = await stripe.refunds.create(refundParams)
+
+    return c.json({
+      refund: {
+        id: refund.id,
+        amount: refund.amount / 100,
+        currency: refund.currency,
+        status: refund.status,
+      },
+    })
+  } catch (error) {
+    console.error('Failed to process refund:', error)
+    const message = error instanceof Error ? error.message : 'Failed to process refund'
+    return c.json({ error: message }, 500)
   }
 })
 

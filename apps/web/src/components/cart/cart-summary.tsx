@@ -22,7 +22,7 @@ export function CartSummary({ subtotal, itemCount, isAuthenticated }: CartSummar
   };
 
   const subtotalNum = parseFloat(subtotal);
-  const tax = 0; // MVP: no tax
+  const tax = subtotalNum * 0.06;
   const total = subtotalNum + tax;
 
   return (
@@ -36,7 +36,7 @@ export function CartSummary({ subtotal, itemCount, isAuthenticated }: CartSummar
         </div>
 
         <div className="flex justify-between text-gray-600">
-          <span>Tax</span>
+          <span>Estimated Tax (6%)</span>
           <span>${formatCurrency(tax)}</span>
         </div>
 

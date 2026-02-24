@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -17,6 +17,8 @@ import {
   Network,
   Route,
   User,
+  UserPlus,
+  UserX,
   KeyRound,
   Copy,
   Play,
@@ -30,6 +32,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Check,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -57,10 +60,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { VmForm } from './vm-form'
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+interface AssignedUser {
+  id: string
+  email: string
+  name: string
+}
 
 export interface VMRow {
   id: string
@@ -72,9 +89,13 @@ export interface VMRow {
   memory: number
   cpuCores: number
   ipAddress: string | null
+  publicIpAddress: string | null
+  port: number | null
   gateway: string | null
   username: string | null
   password: string | null
+  userId: string | null
+  assignedUser: AssignedUser | null
   createdAt: string
 }
 
@@ -204,6 +225,26 @@ const columns = [
     ),
   }),
   columnHelper.display({
+    id: 'assignedTo',
+    header: 'Assigned To',
+    cell: ({ row }) => {
+      const vm = row.original
+      const user = vm.assignedUser
+      if (!user) return <span className="text-sm text-gray-400">Unassigned</span>
+      return (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium text-[#202224]">{user.name}</span>
+          <span className="text-xs text-muted-foreground">{user.email}</span>
+          {(vm.publicIpAddress || vm.port) && (
+            <span className="text-[11px] text-gray-400 font-mono">
+              {vm.publicIpAddress}{vm.port ? `:${vm.port}` : ''}
+            </span>
+          )}
+        </div>
+      )
+    },
+  }),
+  columnHelper.display({
     id: 'actions',
     header: '',
     cell: () => null,
@@ -222,6 +263,7 @@ export function VMDataTable({ data, loading, accessToken, onRefresh }: VMDataTab
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<VMRow | null>(null)
+  const [assignTarget, setAssignTarget] = useState<VMRow | null>(null)
 
   const statusFilter = useMemo(
     () => (columnFilters.find((f) => f.id === 'status')?.value as string) ?? 'all',
@@ -395,6 +437,7 @@ export function VMDataTable({ data, loading, accessToken, onRefresh }: VMDataTab
                             vm={row.original}
                             onToggleStatus={handleToggleStatus}
                             onDelete={setDeleteTarget}
+                            onAssign={setAssignTarget}
                           />
                         </td>
                       )
@@ -494,6 +537,18 @@ export function VMDataTable({ data, loading, accessToken, onRefresh }: VMDataTab
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Assign VM Dialog */}
+      <VmAssignDialog
+        open={!!assignTarget}
+        vm={assignTarget}
+        accessToken={accessToken}
+        onClose={() => setAssignTarget(null)}
+        onSuccess={() => {
+          setAssignTarget(null)
+          onRefresh()
+        }}
+      />
     </>
   )
 }
@@ -502,10 +557,12 @@ function ActionsCell({
   vm,
   onToggleStatus,
   onDelete,
+  onAssign,
 }: {
   vm: VMRow
   onToggleStatus: (vm: VMRow) => void
   onDelete: (vm: VMRow) => void
+  onAssign: (vm: VMRow) => void
 }) {
   const isRunning = vm.status === 'running'
 
@@ -541,6 +598,20 @@ function ActionsCell({
           Console
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => onAssign(vm)}>
+          {vm.assignedUser ? (
+            <>
+              <UserX className="w-4 h-4 mr-2 text-orange-600" />
+              Reassign
+            </>
+          ) : (
+            <>
+              <UserPlus className="w-4 h-4 mr-2 text-[#4379EE]" />
+              Assign
+            </>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => onDelete(vm)}
           className="text-red-600 focus:text-red-600"
@@ -550,5 +621,268 @@ function ActionsCell({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+// ============================================================
+// Assign Dialog
+// ============================================================
+
+interface SearchUser {
+  id: string
+  email: string
+  fname: string | null
+  lname: string | null
+}
+
+function VmAssignDialog({
+  open,
+  vm,
+  accessToken,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean
+  vm: VMRow | null
+  accessToken: string | undefined
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const [users, setUsers] = useState<SearchUser[]>([])
+  const [searching, setSearching] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [publicIp, setPublicIp] = useState('')
+  const [port, setPort] = useState('')
+
+  // Reset state when dialog opens
+  useEffect(() => {
+    if (open && vm) {
+      setSearch('')
+      setUsers([])
+      setSelectedUserId(vm.userId ?? null)
+      setPublicIp(vm.publicIpAddress ?? '')
+      setPort(vm.port != null ? String(vm.port) : '')
+    }
+  }, [open, vm])
+
+  const searchUsers = useCallback(async (query: string) => {
+    if (!accessToken || query.length < 2) {
+      setUsers([])
+      return
+    }
+    setSearching(true)
+    try {
+      const res = await fetch(
+        `${apiUrl}/api/v1/admin/users?search=${encodeURIComponent(query)}&limit=10`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        setUsers(data.users ?? [])
+      }
+    } catch {
+      // silent
+    } finally {
+      setSearching(false)
+    }
+  }, [accessToken])
+
+  // Debounced search
+  useEffect(() => {
+    if (search.length < 2) {
+      setUsers([])
+      return
+    }
+    const timer = setTimeout(() => searchUsers(search), 300)
+    return () => clearTimeout(timer)
+  }, [search, searchUsers])
+
+  const hasChanges = () => {
+    if (!vm) return false
+    if (selectedUserId !== (vm.userId ?? null)) return true
+    if (publicIp !== (vm.publicIpAddress ?? '')) return true
+    if (port !== (vm.port != null ? String(vm.port) : '')) return true
+    return false
+  }
+
+  const handleSave = async () => {
+    if (!vm) return
+    setSaving(true)
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/vms/${vm.vmid}/assign`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          userId: selectedUserId,
+          publicIpAddress: publicIp || null,
+          port: port ? parseInt(port, 10) : null,
+        }),
+      })
+      if (res.ok) {
+        toast.success('VM updated successfully.')
+        onSuccess()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to update VM')
+      }
+    } catch {
+      toast.error('Failed to update VM')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const getUserDisplayName = (u: SearchUser) => {
+    const name = [u.fname, u.lname].filter(Boolean).join(' ')
+    return name || u.email
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md rounded-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold text-[#202224]">
+            Edit VM Assignment
+          </DialogTitle>
+          <DialogDescription>
+            Configure &ldquo;{vm?.name}&rdquo; (ID: {vm?.vmid}) — assign to a user and set public connection details.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 py-2">
+          {/* ── Connection Details ── */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+              Public Connection
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Public IP Address</label>
+                <Input
+                  placeholder="e.g. 203.0.113.10"
+                  value={publicIp}
+                  onChange={(e) => setPublicIp(e.target.value)}
+                  className="rounded-xl border-gray-200"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">SSH Port</label>
+                <Input
+                  placeholder="e.g. 22"
+                  type="number"
+                  value={port}
+                  onChange={(e) => setPort(e.target.value)}
+                  className="rounded-xl border-gray-200"
+                />
+              </div>
+            </div>
+            {vm?.ipAddress && (
+              <p className="text-[11px] text-gray-400">
+                Internal IP: {vm.ipAddress}
+              </p>
+            )}
+          </div>
+
+          {/* ── User Assignment ── */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+              Assign to User
+            </p>
+
+            {/* Current assignment */}
+            {vm?.assignedUser && selectedUserId === vm.userId && (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[#202224]">{vm.assignedUser.name}</p>
+                  <p className="text-xs text-gray-500">{vm.assignedUser.email}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
+                  onClick={() => setSelectedUserId(null)}
+                >
+                  <UserX className="w-3.5 h-3.5 mr-1" />
+                  Unassign
+                </Button>
+              </div>
+            )}
+
+            {/* Unassigned indicator when user was cleared */}
+            {!selectedUserId && vm?.assignedUser && (
+              <div className="bg-orange-50 border border-orange-100 rounded-xl px-3 py-2.5 text-sm text-orange-700">
+                Will be unassigned on save
+              </div>
+            )}
+
+            {/* Search input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search users by name or email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 rounded-xl border-gray-200"
+              />
+              {searching && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
+              )}
+            </div>
+
+            {/* User results */}
+            {users.length > 0 && (
+              <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto divide-y divide-gray-100">
+                {users.map((u) => {
+                  const isSelected = selectedUserId === u.id
+                  return (
+                    <button
+                      key={u.id}
+                      onClick={() => setSelectedUserId(u.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
+                        isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
+                        isSelected ? 'bg-[#4379EE] text-white' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {(u.fname?.[0] ?? u.email[0] ?? '?').toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[#202224] truncate">{getUserDisplayName(u)}</p>
+                        <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                      </div>
+                      {isSelected && <Check className="w-4 h-4 text-[#4379EE] shrink-0" />}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {search.length >= 2 && !searching && users.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-3">No users found.</p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={onClose} className="rounded-xl border-gray-200">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !hasChanges()}
+            className="bg-[#4379EE] hover:bg-[#3568d4] text-white rounded-xl"
+          >
+            {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

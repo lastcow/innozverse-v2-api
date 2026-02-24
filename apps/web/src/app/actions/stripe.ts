@@ -68,6 +68,7 @@ export async function createCheckoutSession(
             name: sub.name,
           },
           unit_amount: Math.round(sub.price * 100),
+          tax_behavior: 'exclusive',
           recurring: {
             interval,
           },
@@ -78,6 +79,7 @@ export async function createCheckoutSession(
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         line_items: lineItems,
+        automatic_tax: { enabled: true },
         metadata: {
           userId,
           items: JSON.stringify(compactItems),
@@ -106,6 +108,7 @@ export async function createCheckoutSession(
             ...(item.image ? { images: [item.image] } : {}),
           },
           unit_amount: Math.round(item.price * 100),
+          tax_behavior: 'exclusive' as const,
         },
         quantity: item.quantity,
       })
@@ -114,6 +117,7 @@ export async function createCheckoutSession(
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: lineItems,
+      automatic_tax: { enabled: true },
       metadata: {
         userId,
         items: JSON.stringify(compactItems),
@@ -185,6 +189,7 @@ export async function createEmbeddedCheckoutSession(
             name: sub.name,
           },
           unit_amount: Math.round(sub.price * 100),
+          tax_behavior: 'exclusive',
           recurring: {
             interval,
           },
@@ -196,6 +201,7 @@ export async function createEmbeddedCheckoutSession(
         mode: 'subscription',
         ui_mode: 'embedded',
         line_items: lineItems,
+        automatic_tax: { enabled: true },
         ...(email ? { customer_email: email } : {}),
         metadata: {
           userId,
@@ -224,6 +230,7 @@ export async function createEmbeddedCheckoutSession(
             ...(item.image ? { images: [item.image] } : {}),
           },
           unit_amount: Math.round(item.price * 100),
+          tax_behavior: 'exclusive' as const,
         },
         quantity: item.quantity,
       })
@@ -233,6 +240,7 @@ export async function createEmbeddedCheckoutSession(
       mode: 'payment',
       ui_mode: 'embedded',
       line_items: lineItems,
+      automatic_tax: { enabled: true },
       ...(email ? { customer_email: email } : {}),
       metadata: {
         userId,

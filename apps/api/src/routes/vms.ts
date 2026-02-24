@@ -2,8 +2,9 @@ import { Hono } from 'hono'
 import { prisma } from '@repo/database'
 import { authMiddleware, requireRole } from '../middleware/auth'
 import { proxmoxFetch, getProxmoxNode } from '../lib/proxmox'
+import type { AuthContext } from '../types'
 
-const app = new Hono()
+const app = new Hono<{ Variables: AuthContext }>()
 
 const VM_TEMPLATE_IDS = [11001, 11002]
 
@@ -42,6 +43,84 @@ function parseIpConfig(ipconfig0?: string) {
   if (gwMatch) gateway = gwMatch[1]
   return { ip, gateway }
 }
+
+// ============================================================
+// User-scoped endpoints (any authenticated user)
+// ============================================================
+
+// GET /api/v1/vms/me - List VMs assigned to the current user
+app.get('/api/v1/vms/me', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user')
+    const vms = await prisma.virtualMachine.findMany({
+      where: { userId: user.userId, deletedAt: null },
+      orderBy: { vmid: 'asc' },
+    })
+
+    return c.json({
+      vms: vms.map((vm) => ({
+        id: vm.id,
+        vmid: vm.vmid,
+        name: vm.name,
+        type: vm.type,
+        node: vm.node,
+        status: vm.status,
+        memory: vm.memory,
+        cpuCores: vm.cpuCores,
+        ipAddress: vm.ipAddress,
+        publicIpAddress: vm.publicIpAddress,
+        port: vm.port,
+        gateway: vm.gateway,
+        username: vm.username,
+        password: vm.password,
+        createdAt: vm.createdAt.toISOString(),
+      })),
+    })
+  } catch (error) {
+    console.error('Failed to fetch user VMs:', error)
+    return c.json({ error: 'Failed to fetch VMs' }, 500)
+  }
+})
+
+// POST /api/v1/vms/me/:vmid/status - Start or stop a VM owned by the current user
+app.post('/api/v1/vms/me/:vmid/status', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user')
+    const vmid = parseInt(c.req.param('vmid'), 10)
+    const { action } = await c.req.json()
+
+    if (action !== 'start' && action !== 'stop') {
+      return c.json({ error: 'action must be "start" or "stop"' }, 400)
+    }
+
+    // Ownership check
+    const vm = await prisma.virtualMachine.findFirst({
+      where: { vmid, userId: user.userId, deletedAt: null },
+    })
+    if (!vm) {
+      return c.json({ error: 'VM not found or not assigned to you' }, 404)
+    }
+
+    const node = getProxmoxNode()
+    await proxmoxFetch(`/nodes/${node}/qemu/${vmid}/status/${action}`, { method: 'POST' })
+
+    // Update status in DB
+    await prisma.virtualMachine.update({
+      where: { id: vm.id },
+      data: { status: action === 'start' ? 'running' : 'stopped' },
+    })
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Failed to change VM status:', error)
+    const message = error instanceof Error ? error.message : 'Failed to change VM status'
+    return c.json({ error: message }, 500)
+  }
+})
+
+// ============================================================
+// Admin endpoints
+// ============================================================
 
 // POST /api/v1/vms/sync - Sync VMs from Proxmox into local DB
 app.post('/api/v1/vms/sync', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), async (c) => {
@@ -134,6 +213,9 @@ app.get('/api/v1/vms', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), async (
     const vms = await prisma.virtualMachine.findMany({
       where: { deletedAt: null },
       orderBy: { vmid: 'asc' },
+      include: {
+        user: { select: { id: true, email: true, fname: true, lname: true } },
+      },
     })
 
     return c.json({
@@ -147,9 +229,19 @@ app.get('/api/v1/vms', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), async (
         memory: vm.memory,
         cpuCores: vm.cpuCores,
         ipAddress: vm.ipAddress,
+        publicIpAddress: vm.publicIpAddress,
+        port: vm.port,
         gateway: vm.gateway,
         username: vm.username,
         password: vm.password,
+        userId: vm.userId,
+        assignedUser: vm.user
+          ? {
+              id: vm.user.id,
+              email: vm.user.email,
+              name: [vm.user.fname, vm.user.lname].filter(Boolean).join(' ') || vm.user.email,
+            }
+          : null,
         createdAt: vm.createdAt.toISOString(),
       })),
     })
@@ -272,6 +364,53 @@ app.post('/api/v1/vms/:vmid/status', authMiddleware, requireRole(['ADMIN', 'SYST
   } catch (error) {
     console.error('Failed to change VM status:', error)
     const message = error instanceof Error ? error.message : 'Failed to change VM status'
+    return c.json({ error: message }, 500)
+  }
+})
+
+// PUT /api/v1/vms/:vmid/assign - Assign VM to user and set connection details
+app.put('/api/v1/vms/:vmid/assign', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), async (c) => {
+  try {
+    const vmid = parseInt(c.req.param('vmid'), 10)
+    const body = await c.req.json()
+
+    const vm = await prisma.virtualMachine.findFirst({
+      where: { vmid, deletedAt: null },
+    })
+    if (!vm) {
+      return c.json({ error: 'VM not found' }, 404)
+    }
+
+    const data: Record<string, unknown> = {}
+
+    // User assignment (userId can be null to unassign)
+    if ('userId' in body) {
+      if (body.userId) {
+        const user = await prisma.user.findUnique({ where: { id: body.userId } })
+        if (!user) {
+          return c.json({ error: 'User not found' }, 404)
+        }
+      }
+      data.userId = body.userId || null
+    }
+
+    // Connection details
+    if ('publicIpAddress' in body) {
+      data.publicIpAddress = body.publicIpAddress || null
+    }
+    if ('port' in body) {
+      data.port = body.port != null ? parseInt(String(body.port), 10) : null
+    }
+
+    await prisma.virtualMachine.update({
+      where: { id: vm.id },
+      data,
+    })
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Failed to update VM assignment:', error)
+    const message = error instanceof Error ? error.message : 'Failed to update VM'
     return c.json({ error: message }, 500)
   }
 })

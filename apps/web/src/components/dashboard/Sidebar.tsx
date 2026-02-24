@@ -16,7 +16,9 @@ import {
   Calendar,
   Clock,
   Server,
+  Monitor,
   Layers,
+  Receipt,
 } from 'lucide-react'
 import {
   Sheet,
@@ -54,6 +56,7 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
         { label: 'Purchase History', href: '/user/purchase-history', icon: Package },
         { label: 'My Workshops', href: '/user/workshops', icon: Calendar },
         { label: 'Studio Bookings', href: '/user/studio-bookings', icon: Clock },
+        { label: 'My VMs', href: '/user/vms', icon: Monitor },
         { label: 'Subscriptions', href: '/user/subscription', icon: CreditCard },
       ],
     },
@@ -71,6 +74,7 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
             { label: 'Studio Slots', href: '/admin/studio-slots', icon: Clock },
             { label: 'VMs', href: '/admin/vms', icon: Server },
             { label: 'Plans', href: '/admin/plans', icon: Layers },
+            { label: 'Subscriptions', href: '/admin/subscriptions', icon: Receipt },
             { label: 'Users', href: '/admin/users', icon: Users },
             { label: 'Analytics', href: '/admin/analytics', icon: BarChart },
           ],

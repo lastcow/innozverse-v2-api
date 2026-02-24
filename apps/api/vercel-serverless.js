@@ -3415,6 +3415,239 @@ app.delete('/api/v1/subscriptions/plans/:id', authMiddleware, requireRole('ADMIN
 });
 
 // ============================================================
+// Admin Subscription Management Routes
+// ============================================================
+
+// GET /api/v1/admin/subscriptions - List subscriptions with stats
+app.get('/api/v1/admin/subscriptions', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const page = parseInt(c.req.query('page') || '1');
+    const limit = parseInt(c.req.query('limit') || '10');
+    const planFilter = c.req.query('plan');
+    const statusFilter = c.req.query('status');
+    const billingFilter = c.req.query('billingPeriod');
+    const search = c.req.query('search');
+
+    const where = {};
+
+    if (statusFilter && statusFilter !== 'ALL') {
+      where.status = statusFilter;
+    } else if (!statusFilter) {
+      where.status = { not: 'CANCELED' };
+    }
+
+    if (planFilter) {
+      where.planId = planFilter;
+    }
+
+    if (billingFilter) {
+      where.billingPeriod = billingFilter;
+    }
+
+    if (search) {
+      where.user = {
+        email: { contains: search, mode: 'insensitive' },
+      };
+    }
+
+    const [subscriptions, total] = await Promise.all([
+      prisma.userSubscription.findMany({
+        where,
+        include: {
+          user: { select: { id: true, email: true, fname: true, lname: true } },
+          plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true } },
+        },
+        orderBy: { plan: { name: 'asc' } },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.userSubscription.count({ where }),
+    ]);
+
+    const allActive = await prisma.userSubscription.findMany({
+      where: { status: { not: 'CANCELED' } },
+      include: { plan: { select: { monthlyPrice: true, annualTotalPrice: true } } },
+    });
+
+    const totalActive = allActive.filter((s) => s.status === 'ACTIVE').length;
+    const totalPastDue = allActive.filter((s) => s.status === 'PAST_DUE').length;
+
+    const mrr = allActive
+      .filter((s) => s.status === 'ACTIVE')
+      .reduce((sum, s) => {
+        if (s.billingPeriod === 'annual') {
+          return sum + (s.plan.annualTotalPrice / 12);
+        }
+        return sum + s.plan.monthlyPrice;
+      }, 0);
+
+    const totalByPlan = {};
+    for (const s of allActive) {
+      totalByPlan[s.planId] = (totalByPlan[s.planId] || 0) + 1;
+    }
+
+    const totalByStatus = {};
+    for (const s of allActive) {
+      totalByStatus[s.status] = (totalByStatus[s.status] || 0) + 1;
+    }
+
+    return c.json({
+      subscriptions,
+      stats: { totalActive, totalPastDue, totalSubscriptions: allActive.length, mrr, totalByPlan, totalByStatus },
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    console.error('Failed to fetch admin subscriptions:', error);
+    return c.json({ error: 'Failed to fetch subscriptions' }, 500);
+  }
+});
+
+// POST /api/v1/admin/subscriptions/:id/cancel - Cancel subscription at period end
+app.post('/api/v1/admin/subscriptions/:id/cancel', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const id = c.req.param('id');
+    const subscription = await prisma.userSubscription.findUnique({ where: { id } });
+
+    if (!subscription) {
+      return c.json({ error: 'Subscription not found' }, 404);
+    }
+
+    if (subscription.stripeSubscriptionId && stripe) {
+      try {
+        await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+          cancel_at_period_end: true,
+        });
+      } catch (err) {
+        if (err.code === 'resource_missing') {
+          console.warn(`Stripe subscription ${subscription.stripeSubscriptionId} not found, proceeding with DB update`);
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    const updated = await prisma.userSubscription.update({
+      where: { id },
+      data: { canceledAt: new Date() },
+      include: {
+        user: { select: { id: true, email: true, fname: true, lname: true } },
+        plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true } },
+      },
+    });
+
+    return c.json({ subscription: updated });
+  } catch (error) {
+    console.error('Failed to cancel subscription:', error);
+    return c.json({ error: 'Failed to cancel subscription' }, 500);
+  }
+});
+
+// POST /api/v1/admin/subscriptions/:id/refund - Full or partial refund
+app.post('/api/v1/admin/subscriptions/:id/refund', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  if (!stripe) {
+    return c.json({ error: 'Stripe not configured' }, 500);
+  }
+
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const amount = body.amount;
+
+    const subscription = await prisma.userSubscription.findUnique({ where: { id } });
+
+    if (!subscription) {
+      return c.json({ error: 'Subscription not found' }, 404);
+    }
+
+    if (!subscription.stripeSubscriptionId) {
+      return c.json({ error: 'No Stripe subscription associated' }, 400);
+    }
+
+    // Retrieve latest paid invoice with expanded payments
+    const invoices = await stripe.invoices.list({
+      subscription: subscription.stripeSubscriptionId,
+      status: 'paid',
+      limit: 1,
+      expand: ['data.payments'],
+    });
+
+    if (!invoices.data.length) {
+      return c.json({ error: 'No paid invoices found for this subscription' }, 404);
+    }
+
+    const invoice = invoices.data[0];
+
+    // In 2025+ API, payment info is in invoice.payments.data[]
+    const payments = invoice.payments && invoice.payments.data;
+    let paymentIntent = null;
+    let charge = null;
+
+    if (payments && payments.length > 0) {
+      const payment = payments[0].payment;
+      if (payment) {
+        if (payment.type === 'payment_intent') {
+          paymentIntent = typeof payment.payment_intent === 'string'
+            ? payment.payment_intent
+            : (payment.payment_intent && payment.payment_intent.id) || null;
+        } else if (payment.type === 'charge') {
+          charge = typeof payment.charge === 'string'
+            ? payment.charge
+            : (payment.charge && payment.charge.id) || null;
+        }
+      }
+    }
+
+    // Fallback: check legacy fields (older API versions)
+    if (!paymentIntent && !charge) {
+      paymentIntent = invoice.payment_intent
+        ? (typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent.id)
+        : null;
+      charge = invoice.charge
+        ? (typeof invoice.charge === 'string' ? invoice.charge : invoice.charge.id)
+        : null;
+    }
+
+    if (!paymentIntent && !charge) {
+      return c.json({ error: 'No payment found on invoice' }, 400);
+    }
+
+    const refundParams = paymentIntent
+      ? { payment_intent: paymentIntent }
+      : { charge: charge };
+    if (amount) {
+      refundParams.amount = Math.round(amount * 100);
+    }
+
+    const refund = await stripe.refunds.create(refundParams);
+
+    return c.json({
+      refund: {
+        id: refund.id,
+        amount: refund.amount / 100,
+        currency: refund.currency,
+        status: refund.status,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to process refund:', error);
+    const message = error instanceof Error ? error.message : 'Failed to process refund';
+    return c.json({ error: message }, 500);
+  }
+});
+
+// ============================================================
 // Virtual Machine Routes
 // ============================================================
 
@@ -3503,6 +3736,87 @@ const parseIpConfig = (ipconfig0) => {
   if (gwMatch) gateway = gwMatch[1];
   return { ip, gateway };
 };
+
+// ============================================================
+// User-scoped VM endpoints (any authenticated user)
+// ============================================================
+
+// GET /api/v1/vms/me - List VMs assigned to the current user
+app.get('/api/v1/vms/me', authMiddleware, async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+
+  try {
+    const user = c.get('user');
+    const vms = await prisma.virtualMachine.findMany({
+      where: { userId: user.userId, deletedAt: null },
+      orderBy: { vmid: 'asc' },
+    });
+
+    return c.json({
+      vms: vms.map((vm) => ({
+        id: vm.id,
+        vmid: vm.vmid,
+        name: vm.name,
+        type: vm.type,
+        node: vm.node,
+        status: vm.status,
+        memory: vm.memory,
+        cpuCores: vm.cpuCores,
+        ipAddress: vm.ipAddress,
+        publicIpAddress: vm.publicIpAddress,
+        port: vm.port,
+        gateway: vm.gateway,
+        username: vm.username,
+        password: vm.password,
+        createdAt: vm.createdAt.toISOString(),
+      })),
+    });
+  } catch (error) {
+    console.error('Failed to fetch user VMs:', error);
+    return c.json({ error: 'Failed to fetch VMs' }, 500);
+  }
+});
+
+// POST /api/v1/vms/me/:vmid/status - Start or stop a VM owned by the current user
+app.post('/api/v1/vms/me/:vmid/status', authMiddleware, async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+
+  try {
+    const user = c.get('user');
+    const vmid = parseInt(c.req.param('vmid'), 10);
+    const { action } = await c.req.json();
+
+    if (action !== 'start' && action !== 'stop') {
+      return c.json({ error: 'action must be "start" or "stop"' }, 400);
+    }
+
+    // Ownership check
+    const vm = await prisma.virtualMachine.findFirst({
+      where: { vmid, userId: user.userId, deletedAt: null },
+    });
+    if (!vm) {
+      return c.json({ error: 'VM not found or not assigned to you' }, 404);
+    }
+
+    const node = getProxmoxNode();
+    await proxmoxFetch(`/nodes/${node}/qemu/${vmid}/status/${action}`, { method: 'POST' });
+
+    // Update status in DB
+    await prisma.virtualMachine.update({
+      where: { id: vm.id },
+      data: { status: action === 'start' ? 'running' : 'stopped' },
+    });
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to change VM status:', error);
+    return c.json({ error: error.message || 'Failed to change VM status' }, 500);
+  }
+});
+
+// ============================================================
+// Admin VM endpoints
+// ============================================================
 
 // POST /api/v1/vms/sync - Sync VMs from Proxmox into local DB
 app.post('/api/v1/vms/sync', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
@@ -3598,6 +3912,9 @@ app.get('/api/v1/vms', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c)
     const vms = await prisma.virtualMachine.findMany({
       where: { deletedAt: null },
       orderBy: { vmid: 'asc' },
+      include: {
+        user: { select: { id: true, email: true, fname: true, lname: true } },
+      },
     });
 
     return c.json({
@@ -3611,9 +3928,19 @@ app.get('/api/v1/vms', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c)
         memory: vm.memory,
         cpuCores: vm.cpuCores,
         ipAddress: vm.ipAddress,
+        publicIpAddress: vm.publicIpAddress,
+        port: vm.port,
         gateway: vm.gateway,
         username: vm.username,
         password: vm.password,
+        userId: vm.userId,
+        assignedUser: vm.user
+          ? {
+              id: vm.user.id,
+              email: vm.user.email,
+              name: [vm.user.fname, vm.user.lname].filter(Boolean).join(' ') || vm.user.email,
+            }
+          : null,
         createdAt: vm.createdAt.toISOString(),
       })),
     });
@@ -3735,6 +4062,54 @@ app.post('/api/v1/vms/:vmid/status', authMiddleware, requireRole('ADMIN', 'SYSTE
   } catch (error) {
     console.error(`Failed to ${c.req.param('action')} VM:`, error);
     return c.json({ error: error.message || 'Failed to change VM status' }, 500);
+  }
+});
+
+// PUT /api/v1/vms/:vmid/assign - Assign VM to user and set connection details
+app.put('/api/v1/vms/:vmid/assign', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+
+  try {
+    const vmid = parseInt(c.req.param('vmid'), 10);
+    const body = await c.req.json();
+
+    const vm = await prisma.virtualMachine.findFirst({
+      where: { vmid, deletedAt: null },
+    });
+    if (!vm) {
+      return c.json({ error: 'VM not found' }, 404);
+    }
+
+    const data = {};
+
+    // User assignment (userId can be null to unassign)
+    if ('userId' in body) {
+      if (body.userId) {
+        const user = await prisma.user.findUnique({ where: { id: body.userId } });
+        if (!user) {
+          return c.json({ error: 'User not found' }, 404);
+        }
+      }
+      data.userId = body.userId || null;
+    }
+
+    // Connection details
+    if ('publicIpAddress' in body) {
+      data.publicIpAddress = body.publicIpAddress || null;
+    }
+    if ('port' in body) {
+      data.port = body.port != null ? parseInt(String(body.port), 10) : null;
+    }
+
+    await prisma.virtualMachine.update({
+      where: { id: vm.id },
+      data,
+    });
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to update VM assignment:', error);
+    return c.json({ error: error.message || 'Failed to update VM' }, 500);
   }
 });
 
