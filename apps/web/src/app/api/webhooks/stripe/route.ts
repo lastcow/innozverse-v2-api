@@ -329,6 +329,61 @@ export async function POST(req: NextRequest) {
       return handleSubscriptionUpdated(subscription)
     }
 
+    case 'invoice.payment_succeeded': {
+      const invoice = event.data.object as Stripe.Invoice
+      const subDetails = (invoice as any).parent?.subscription_details
+      if (!subDetails?.subscription) break
+
+      const userId = subDetails.metadata?.userId
+      if (!userId) {
+        console.error('CRITICAL: Missing userId in invoice subscription metadata:', invoice.id)
+        break
+      }
+
+      const { apiUrl, internalSecret } = getApiConfig()
+      if (!internalSecret) {
+        console.error('INTERNAL_WEBHOOK_SECRET not configured')
+        return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+      }
+
+      const rawPlanId = subDetails.metadata?.planId ?? ''
+      const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
+      const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
+      const billingPeriod = subDetails.metadata?.billingPeriod ?? 'monthly'
+
+      // Period dates from the first line item
+      const lineItem = (invoice as any).lines?.data?.[0]
+      const periodStart = lineItem?.period?.start
+        ? new Date(lineItem.period.start * 1000).toISOString()
+        : null
+      const periodEnd = lineItem?.period?.end
+        ? new Date(lineItem.period.end * 1000).toISOString()
+        : null
+
+      const stripeCustomerId =
+        typeof invoice.customer === 'string'
+          ? invoice.customer
+          : (invoice.customer as any)?.id ?? null
+
+      await forwardToApi(
+        '/api/v1/subscriptions/from-stripe',
+        {
+          userId,
+          planName,
+          stripeSubscriptionId: subDetails.subscription,
+          stripeCustomerId,
+          status: 'ACTIVE',
+          billingPeriod,
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+        },
+        internalSecret,
+        apiUrl
+      )
+
+      return NextResponse.json({ received: true })
+    }
+
     case 'customer.subscription.deleted': {
       const subscription = event.data.object as Stripe.Subscription
       // Treat deletion as cancellation
