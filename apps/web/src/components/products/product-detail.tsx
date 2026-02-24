@@ -1,9 +1,19 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { ShoppingCart, MapPin } from 'lucide-react';
+import { ShoppingCart, MapPin, Tag, Percent } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { useCartStore } from '@/store/useCartStore';
+import { formatCurrency } from '@/lib/utils';
+import {
+  calculateDiscountBreakdown,
+  getActiveEventDiscount,
+  formatDiscountPercentage,
+} from '@/lib/discount';
+import { getStudentVerificationStatus } from '@/app/actions/student';
+import type { EventDiscount } from '@repo/types';
 
 interface ProductDetailProps {
   product: {
@@ -16,21 +26,47 @@ interface ProductDetailProps {
     properties: Record<string, any>;
     stock: number;
     active: boolean;
+    studentDiscountPercentage?: number | null;
   };
+  activeEventDiscounts?: EventDiscount[];
 }
 
-export function ProductDetail({ product }: ProductDetailProps) {
+export function ProductDetail({ product, activeEventDiscounts = [] }: ProductDetailProps) {
   const addItem = useCartStore((s) => s.addItem);
+  const [isStudent, setIsStudent] = useState(false);
 
-  const imageUrl = Array.isArray(product.imageUrls) && product.imageUrls.length > 0
-    ? product.imageUrls[0]!
-    : '/placeholder.png';
+  useEffect(() => {
+    getStudentVerificationStatus()
+      .then((result) => {
+        if (result.status === 'APPROVED') setIsStudent(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  const imageUrl =
+    Array.isArray(product.imageUrls) && product.imageUrls.length > 0
+      ? product.imageUrls[0]!
+      : '/placeholder.png';
+
+  const basePrice = parseFloat(product.basePrice.toString());
+  const hasStudentDiscount =
+    isStudent && product.studentDiscountPercentage != null && product.studentDiscountPercentage > 0;
+  const activeEventDiscount = getActiveEventDiscount(activeEventDiscounts);
+  const hasEventDiscount = activeEventDiscount !== null && activeEventDiscount.percentage > 0;
+  const hasAnyDiscount = hasStudentDiscount || hasEventDiscount;
+
+  const discountBreakdown = calculateDiscountBreakdown(
+    basePrice,
+    hasStudentDiscount ? product.studentDiscountPercentage : null,
+    hasEventDiscount ? activeEventDiscount!.percentage : null
+  );
+  const finalPrice = discountBreakdown.finalPrice;
 
   const handleAddToCart = () => {
     addItem({
       productId: product.id,
       name: product.name,
-      price: parseFloat(product.basePrice.toString()),
+      price: finalPrice,
       image: imageUrl,
     });
     toast.success(`${product.name} added to cart`);
@@ -57,9 +93,53 @@ export function ProductDetail({ product }: ProductDetailProps) {
             {product.type}
           </span>
           <h1 className="text-3xl font-bold text-gray-900 mt-2">{product.name}</h1>
-          <p className="text-2xl font-bold text-gray-900 mt-4">
-            ${parseFloat(product.basePrice.toString()).toFixed(2)}
-          </p>
+
+          {/* Discount Badges */}
+          {hasAnyDiscount && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {hasEventDiscount && (
+                <Badge className="bg-green-600 text-white text-xs px-2 py-0.5 flex items-center gap-1">
+                  <Tag className="w-3 h-3" />
+                  {activeEventDiscount!.name} -{formatDiscountPercentage(activeEventDiscount!.percentage)}
+                </Badge>
+              )}
+              {hasStudentDiscount && (
+                <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5 flex items-center gap-1">
+                  <Percent className="w-3 h-3" />
+                  Student -{formatDiscountPercentage(Number(product.studentDiscountPercentage))}
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Pricing */}
+          <div className="mt-4 space-y-1">
+            {hasAnyDiscount ? (
+              <>
+                <span className="text-slate-400 line-through text-lg">
+                  ${formatCurrency(basePrice)}
+                </span>
+                <p className="text-3xl font-bold text-blue-600">
+                  ${formatCurrency(finalPrice)}
+                </p>
+                <div className="text-xs text-green-600 font-medium space-y-0.5">
+                  {discountBreakdown.studentDiscountAmount > 0 && (
+                    <p>Student discount: -${formatCurrency(discountBreakdown.studentDiscountAmount)}</p>
+                  )}
+                  {discountBreakdown.eventDiscountAmount > 0 && (
+                    <p>Event discount: -${formatCurrency(discountBreakdown.eventDiscountAmount)}</p>
+                  )}
+                  <p className="font-semibold">
+                    Total savings: ${formatCurrency(discountBreakdown.totalDiscountAmount)}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <p className="text-2xl font-bold text-gray-900">
+                ${formatCurrency(basePrice)}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="border-t border-b py-4">

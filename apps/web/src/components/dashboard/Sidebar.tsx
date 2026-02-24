@@ -9,13 +9,14 @@ import {
   Package,
   CreditCard,
   ShoppingBag,
+  ClipboardList,
   Users,
   BarChart,
-  Settings,
   Tag,
   Calendar,
   Clock,
   Server,
+  Layers,
 } from 'lucide-react'
 import {
   Sheet,
@@ -50,7 +51,6 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
       title: 'Dashboard',
       items: [
         { label: 'Overview', href: '/user/dashboard', icon: LayoutDashboard },
-        { label: 'My Profile', href: '/user/profile', icon: User },
         { label: 'Purchase History', href: '/user/purchase-history', icon: Package },
         { label: 'My Workshops', href: '/user/workshops', icon: Calendar },
         { label: 'Studio Bookings', href: '/user/studio-bookings', icon: Clock },
@@ -65,10 +65,12 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
           title: 'Management',
           items: [
             { label: 'Products', href: '/admin/products', icon: ShoppingBag },
+            { label: 'Orders', href: '/admin/orders', icon: ClipboardList },
             { label: 'Discounts', href: '/admin/discounts', icon: Tag },
             { label: 'Workshops', href: '/admin/workshops', icon: Calendar },
             { label: 'Studio Slots', href: '/admin/studio-slots', icon: Clock },
             { label: 'VMs', href: '/admin/vms', icon: Server },
+            { label: 'Plans', href: '/admin/plans', icon: Layers },
             { label: 'Users', href: '/admin/users', icon: Users },
             { label: 'Analytics', href: '/admin/analytics', icon: BarChart },
           ],
@@ -76,7 +78,16 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
       ]
     : []
 
-  const allSections = [...commonNavigation, ...adminNavigation]
+  const settingsNavigation: NavSection[] = [
+    {
+      title: 'Settings',
+      items: [
+        { label: 'My Profile', href: '/user/settings/profile', icon: User },
+      ],
+    },
+  ]
+
+  const allSections = [...commonNavigation, ...settingsNavigation, ...adminNavigation]
 
   const isActive = (href: string) => {
     if (href === '/user/dashboard') return pathname === '/user/dashboard'
@@ -132,21 +143,6 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Settings — pinned to bottom */}
-      <div className="px-3 py-4 border-t border-gray-100">
-        <Link
-          href="/user/settings"
-          onClick={onMobileClose}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150 w-full ${
-            isActive('/user/settings')
-              ? 'bg-[#4379EE] text-white shadow-md shadow-blue-500/20'
-              : 'text-gray-500 hover:bg-gray-50 hover:text-[#4379EE]'
-          }`}
-        >
-          <Settings className="w-[18px] h-[18px]" />
-          Settings
-        </Link>
-      </div>
     </div>
   )
 

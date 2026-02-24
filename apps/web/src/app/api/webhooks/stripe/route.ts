@@ -41,7 +41,145 @@ async function forwardToApi(
   }
 }
 
+async function handleSubscriptionCheckout(session: Stripe.Checkout.Session) {
+  const userId = session.metadata?.userId
+
+  if (!userId) {
+    console.error('CRITICAL: Missing userId in subscription checkout metadata:', session.id)
+    return NextResponse.json({ received: true })
+  }
+
+  const { apiUrl, internalSecret } = getApiConfig()
+
+  if (!internalSecret) {
+    console.error('INTERNAL_WEBHOOK_SECRET not configured')
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+  }
+
+  const stripe = getStripe()
+
+  // Retrieve the full subscription object
+  const subscriptionId =
+    typeof session.subscription === 'string'
+      ? session.subscription
+      : session.subscription?.id
+  if (!subscriptionId) {
+    console.error('CRITICAL: No subscription ID on checkout session:', session.id)
+    return NextResponse.json({ received: true })
+  }
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+
+  // Parse plan name from metadata planId (e.g. "plan-basic-monthly" → "Basic")
+  const rawPlanId = subscription.metadata?.planId ?? session.metadata?.planId ?? ''
+  const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
+  const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
+
+  const billingPeriod = subscription.metadata?.billingPeriod ?? session.metadata?.billingPeriod ?? 'monthly'
+
+  const currentPeriodStart = (subscription as any).current_period_start
+    ? new Date((subscription as any).current_period_start * 1000).toISOString()
+    : null
+  const currentPeriodEnd = (subscription as any).current_period_end
+    ? new Date((subscription as any).current_period_end * 1000).toISOString()
+    : null
+
+  const stripeCustomerId =
+    typeof session.customer === 'string'
+      ? session.customer
+      : session.customer?.id ?? null
+
+  const result = await forwardToApi(
+    '/api/v1/subscriptions/from-stripe',
+    {
+      userId,
+      planName,
+      stripeSubscriptionId: subscription.id,
+      stripeCustomerId,
+      status: 'ACTIVE',
+      billingPeriod,
+      currentPeriodStart,
+      currentPeriodEnd,
+    },
+    internalSecret,
+    apiUrl
+  )
+
+  if (!result.ok) {
+    console.error('API subscription creation failed:', result.status, result.body)
+    return NextResponse.json({ error: 'Failed to create subscription' }, { status: 500 })
+  }
+
+  return NextResponse.json({ received: true })
+}
+
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+  const userId = subscription.metadata?.userId
+  if (!userId) {
+    console.error('CRITICAL: Missing userId in subscription metadata:', subscription.id)
+    return NextResponse.json({ received: true })
+  }
+
+  const { apiUrl, internalSecret } = getApiConfig()
+  if (!internalSecret) {
+    console.error('INTERNAL_WEBHOOK_SECRET not configured')
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+  }
+
+  const rawPlanId = subscription.metadata?.planId ?? ''
+  const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
+  const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
+  const billingPeriod = subscription.metadata?.billingPeriod ?? 'monthly'
+
+  const statusMap: Record<string, string> = {
+    active: 'ACTIVE',
+    past_due: 'PAST_DUE',
+    canceled: 'CANCELED',
+    incomplete: 'INCOMPLETE',
+    trialing: 'TRIALING',
+  }
+
+  const currentPeriodStart = (subscription as any).current_period_start
+    ? new Date((subscription as any).current_period_start * 1000).toISOString()
+    : null
+  const currentPeriodEnd = (subscription as any).current_period_end
+    ? new Date((subscription as any).current_period_end * 1000).toISOString()
+    : null
+
+  const stripeCustomerId =
+    typeof subscription.customer === 'string'
+      ? subscription.customer
+      : (subscription.customer as any)?.id ?? null
+
+  const result = await forwardToApi(
+    '/api/v1/subscriptions/from-stripe',
+    {
+      userId,
+      planName,
+      stripeSubscriptionId: subscription.id,
+      stripeCustomerId,
+      status: statusMap[subscription.status] ?? 'ACTIVE',
+      billingPeriod,
+      currentPeriodStart,
+      currentPeriodEnd,
+    },
+    internalSecret,
+    apiUrl
+  )
+
+  if (!result.ok) {
+    console.error('API subscription update failed:', result.status, result.body)
+  }
+
+  return NextResponse.json({ received: true })
+}
+
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  // Branch: subscription checkouts go to a different handler
+  if (session.mode === 'subscription') {
+    return handleSubscriptionCheckout(session)
+  }
+
   const userId = session.metadata?.userId
   const itemsJson = session.metadata?.items
 
@@ -175,6 +313,39 @@ export async function POST(req: NextRequest) {
     case 'payment_intent.payment_failed': {
       const intent = event.data.object as Stripe.PaymentIntent
       return handlePaymentFailed(intent, event.type)
+    }
+
+    case 'customer.subscription.updated': {
+      const subscription = event.data.object as Stripe.Subscription
+      return handleSubscriptionUpdated(subscription)
+    }
+
+    case 'customer.subscription.deleted': {
+      const subscription = event.data.object as Stripe.Subscription
+      // Treat deletion as cancellation
+      const userId = subscription.metadata?.userId
+      if (userId) {
+        const { apiUrl, internalSecret } = getApiConfig()
+        if (internalSecret) {
+          const rawPlanId = subscription.metadata?.planId ?? ''
+          const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
+          const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
+
+          await forwardToApi(
+            '/api/v1/subscriptions/from-stripe',
+            {
+              userId,
+              planName,
+              stripeSubscriptionId: subscription.id,
+              status: 'CANCELED',
+              billingPeriod: subscription.metadata?.billingPeriod ?? 'monthly',
+            },
+            internalSecret,
+            apiUrl
+          )
+        }
+      }
+      return NextResponse.json({ received: true })
     }
 
     default:

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { formatCurrency } from '@/lib/utils';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -76,7 +77,7 @@ export function AdminStats() {
         {/* Total Revenue */}
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white">
           <h3 className="text-sm font-medium opacity-90 mb-2">Total Revenue</h3>
-          <p className="text-4xl font-bold">${parseFloat(stats.totalRevenue).toFixed(2)}</p>
+          <p className="text-4xl font-bold">${formatCurrency(parseFloat(stats.totalRevenue))}</p>
         </div>
 
         {/* Total Orders */}

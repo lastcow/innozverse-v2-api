@@ -10,6 +10,7 @@ export const OrderItemSchema = z.object({
   quantity: z.number().int().positive(),
   priceAtPurchase: z.number().positive(),
   productSnapshot: z.record(z.unknown()),
+  serialNumber: z.string().nullable().optional(),
 });
 export type OrderItem = z.infer<typeof OrderItemSchema>;
 

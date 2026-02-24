@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { formatCurrency } from '@/lib/utils';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -22,10 +23,12 @@ interface Order {
     id: string;
     quantity: number;
     price: string;
+    serialNumber: string | null;
     product: {
       id: string;
       name: string;
       basePrice: number;
+      upc?: string;
       imageUrls: string[];
       type: string;
     };
@@ -46,6 +49,7 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -74,6 +78,30 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
       fetchOrder();
     }
   }, [accessToken, orderId]);
+
+  const canCancel = order && !['DELIVERED', 'CANCELLED'].includes(order.status);
+
+  const handleCancel = async () => {
+    if (!accessToken || !order) return;
+    setCancelling(true);
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/orders/${orderId}/cancel`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to cancel order');
+      }
+      setOrder(data.order);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -124,20 +152,31 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
             </h1>
             <p className="text-sm text-gray-600 mt-1">Placed on {orderDate}</p>
           </div>
-          <span
-            className={`px-4 py-2 rounded-full text-sm font-medium ${
-              statusColors[order.status] || 'bg-gray-100 text-gray-800'
-            }`}
-          >
-            {order.status}
-          </span>
+          <div className="flex items-center gap-3">
+            <span
+              className={`px-4 py-2 rounded-full text-sm font-medium ${
+                statusColors[order.status] || 'bg-gray-100 text-gray-800'
+              }`}
+            >
+              {order.status}
+            </span>
+            {canCancel && (
+              <button
+                onClick={handleCancel}
+                disabled={cancelling}
+                className="px-4 py-2 rounded-md text-sm font-medium border border-red-300 text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+              >
+                {cancelling ? 'Cancelling...' : 'Cancel Order'}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="border-t pt-4">
           <div className="flex justify-between items-center">
             <span className="text-gray-600">Total Amount</span>
             <span className="text-2xl font-bold text-gray-900">
-              ${parseFloat(order.totalAmount).toFixed(2)}
+              ${formatCurrency(parseFloat(order.totalAmount))}
             </span>
           </div>
         </div>
@@ -183,17 +222,27 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
                     {item.product.name}
                   </Link>
                   <p className="text-sm text-gray-600 mt-1">{item.product.type}</p>
+                  {item.product.upc && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      UPC: <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-xs">{item.product.upc}</span>
+                    </p>
+                  )}
                   <p className="text-sm text-gray-600 mt-2">
                     Quantity: {item.quantity}
                   </p>
                   <p className="text-sm text-gray-600">
-                    Price: ${parseFloat(item.price).toFixed(2)} each
+                    Price: ${formatCurrency(parseFloat(item.price))} each
                   </p>
+                  {item.serialNumber && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      SN: <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-xs">{item.serialNumber}</span>
+                    </p>
+                  )}
                 </div>
 
                 <div className="text-right">
                   <p className="text-lg font-bold text-gray-900">
-                    ${itemTotal.toFixed(2)}
+                    ${formatCurrency(itemTotal)}
                   </p>
                 </div>
               </div>
@@ -206,7 +255,7 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
           <div className="space-y-2">
             <div className="flex justify-between text-gray-600">
               <span>Subtotal</span>
-              <span>${parseFloat(order.totalAmount).toFixed(2)}</span>
+              <span>${formatCurrency(parseFloat(order.totalAmount))}</span>
             </div>
             <div className="flex justify-between text-gray-600">
               <span>Tax</span>
@@ -218,7 +267,7 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
             </div>
             <div className="border-t pt-2 flex justify-between text-lg font-bold text-gray-900">
               <span>Total</span>
-              <span>${parseFloat(order.totalAmount).toFixed(2)}</span>
+              <span>${formatCurrency(parseFloat(order.totalAmount))}</span>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { formatCurrency } from '@/lib/utils';
 
 interface CartSummaryProps {
   subtotal: string;
@@ -31,17 +32,17 @@ export function CartSummary({ subtotal, itemCount, isAuthenticated }: CartSummar
       <div className="space-y-3 mb-6">
         <div className="flex justify-between text-gray-600">
           <span>Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'items'})</span>
-          <span>${subtotalNum.toFixed(2)}</span>
+          <span>${formatCurrency(subtotalNum)}</span>
         </div>
 
         <div className="flex justify-between text-gray-600">
           <span>Tax</span>
-          <span>${tax.toFixed(2)}</span>
+          <span>${formatCurrency(tax)}</span>
         </div>
 
         <div className="border-t pt-3 flex justify-between text-lg font-bold text-gray-900">
           <span>Total</span>
-          <span>${total.toFixed(2)}</span>
+          <span>${formatCurrency(total)}</span>
         </div>
       </div>
 

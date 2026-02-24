@@ -3,6 +3,7 @@
 import { Pencil, Trash2, Package } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { Product } from '@repo/database'
+import { formatCurrency } from '@/lib/utils'
 
 interface ProductTableProps {
   products: Product[]
@@ -125,7 +126,7 @@ export function ProductTable({ products, loading, onEdit, onDelete }: ProductTab
                   </Badge>
                 </td>
                 <td className="px-5 py-4 font-medium text-[#202224]">
-                  ${Number(product.basePrice).toFixed(2)}
+                  ${formatCurrency(Number(product.basePrice))}
                 </td>
                 <td className="px-5 py-4 text-gray-500 text-sm">
                   {product.stock} units

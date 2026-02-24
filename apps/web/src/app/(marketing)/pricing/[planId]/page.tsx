@@ -1,12 +1,16 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { notFound, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Check, Terminal, Server, ShieldCheck, Crown, Cpu, HardDrive, Network, Clock, Users, Zap, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/use-auth'
+import { formatCurrency } from '@/lib/utils'
+import { getStudentVerificationStatus } from '@/app/actions/student'
 
 const HomeNetworkCanvas = dynamic(
   () =>
@@ -220,16 +224,43 @@ const planData: Record<string, PlanData> = {
   },
 }
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const STUDENT_DISCOUNT = 0.85 // 15% off
+
 export default function PlanDetailPage({ params }: { params: { planId: string } }) {
   const plan = planData[params.planId]
   const { isAuthenticated } = useAuth()
   const router = useRouter()
+  const [isStudent, setIsStudent] = useState(false)
+  const [liveMonthlyPrice, setLiveMonthlyPrice] = useState<number | null>(null)
+
+  useEffect(() => {
+    // Fetch actual price from API
+    fetch(`${apiUrl}/api/v1/subscriptions/plans`)
+      .then((res) => res.json())
+      .then((data) => {
+        const match = (data.plans as any[])?.find(
+          (p: any) => p.name.toLowerCase() === params.planId.toLowerCase()
+        )
+        if (match) setLiveMonthlyPrice(match.monthlyPrice)
+      })
+      .catch(() => {})
+
+    // Check student status
+    getStudentVerificationStatus()
+      .then((result) => {
+        if (result.status === 'APPROVED') setIsStudent(true)
+      })
+      .catch(() => {})
+  }, [params.planId])
 
   if (!plan) {
     notFound()
   }
 
-  const isPaid = plan.monthlyAmount > 0
+  const monthlyPrice = liveMonthlyPrice ?? plan.monthlyAmount
+  const isPaid = monthlyPrice > 0
+  const studentPrice = isPaid && isStudent ? Math.round(monthlyPrice * STUDENT_DISCOUNT * 100) / 100 : null
 
   const handleSubscribe = () => {
     if (!isPaid) {
@@ -261,10 +292,29 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
                 <h1 className="text-5xl sm:text-6xl font-bold text-slate-900">
                   {plan.name} Plan
                 </h1>
-                <div className="mt-2">
-                  <p className="text-2xl text-blue-600 font-bold">
-                    {plan.price}
-                  </p>
+                <div className="mt-2 space-y-1">
+                  {studentPrice !== null ? (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg text-slate-400 line-through">
+                          ${formatCurrency(monthlyPrice)}/mo
+                        </span>
+                        <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5">
+                          Student -15%
+                        </Badge>
+                      </div>
+                      <p className="text-2xl text-blue-600 font-bold">
+                        ${formatCurrency(studentPrice)}/month
+                      </p>
+                      <p className="text-xs text-green-600 font-medium">
+                        You save ${formatCurrency(monthlyPrice - studentPrice)}/mo
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-2xl text-blue-600 font-bold">
+                      {isPaid ? `$${formatCurrency(monthlyPrice)}/month` : '$0/month'}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

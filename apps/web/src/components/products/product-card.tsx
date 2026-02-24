@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { EventDiscount } from '@repo/types';
+import { formatCurrency } from '@/lib/utils';
 import {
   calculateDiscountBreakdown,
   formatDiscountPercentage,
@@ -108,18 +109,18 @@ export function ProductCard({
               {hasAnyDiscount ? (
                 <>
                   <span className="text-sm text-gray-400 line-through">
-                    ${basePrice.toFixed(2)}
+                    ${formatCurrency(basePrice)}
                   </span>
                   <span className="text-2xl font-bold text-blue-600">
-                    ${finalPrice.toFixed(2)}
+                    ${formatCurrency(finalPrice)}
                   </span>
                   <span className="text-xs text-green-600 font-medium">
-                    Save ${discountBreakdown.totalDiscountAmount.toFixed(2)}
+                    Save ${formatCurrency(discountBreakdown.totalDiscountAmount)}
                   </span>
                 </>
               ) : (
                 <span className="text-2xl font-bold text-gray-900">
-                  ${basePrice.toFixed(2)}
+                  ${formatCurrency(basePrice)}
                 </span>
               )}
             </div>

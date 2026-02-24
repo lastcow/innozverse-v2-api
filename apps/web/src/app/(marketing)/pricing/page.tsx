@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Check, Terminal, Zap, ShieldCheck, Crown } from 'lucide-react'
 import Link from 'next/link'
+import { formatCurrency } from '@/lib/utils'
+import { getStudentVerificationStatus } from '@/app/actions/student'
 
 const HomeNetworkCanvas = dynamic(
   () =>
@@ -16,21 +18,21 @@ const HomeNetworkCanvas = dynamic(
   { ssr: false }
 )
 
-interface PricingTier {
+interface Plan {
+  id: string
   name: string
-  basePrice: number | null // null for Free only
-  displayPrice: string
-  regularPrice?: string // For strikethrough when student discount is active
+  level: number
+  monthlyPrice: number
+  annualTotalPrice: number
   description: string
-  features: string[]
-  cta: string
-  ctaLink: string
-  highlighted: boolean
-  variant: 'outline' | 'default'
-  badge?: string
-  icon: typeof Terminal | typeof Zap | typeof ShieldCheck | typeof Crown
-  showStudentPrice?: boolean
+  highlights: string[]
+  active: boolean
+  sortOrder: number
 }
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+const tierIcons: (typeof Terminal)[] = [Terminal, Zap, ShieldCheck, Crown]
 
 const faqs = [
   {
@@ -62,92 +64,36 @@ const faqs = [
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false)
   const [isStudent, setIsStudent] = useState(false)
+  const [plans, setPlans] = useState<Plan[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const getPricingTiers = (annual: boolean, student: boolean): PricingTier[] => {
-    // Apply discounts sequentially
-    let annualDiscount = annual ? 0.9 : 1 // 10% off when annual
-    let studentDiscount = student ? 0.85 : 1 // Additional 15% off for students
-    const totalDiscount = annualDiscount * studentDiscount
+  useEffect(() => {
+    fetch(`${apiUrl}/api/v1/subscriptions/plans`)
+      .then((res) => res.json())
+      .then((data) => {
+        const sorted = (data.plans as Plan[]).sort((a, b) => a.level - b.level)
+        setPlans(sorted)
+      })
+      .catch((err) => console.error('Failed to fetch plans:', err))
+      .finally(() => setLoading(false))
+  }, [])
 
-    // Multiplier: 12 for annual (yearly total), 1 for monthly
-    const periodMultiplier = annual ? 12 : 1
+  // Auto-enable student pricing for verified students
+  useEffect(() => {
+    getStudentVerificationStatus().then((result) => {
+      if (result.status === 'APPROVED') {
+        setIsStudent(true)
+      }
+    }).catch(() => {})
+  }, [])
 
-    return [
-      {
-        name: 'Free',
-        basePrice: null,
-        displayPrice: '$0',
-        description: 'Free for students only. Verify with a valid .edu email to get started.',
-        features: [
-          '1 Standard Linux VM',
-          'Basic community access',
-          'Public documentation',
-        ],
-        cta: 'View Details',
-        ctaLink: '/pricing/free',
-        highlighted: false,
-        variant: 'outline' as const,
-        icon: Terminal,
-      },
-      {
-        name: 'Basic',
-        basePrice: 19.99,
-        displayPrice: `$${(19.99 * periodMultiplier * totalDiscount).toFixed(2)}`,
-        regularPrice: student ? `$${(19.99 * periodMultiplier * annualDiscount).toFixed(2)}` : undefined,
-        description: 'Perfect entry point for cybersecurity students.',
-        features: [
-          '1 Standard Linux VM',
-          '1 Kali Linux VM',
-          'Community Support',
-        ],
-        cta: 'View Details',
-        ctaLink: '/pricing/basic',
-        highlighted: false,
-        variant: 'default' as const,
-        icon: Zap,
-        showStudentPrice: student,
-      },
-      {
-        name: 'Pro',
-        basePrice: 29.99,
-        displayPrice: `$${(29.99 * periodMultiplier * totalDiscount).toFixed(2)}`,
-        regularPrice: student ? `$${(29.99 * periodMultiplier * annualDiscount).toFixed(2)}` : undefined,
-        description: 'For serious developers and learners.',
-        features: [
-          '2 Standard Linux VMs',
-          '1 Kali Linux VM (Security Lab)',
-          'Community Support',
-        ],
-        cta: 'View Details',
-        ctaLink: '/pricing/pro',
-        highlighted: true,
-        variant: 'default' as const,
-        badge: 'Most Popular',
-        icon: ShieldCheck,
-        showStudentPrice: student,
-      },
-      {
-        name: 'Premium',
-        basePrice: 59.99,
-        displayPrice: `$${(59.99 * periodMultiplier * totalDiscount).toFixed(2)}`,
-        regularPrice: student ? `$${(59.99 * periodMultiplier * annualDiscount).toFixed(2)}` : undefined,
-        description: 'The ultimate toolkit for professionals.',
-        features: [
-          '3 Standard Linux VMs',
-          '2 Kali Linux VMs',
-          'Priority Support',
-        ],
-        cta: 'View Details',
-        ctaLink: '/pricing/premium',
-        highlighted: false,
-        variant: 'default' as const,
-        icon: Crown,
-        showStudentPrice: student,
-      },
-    ]
-  }
+  const annualDiscount = isAnnual ? 0.9 : 1
+  const studentDiscount = isStudent ? 0.85 : 1
+  const totalDiscount = annualDiscount * studentDiscount
+  const periodMultiplier = isAnnual ? 12 : 1
 
-  const pricingTiers = getPricingTiers(isAnnual, isStudent)
+  // Highlight the second-to-last plan as "Most Popular"
+  const highlightedLevel = plans.length >= 3 ? plans[plans.length - 2]?.level : -1
 
   return (
     <>
@@ -222,113 +168,131 @@ export default function PricingPage() {
               </div>
             </div>
 
-            {/* 4-column responsive grid with equal height cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {pricingTiers.map((tier) => (
-                <Card
-                  key={tier.name}
-                  className={`relative rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col ${
-                    tier.highlighted
-                      ? 'bg-blue-50/50 border-2 border-blue-600'
-                      : 'bg-white border-2 border-gray-200'
-                  }`}
-                >
-                  {tier.badge && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge className="bg-blue-600 text-white shadow-lg px-4 py-1">
-                        {tier.badge}
-                      </Badge>
-                    </div>
-                  )}
+            {/* Dynamic grid from plan data */}
+            {loading ? (
+              <div className="flex justify-center py-16">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent" />
+              </div>
+            ) : (
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${plans.length >= 4 ? 'lg:grid-cols-4' : plans.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-8`}>
+              {plans.map((plan, idx) => {
+                const isFree = plan.monthlyPrice === 0
+                const isHighlighted = plan.level === highlightedLevel
+                const Icon = tierIcons[idx] ?? tierIcons[0]!
+                const displayPrice = isFree
+                  ? '$0'
+                  : `$${formatCurrency(plan.monthlyPrice * periodMultiplier * totalDiscount)}`
+                const regularPrice = !isFree && isStudent
+                  ? `$${formatCurrency(plan.monthlyPrice * periodMultiplier * annualDiscount)}`
+                  : undefined
 
-                  <CardHeader className="space-y-4 pb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                        <tier.icon className="w-5 h-5 text-blue-600" />
+                return (
+                  <Card
+                    key={plan.id}
+                    className={`relative rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col ${
+                      isHighlighted
+                        ? 'bg-blue-50/50 border-2 border-blue-600'
+                        : 'bg-white border-2 border-gray-200'
+                    }`}
+                  >
+                    {isHighlighted && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <Badge className="bg-blue-600 text-white shadow-lg px-4 py-1">
+                          Most Popular
+                        </Badge>
                       </div>
-                      <CardTitle className="text-2xl text-slate-900">
-                        {tier.name}
-                      </CardTitle>
-                    </div>
-                    <CardDescription className="text-slate-600 text-sm leading-relaxed">
-                      {tier.description}
-                    </CardDescription>
+                    )}
 
-                    <div className="space-y-1">
-                      {tier.showStudentPrice && tier.regularPrice && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-400 line-through text-lg">
-                            {tier.regularPrice}
-                          </span>
-                          <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5">
-                            Student
-                          </Badge>
+                    <CardHeader className="space-y-4 pb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                          <Icon className="w-5 h-5 text-blue-600" />
                         </div>
-                      )}
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-bold text-slate-900">
-                          {tier.displayPrice}
-                        </span>
-                        {tier.basePrice !== null && (
-                          <span className="text-slate-600 text-sm">
-                            / {isAnnual ? 'year' : 'month'}
+                        <CardTitle className="text-2xl text-slate-900">
+                          {plan.name}
+                        </CardTitle>
+                      </div>
+                      <CardDescription className="text-slate-600 text-sm leading-relaxed">
+                        {plan.description}
+                      </CardDescription>
+
+                      <div className="space-y-1">
+                        {!isFree && isStudent && regularPrice && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400 line-through text-lg">
+                              {regularPrice}
+                            </span>
+                            <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5">
+                              Student
+                            </Badge>
+                          </div>
+                        )}
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-4xl font-bold text-slate-900">
+                            {displayPrice}
                           </span>
+                          {!isFree && (
+                            <span className="text-slate-600 text-sm">
+                              / {isAnnual ? 'year' : 'month'}
+                            </span>
+                          )}
+                        </div>
+                        {!isFree && isAnnual && (
+                          <p className="text-xs text-slate-500">
+                            (Equivalent to ${formatCurrency(parseFloat(displayPrice.replace('$', '').replace(',', '')) / 12)}/mo)
+                          </p>
+                        )}
+                        {!isFree && isAnnual && !isStudent && (
+                          <p className="text-xs text-green-600 font-medium">
+                            Save ${formatCurrency((plan.monthlyPrice * 0.1) * 12)} vs monthly billing
+                          </p>
+                        )}
+                        {!isFree && isStudent && !isAnnual && (
+                          <p className="text-xs text-blue-600 font-medium">
+                            Student discount: ${formatCurrency((plan.monthlyPrice * 0.15) * 12)}/year savings
+                          </p>
+                        )}
+                        {!isFree && isStudent && isAnnual && (
+                          <p className="text-xs text-blue-600 font-medium">
+                            Total savings: ${formatCurrency(((1 - (0.9 * 0.85)) * plan.monthlyPrice) * 12)}/year
+                          </p>
                         )}
                       </div>
-                      {tier.basePrice !== null && isAnnual && (
-                        <p className="text-xs text-slate-500">
-                          (Equivalent to ${(parseFloat(tier.displayPrice.replace('$', '')) / 12).toFixed(2)}/mo)
-                        </p>
-                      )}
-                      {tier.basePrice !== null && isAnnual && !isStudent && (
-                        <p className="text-xs text-green-600 font-medium">
-                          Save ${((tier.basePrice * 0.1) * 12).toFixed(2)} vs monthly billing
-                        </p>
-                      )}
-                      {tier.basePrice !== null && isStudent && !isAnnual && (
-                        <p className="text-xs text-blue-600 font-medium">
-                          Student discount: ${((tier.basePrice * 0.15) * 12).toFixed(2)}/year savings
-                        </p>
-                      )}
-                      {tier.basePrice !== null && isStudent && isAnnual && (
-                        <p className="text-xs text-blue-600 font-medium">
-                          Total savings: ${(((1 - (0.9 * 0.85)) * tier.basePrice) * 12).toFixed(2)}/year
-                        </p>
-                      )}
-                    </div>
-                  </CardHeader>
+                    </CardHeader>
 
-                  <CardContent className="space-y-4 pb-6 flex-grow">
-                    <ul className="space-y-3">
-                      {tier.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                          <span className="text-sm text-slate-700 leading-relaxed">
-                            {feature}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
+                    <CardContent className="space-y-4 pb-6 flex-grow">
+                      <ul className="space-y-3">
+                        {plan.highlights.map((feature, fidx) => (
+                          <li key={fidx} className="flex items-start gap-3">
+                            <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm text-slate-700 leading-relaxed">
+                              {feature}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
 
-                  <CardFooter className="mt-auto">
-                    <Button
-                      asChild
-                      size="lg"
-                      className={`w-full ${
-                        tier.highlighted
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                          : tier.variant === 'outline'
-                            ? 'bg-white border-2 border-gray-300 text-slate-700 hover:bg-slate-100'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white'
-                      }`}
-                    >
-                      <Link href={tier.ctaLink}>{tier.cta}</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
+                    <CardFooter className="mt-auto">
+                      <Button
+                        asChild
+                        size="lg"
+                        className={`w-full ${
+                          isHighlighted
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : isFree
+                              ? 'bg-white border-2 border-gray-300 text-slate-700 hover:bg-slate-100'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        }`}
+                      >
+                        <Link href={`/pricing/${plan.name.toLowerCase()}`}>View Details</Link>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                )
+              })}
             </div>
+            )}
           </div>
         </div>
       </section>
@@ -496,7 +460,7 @@ export default function PricingPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild size="lg" className="bg-white text-blue-600 hover:bg-blue-50 font-semibold">
-                <Link href="/auth/register">Start Free</Link>
+                <Link href="/user/subscription">Start Free</Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="border-2 border-white text-white hover:bg-white/20 bg-transparent">
                 <Link href="/products">Browse Marketplace</Link>

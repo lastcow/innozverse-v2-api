@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -14,8 +13,7 @@ import {
 } from '@/components/ui/sheet'
 import { useCartStore, type BillingPeriod } from '@/store/useCartStore'
 import { useAuth } from '@/hooks/use-auth'
-import { createCheckoutSession } from '@/app/actions/stripe'
-import { toast } from 'sonner'
+import { formatCurrency } from '@/lib/utils'
 
 interface CartDrawerProps {
   open: boolean
@@ -24,32 +22,18 @@ interface CartDrawerProps {
 
 export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
   const { items, removeItem, updateQuantity, updateBillingPeriod, subtotal, totalItems, hasSubscription } = useCartStore()
-  const { user, isAuthenticated } = useAuth()
-  const [loading, setLoading] = useState(false)
+  const { isAuthenticated } = useAuth()
   const router = useRouter()
 
-  const handleCheckout = async () => {
-    if (!isAuthenticated || !user) {
+  const handleCheckout = () => {
+    if (!isAuthenticated) {
       onOpenChange(false)
-      router.push('/auth/login?callbackUrl=/cart')
+      router.push('/auth/login?callbackUrl=/checkout')
       return
     }
 
-    setLoading(true)
-    try {
-      const result = await createCheckoutSession(items, user.id)
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      if (result.url) {
-        window.location.href = result.url
-      }
-    } catch {
-      toast.error('Failed to start checkout')
-    } finally {
-      setLoading(false)
-    }
+    onOpenChange(false)
+    router.push('/checkout')
   }
 
   const subscriptionItem = items.find((i) => i.type === 'subscription')
@@ -115,7 +99,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                           {item.name}
                         </p>
                         <p className="text-sm font-semibold text-blue-600 mt-0.5">
-                          ${item.price.toFixed(2)}
+                          ${formatCurrency(item.price)}
                           {isSubscription && (
                             <span className="text-xs text-gray-500 font-normal ml-1">
                               /{item.billingPeriod === 'annual' ? 'year' : 'month'}
@@ -145,7 +129,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                       </div>
                       <div className="flex flex-col items-end justify-between">
                         <p className="text-sm font-medium text-gray-900">
-                          ${(item.price * item.quantity).toFixed(2)}
+                          ${formatCurrency(item.price * item.quantity)}
                         </p>
                         <button
                           onClick={() => removeItem(item.productId)}
@@ -196,7 +180,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                         </div>
                         {item.billingPeriod === 'annual' && item.annualPrice && (
                           <p className="text-[11px] text-gray-400">
-                            ${(item.annualPrice / 12).toFixed(2)}/mo equivalent
+                            ${formatCurrency(item.annualPrice / 12)}/mo equivalent
                           </p>
                         )}
                       </div>
@@ -217,7 +201,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
               </div>
               <div className="flex justify-between text-base font-medium text-gray-900">
                 <span>Subtotal</span>
-                <span>${subtotal().toFixed(2)}</span>
+                <span>${formatCurrency(subtotal())}</span>
               </div>
               {hasSubscription() && (
                 <p className="text-xs text-blue-600">
@@ -226,12 +210,9 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
               )}
               <button
                 onClick={handleCheckout}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-6 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 py-3 px-6 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition"
               >
-                {loading ? (
-                  'Redirecting...'
-                ) : isAuthenticated ? (
+                {isAuthenticated ? (
                   'Proceed to Checkout'
                 ) : (
                   <>

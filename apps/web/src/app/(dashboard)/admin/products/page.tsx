@@ -3,6 +3,16 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { PackagePlus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useAuth } from '@/hooks/use-auth'
 import { ProductTable } from './components/product-table'
 import { ProductForm } from './components/product-form'
@@ -25,6 +35,7 @@ export default function AdminProductsPage() {
   const [stockFilter, setStockFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const fetchProducts = useCallback(async () => {
     if (!accessToken) return
@@ -57,11 +68,14 @@ export default function AdminProductsPage() {
     setIsFormOpen(true)
   }
 
-  const handleDelete = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return
+  const handleDelete = (productId: string) => {
+    setDeleteId(productId)
+  }
 
+  const confirmDelete = async () => {
+    if (!deleteId) return
     try {
-      const response = await fetch(`${apiUrl}/api/v1/products/${productId}`, {
+      const response = await fetch(`${apiUrl}/api/v1/products/${deleteId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -76,6 +90,8 @@ export default function AdminProductsPage() {
     } catch (error) {
       console.error('Failed to delete product:', error)
       alert('Failed to delete product')
+    } finally {
+      setDeleteId(null)
     }
   }
 
@@ -285,6 +301,27 @@ export default function AdminProductsPage() {
         onSuccess={handleFormSuccess}
         onCancel={handleFormCancel}
       />
+
+      {/* Delete Confirm Dialog */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this product? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

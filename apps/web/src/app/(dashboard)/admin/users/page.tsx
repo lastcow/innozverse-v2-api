@@ -266,6 +266,8 @@ export default function AdminUsersPage() {
           loading={loading}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          accessToken={accessToken ?? undefined}
+          onRefresh={fetchUsers}
         />
 
         {/* Footer: Pagination */}

@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
+import { formatCurrency } from '@/lib/utils';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -141,7 +142,7 @@ export function CartItem({ item, onUpdate, isAuthenticated, accessToken }: CartI
           </Link>
           <p className="text-sm text-gray-600 mt-1">{item.product.type}</p>
           <p className="text-lg font-bold text-gray-900 mt-2">
-            ${parseFloat(item.product.basePrice.toString()).toFixed(2)}
+            ${formatCurrency(parseFloat(item.product.basePrice.toString()))}
           </p>
         </div>
 
@@ -165,7 +166,7 @@ export function CartItem({ item, onUpdate, isAuthenticated, accessToken }: CartI
           </div>
 
           <p className="text-lg font-bold text-gray-900">
-            ${itemTotal.toFixed(2)}
+            ${formatCurrency(itemTotal)}
           </p>
 
           <button

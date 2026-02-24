@@ -1,169 +1,172 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/use-auth';
+import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe-js'
+import { ShoppingBag, CreditCard, MapPin } from 'lucide-react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { stripePromise } from '@/lib/stripe'
+import { formatCurrency } from '@/lib/utils'
+import { useCartStore } from '@/store/useCartStore'
+import { useAuth } from '@/hooks/use-auth'
+import { createEmbeddedCheckoutSession } from '@/app/actions/stripe'
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+function OrderSummary() {
+  const items = useCartStore((s) => s.items)
+  const subtotal = useCartStore((s) => s.subtotal)
+
+  return (
+    <div className="space-y-6">
+      {/* Items */}
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Order Summary ({items.length} {items.length === 1 ? 'item' : 'items'})
+        </h2>
+        <div className="divide-y divide-gray-100">
+          {items.map((item) => {
+            const isSubscription = item.type === 'subscription'
+            return (
+              <div key={item.productId} className="flex gap-3 py-3 first:pt-0 last:pb-0">
+                <div className="relative w-14 h-14 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
+                  {item.image ? (
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      fill
+                      className="object-cover"
+                      sizes="56px"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      {isSubscription ? (
+                        <CreditCard className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ShoppingBag className="w-5 h-5 text-gray-400" />
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                  {isSubscription ? (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {item.billingPeriod === 'annual' ? 'Annual' : 'Monthly'} subscription
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-0.5">Qty: {item.quantity}</p>
+                  )}
+                </div>
+                <p className="text-sm font-medium text-gray-900 flex-shrink-0">
+                  ${formatCurrency(item.price * item.quantity)}
+                  {isSubscription && (
+                    <span className="text-xs text-gray-500 font-normal">
+                      /{item.billingPeriod === 'annual' ? 'yr' : 'mo'}
+                    </span>
+                  )}
+                </p>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Subtotal */}
+        <div className="border-t border-gray-200 mt-4 pt-4 flex justify-between items-center">
+          <span className="text-sm font-medium text-gray-700">Subtotal</span>
+          <span className="text-lg font-semibold text-gray-900">${formatCurrency(subtotal())}</span>
+        </div>
+      </div>
+
+      {/* Pickup notice */}
+      <div className="flex items-start gap-3 rounded-lg bg-blue-50 border border-blue-100 p-4">
+        <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-blue-700">
+          Any physical items need to be picked up at our company location. You will receive pickup details after your order is confirmed.
+        </p>
+      </div>
+    </div>
+  )
+}
 
 export function CheckoutForm() {
-  const router = useRouter();
-  const { accessToken } = useAuth();
-  const [cart, setCart] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const router = useRouter()
+  const { user } = useAuth()
+  const items = useCartStore((s) => s.items)
+  const [hydrated, setHydrated] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    const fetchCart = async () => {
-      try {
-        const response = await fetch(`${apiUrl}/api/v1/cart`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
+    setHydrated(true)
+  }, [])
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch cart');
-        }
-
-        if (!data.cart || data.cart.items.length === 0) {
-          router.push('/cart');
-          return;
-        }
-
-        setCart(data.cart);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (accessToken) {
-      fetchCart();
+  const fetchClientSecret = useCallback(async () => {
+    if (!user?.id) throw new Error('Not authenticated')
+    const result = await createEmbeddedCheckoutSession(items, user.id, user.email ?? undefined)
+    if (result.error) {
+      setError(result.error)
+      throw new Error(result.error)
     }
-  }, [accessToken, router]);
+    return result.clientSecret!
+  }, [items, user?.id, user?.email])
 
-  const handlePlaceOrder = async () => {
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const response = await fetch(`${apiUrl}/api/v1/orders`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to place order');
-      }
-
-      // Redirect to order confirmation
-      router.push(`/orders/${data.order.id}`);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (loading) {
+  if (!hydrated) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">Loading...</p>
       </div>
-    );
+    )
   }
 
-  if (error && !cart) {
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 text-center py-16">
+        <ShoppingBag className="w-16 h-16 text-gray-300" />
+        <div>
+          <p className="text-lg font-medium text-gray-900">Your cart is empty</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Add items to your cart before checking out.
+          </p>
+        </div>
+        <Link
+          href="/products"
+          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition"
+        >
+          Browse Products
+        </Link>
+      </div>
+    )
+  }
+
+  if (error) {
     return (
       <div className="text-center py-12">
         <p className="text-red-500 mb-4">{error}</p>
+        <button
+          onClick={() => { setError(''); router.refresh() }}
+          className="text-blue-600 hover:underline text-sm"
+        >
+          Try again
+        </button>
       </div>
-    );
+    )
   }
-
-  if (!cart) {
-    return null;
-  }
-
-  const subtotal = parseFloat(cart.subtotal);
-  const tax = 0;
-  const total = subtotal + tax;
 
   return (
-    <div className="space-y-8">
-      {error && (
-        <div className="rounded-md bg-red-50 p-4">
-          <div className="text-sm text-red-800">{error}</div>
-        </div>
-      )}
-
-      {/* Order Items */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Items</h2>
-        <div className="space-y-4">
-          {cart.items.map((item: any) => (
-            <div key={item.id} className="flex justify-between items-center">
-              <div className="flex-1">
-                <p className="font-medium text-gray-900">{item.product.name}</p>
-                <p className="text-sm text-gray-600">
-                  Quantity: {item.quantity} × ${parseFloat(item.product.basePrice.toString()).toFixed(2)}
-                </p>
-              </div>
-              <p className="font-semibold text-gray-900">
-                ${(parseFloat(item.product.basePrice.toString()) * item.quantity).toFixed(2)}
-              </p>
-            </div>
-          ))}
-        </div>
+    <div className="flex flex-col lg:flex-row gap-8">
+      {/* Left column — order summary */}
+      <div className="flex-1 min-w-0">
+        <OrderSummary />
       </div>
 
-      {/* Order Summary */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h2>
-        <div className="space-y-3">
-          <div className="flex justify-between text-gray-600">
-            <span>Subtotal</span>
-            <span>${subtotal.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-gray-600">
-            <span>Tax</span>
-            <span>${tax.toFixed(2)}</span>
-          </div>
-          <div className="border-t pt-3 flex justify-between text-lg font-bold text-gray-900">
-            <span>Total</span>
-            <span>${total.toFixed(2)}</span>
-          </div>
-        </div>
+      {/* Right column — payment (fixed width) */}
+      <div className="w-full lg:w-[480px] lg:flex-shrink-0" id="checkout">
+        <EmbeddedCheckoutProvider
+          stripe={stripePromise}
+          options={{ fetchClientSecret }}
+        >
+          <EmbeddedCheckout />
+        </EmbeddedCheckoutProvider>
       </div>
-
-      {/* Payment Info (MVP: No actual payment) */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment</h2>
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-          <p className="text-sm text-blue-800">
-            <strong>MVP Mode:</strong> Payment processing is not yet integrated.
-            Click "Place Order" to create a test order.
-          </p>
-        </div>
-      </div>
-
-      {/* Place Order Button */}
-      <button
-        onClick={handlePlaceOrder}
-        disabled={submitting}
-        className="w-full py-3 px-6 bg-primary-600 text-white font-medium rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
-      >
-        {submitting ? 'Placing Order...' : 'Place Order'}
-      </button>
     </div>
-  );
+  )
 }

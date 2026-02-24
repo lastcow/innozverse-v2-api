@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Check, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 export interface MockUser {
   id: string
@@ -14,6 +17,10 @@ export interface MockUser {
   status: 'ACTIVE' | 'SUSPENDED' | 'PENDING'
   emailVerified?: boolean
   createdAt: string
+  studentVerification?: {
+    id: string
+    status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  } | null
 }
 
 interface UserTableProps {
@@ -21,6 +28,8 @@ interface UserTableProps {
   loading: boolean
   onEdit: (user: MockUser) => void
   onDelete: (user: MockUser) => void
+  accessToken?: string
+  onRefresh?: () => void
 }
 
 const getRoleBadge = (role: MockUser['role']) => {
@@ -55,11 +64,44 @@ const formatDate = (dateString: string) => {
   })
 }
 
-export function UserTable({ users, loading, onEdit, onDelete }: UserTableProps) {
+export function UserTable({ users, loading, onEdit, onDelete, accessToken, onRefresh }: UserTableProps) {
   const router = useRouter()
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const handleRowClick = (userId: string) => {
     router.push(`/admin/users/${userId}`)
+  }
+
+  const handleVerificationAction = async (
+    e: React.MouseEvent,
+    verificationId: string,
+    action: 'APPROVED' | 'REJECTED'
+  ) => {
+    e.stopPropagation()
+    if (!accessToken) return
+
+    setActionLoading(verificationId)
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/admin/student-verifications/${verificationId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ status: action }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || `Failed to ${action.toLowerCase()} verification`)
+      }
+
+      onRefresh?.()
+    } catch (err) {
+      console.error('Verification action failed:', err)
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   if (loading) {
@@ -97,6 +139,9 @@ export function UserTable({ users, loading, onEdit, onDelete }: UserTableProps) 
               Status
             </th>
             <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
+              Student
+            </th>
+            <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
               Joined
             </th>
             <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4">
@@ -132,6 +177,45 @@ export function UserTable({ users, loading, onEdit, onDelete }: UserTableProps) 
                   <Badge className="bg-red-50 text-red-600 border-0">Suspended</Badge>
                 ) : (
                   <Badge className="bg-yellow-50 text-yellow-600 border-0">Pending</Badge>
+                )}
+              </td>
+              <td className="px-5 py-4">
+                {user.studentVerification ? (
+                  user.studentVerification.status === 'APPROVED' ? (
+                    <Badge className="bg-green-50 text-green-600 border-0">Verified</Badge>
+                  ) : user.studentVerification.status === 'PENDING' ? (
+                    <div className="flex items-center gap-1.5">
+                      <Badge className="bg-yellow-50 text-yellow-600 border-0">Pending</Badge>
+                      {accessToken && (
+                        <>
+                          <button
+                            onClick={(e) =>
+                              handleVerificationAction(e, user.studentVerification!.id, 'APPROVED')
+                            }
+                            disabled={actionLoading === user.studentVerification.id}
+                            className="w-6 h-6 rounded-md bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center transition-colors disabled:opacity-50"
+                            title="Approve"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) =>
+                              handleVerificationAction(e, user.studentVerification!.id, 'REJECTED')
+                            }
+                            disabled={actionLoading === user.studentVerification.id}
+                            className="w-6 h-6 rounded-md bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors disabled:opacity-50"
+                            title="Reject"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <Badge className="bg-red-50 text-red-600 border-0">Rejected</Badge>
+                  )
+                ) : (
+                  <span className="text-sm text-gray-400">&mdash;</span>
                 )}
               </td>
               <td className="px-5 py-4 text-gray-500 text-sm">

@@ -8,6 +8,8 @@ async function main() {
 
   // Clean existing data
   console.log('🧹 Cleaning existing data...');
+  await prisma.userSubscription.deleteMany();
+  await prisma.plan.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.cartItem.deleteMany();
@@ -230,6 +232,75 @@ async function main() {
   });
 
   console.log(`✅ Created ${5} products`);
+
+  // Create subscription plans
+  console.log('📋 Creating subscription plans...');
+
+  await prisma.plan.create({
+    data: {
+      name: 'Free',
+      level: 0,
+      monthlyPrice: 0,
+      annualTotalPrice: 0,
+      description: 'Free for students only. Verify with a valid .edu email.',
+      highlights: [
+        '1 Standard Linux VM (1 vCPU, 512MB RAM)',
+        '25GB SSD Storage',
+        'Community Access',
+      ],
+      sortOrder: 0,
+    },
+  });
+
+  await prisma.plan.create({
+    data: {
+      name: 'Basic',
+      level: 1,
+      monthlyPrice: 19.99,
+      annualTotalPrice: 215.89,
+      description: 'Perfect entry point for cybersecurity students.',
+      highlights: [
+        '1 Standard + 1 Kali VM (2 vCPU, 2GB RAM each)',
+        '25GB NVMe/Ubuntu VM, 32GB NVMe/Kali VM',
+        'Community Support',
+      ],
+      sortOrder: 1,
+    },
+  });
+
+  await prisma.plan.create({
+    data: {
+      name: 'Pro',
+      level: 2,
+      monthlyPrice: 29.99,
+      annualTotalPrice: 323.89,
+      description: 'For serious developers and security professionals.',
+      highlights: [
+        '2 Standard + 1 Kali VM (2 vCPU, 2GB RAM each)',
+        '25GB NVMe/Ubuntu VM, 32GB NVMe/Kali VM',
+        'Priority Support',
+      ],
+      sortOrder: 2,
+    },
+  });
+
+  await prisma.plan.create({
+    data: {
+      name: 'Premium',
+      level: 3,
+      monthlyPrice: 59.99,
+      annualTotalPrice: 647.89,
+      description: 'The ultimate toolkit for professionals.',
+      highlights: [
+        '3 Standard + 2 Kali VMs (4 vCPU, 4GB RAM each)',
+        '50GB NVMe/Ubuntu VM, 50GB NVMe/Kali VM',
+        'Priority + Dedicated Support',
+      ],
+      sortOrder: 3,
+    },
+  });
+
+  console.log(`✅ Created ${4} subscription plans`);
 
   console.log('🎉 Seed completed successfully!');
 }

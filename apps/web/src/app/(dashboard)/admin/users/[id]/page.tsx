@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { ArrowLeft, Mail, Calendar, ShieldCheck, Package, User as UserIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/hooks/use-auth'
+import { formatCurrency } from '@/lib/utils'
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -286,7 +287,7 @@ export default function UserDetailPage() {
                     </Badge>
                   </div>
                   <span className="text-lg font-bold text-[#202224]">
-                    ${parseFloat(order.total).toFixed(2)}
+                    ${formatCurrency(parseFloat(order.total))}
                   </span>
                 </div>
 
@@ -321,7 +322,7 @@ export default function UserDetailPage() {
                             {item.product.name}
                           </p>
                           <p className="text-xs text-gray-500">
-                            Qty: {item.quantity} × ${parseFloat(item.price).toFixed(2)}
+                            Qty: {item.quantity} × ${formatCurrency(parseFloat(item.price))}
                           </p>
                         </div>
                       </div>

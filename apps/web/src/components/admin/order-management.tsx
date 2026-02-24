@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
+import { formatCurrency } from '@/lib/utils';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -174,7 +175,7 @@ export function OrderManagement() {
                     {order.items.reduce((sum, item) => sum + item.quantity, 0)} items
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${parseFloat(order.totalAmount).toFixed(2)}
+                    ${formatCurrency(parseFloat(order.totalAmount))}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <select

@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import vmRoutes from './routes/vms';
+import subscriptionRoutes from './routes/subscriptions';
 
 const app = new Hono();
 
@@ -27,6 +28,7 @@ app.get('/api/v1', (c) => {
   return c.json({ message: 'Innozverse API v1' });
 });
 app.route('/', vmRoutes);
+app.route('/', subscriptionRoutes);
 
 export default app;
 

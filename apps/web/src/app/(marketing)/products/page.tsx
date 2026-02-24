@@ -13,6 +13,8 @@ import {
   getActiveEventDiscount,
   formatDiscountPercentage,
 } from '@/lib/discount'
+import { formatCurrency } from '@/lib/utils'
+import { getStudentVerificationStatus } from '@/app/actions/student'
 
 const HomeNetworkCanvas = dynamic(
   () =>
@@ -105,6 +107,15 @@ export default function ProductsPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all')
   const [showStudentPricing, setShowStudentPricing] = useState(false)
+
+  // Auto-enable student pricing for verified students
+  useEffect(() => {
+    getStudentVerificationStatus().then((result) => {
+      if (result.status === 'APPROVED') {
+        setShowStudentPricing(true)
+      }
+    }).catch(() => {})
+  }, [])
 
   // Get the best active event discount (highest percentage)
   const activeEventDiscount = getActiveEventDiscount(activeEventDiscounts)
@@ -286,7 +297,7 @@ export default function ProductsPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20">
-                <Link href="/auth/register">Verify Student Status</Link>
+                <Link href="/user/settings/profile">Verify Student Status</Link>
               </Button>
               <Button
                 asChild
@@ -406,34 +417,34 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
             <>
               <div className="flex items-center gap-2">
                 <span className="text-slate-400 line-through text-lg">
-                  ${basePrice.toFixed(2)}
+                  ${formatCurrency(basePrice)}
                 </span>
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-4xl font-bold text-blue-600">
-                  ${finalPrice.toFixed(2)}
+                  ${formatCurrency(finalPrice)}
                 </span>
               </div>
               <div className="text-xs text-green-600 font-medium space-y-0.5">
                 {discountBreakdown.studentDiscountAmount > 0 && (
                   <p>
-                    Student discount: -${discountBreakdown.studentDiscountAmount.toFixed(2)}
+                    Student discount: -${formatCurrency(discountBreakdown.studentDiscountAmount)}
                   </p>
                 )}
                 {discountBreakdown.eventDiscountAmount > 0 && (
                   <p>
-                    Event discount: -${discountBreakdown.eventDiscountAmount.toFixed(2)}
+                    Event discount: -${formatCurrency(discountBreakdown.eventDiscountAmount)}
                   </p>
                 )}
                 <p className="font-semibold">
-                  Total savings: ${discountBreakdown.totalDiscountAmount.toFixed(2)}
+                  Total savings: ${formatCurrency(discountBreakdown.totalDiscountAmount)}
                 </p>
               </div>
             </>
           ) : (
             <div className="flex items-baseline gap-1">
               <span className="text-4xl font-bold text-slate-900">
-                ${basePrice.toFixed(2)}
+                ${formatCurrency(basePrice)}
               </span>
             </div>
           )}

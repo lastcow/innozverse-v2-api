@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { ProductForm } from './product-form';
 import Image from 'next/image';
+import { formatCurrency } from '@/lib/utils';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -180,7 +181,7 @@ export function ProductManagement() {
                     {product.type}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${parseFloat(product.basePrice.toString()).toFixed(2)}
+                    ${formatCurrency(parseFloat(product.basePrice.toString()))}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {product.stock}

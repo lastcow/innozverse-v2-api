@@ -133,3 +133,119 @@ export async function createCheckoutSession(
     return { error: 'Failed to create checkout session' }
   }
 }
+
+export async function createEmbeddedCheckoutSession(
+  items: CartItem[],
+  userId: string,
+  userEmail?: string
+): Promise<{ clientSecret?: string; error?: string }> {
+  if (!items.length) {
+    return { error: 'Cart is empty' }
+  }
+
+  const session = await auth()
+  if (!session?.user || !userId) {
+    return { error: 'Unauthorized' }
+  }
+
+  try {
+    const stripe = getStripe()
+    const baseUrl = process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000'
+
+    const subscriptionItems = items.filter((i) => i.type === 'subscription')
+    const productItems = items.filter((i) => i.type !== 'subscription')
+
+    if (subscriptionItems.length > 0 && productItems.length > 0) {
+      return { error: 'Please checkout subscriptions and products separately' }
+    }
+
+    const isSubscription = subscriptionItems.length > 0
+
+    const compactItems = items.map((i) => ({
+      productId: i.productId,
+      name: i.name,
+      price: i.price,
+      quantity: i.quantity,
+      type: i.type,
+      billingPeriod: i.billingPeriod,
+    }))
+
+    if (isSubscription) {
+      const sub = subscriptionItems[0]!
+      const interval: 'month' | 'year' = sub.billingPeriod === 'annual' ? 'year' : 'month'
+
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: sub.name,
+          },
+          unit_amount: Math.round(sub.price * 100),
+          recurring: {
+            interval,
+          },
+        },
+        quantity: 1,
+      }]
+
+      const checkoutSession = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        ui_mode: 'embedded',
+        line_items: lineItems,
+        ...(userEmail ? { customer_email: userEmail } : {}),
+        metadata: {
+          userId,
+          items: JSON.stringify(compactItems),
+        },
+        subscription_data: {
+          metadata: {
+            userId,
+            planId: sub.productId,
+            billingPeriod: sub.billingPeriod || 'monthly',
+          },
+        },
+        return_url: `${baseUrl}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
+      })
+
+      return { clientSecret: checkoutSession.client_secret! }
+    }
+
+    // One-time payment for products
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = productItems.map(
+      (item) => ({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: item.name,
+            ...(item.image ? { images: [item.image] } : {}),
+          },
+          unit_amount: Math.round(item.price * 100),
+        },
+        quantity: item.quantity,
+      })
+    )
+
+    const checkoutSession = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      ui_mode: 'embedded',
+      line_items: lineItems,
+      ...(userEmail ? { customer_email: userEmail } : {}),
+      metadata: {
+        userId,
+        items: JSON.stringify(compactItems),
+      },
+      payment_intent_data: {
+        metadata: {
+          userId,
+          items: JSON.stringify(compactItems),
+        },
+      },
+      return_url: `${baseUrl}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
+    })
+
+    return { clientSecret: checkoutSession.client_secret! }
+  } catch (err) {
+    console.error('Stripe embedded checkout session error:', err)
+    return { error: 'Failed to create checkout session' }
+  }
+}

@@ -12,8 +12,7 @@ async function getProduct(id: string) {
     return null;
   }
 
-  const data = await response.json();
-  return data.product;
+  return response.json();
 }
 
 export default async function ProductDetailPage({
@@ -21,16 +20,19 @@ export default async function ProductDetailPage({
 }: {
   params: { id: string };
 }) {
-  const product = await getProduct(params.id);
+  const data = await getProduct(params.id);
 
-  if (!product) {
+  if (!data?.product) {
     notFound();
   }
 
   return (
     <>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <ProductDetail product={product} />
+        <ProductDetail
+          product={data.product}
+          activeEventDiscounts={data.activeEventDiscounts || []}
+        />
       </main>
     </>
   );

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tag, CheckCircle2, Percent, Monitor, Cpu, Gamepad2, Package } from 'lucide-react'
 import Link from 'next/link'
+import { formatCurrency } from '@/lib/utils'
 
 interface FeaturedProduct {
   id: string
@@ -184,22 +185,22 @@ export function StudentAdvantage({ products }: StudentAdvantageProps) {
                             <>
                               <div className="flex items-center gap-2">
                                 <span className="text-slate-400 line-through text-lg">
-                                  ${product.basePrice.toFixed(2)}
+                                  ${formatCurrency(product.basePrice)}
                                 </span>
                               </div>
                               <div className="flex items-baseline gap-1">
                                 <span className="text-4xl font-bold text-blue-600">
-                                  ${discountedPrice.toFixed(2)}
+                                  ${formatCurrency(discountedPrice)}
                                 </span>
                               </div>
                               <p className="text-xs text-green-600 font-semibold">
-                                Save ${(product.basePrice - discountedPrice).toFixed(2)}
+                                Save ${formatCurrency(product.basePrice - discountedPrice)}
                               </p>
                             </>
                           ) : (
                             <div className="flex items-baseline gap-1">
                               <span className="text-4xl font-bold text-slate-900">
-                                ${product.basePrice.toFixed(2)}
+                                ${formatCurrency(product.basePrice)}
                               </span>
                             </div>
                           )}

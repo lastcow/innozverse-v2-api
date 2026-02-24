@@ -24,6 +24,44 @@ try {
   prisma = null;
 }
 
+// Initialize Stripe for refunds
+let stripe;
+try {
+  const Stripe = require('stripe');
+  if (process.env.STRIPE_SECRET_KEY) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+} catch (error) {
+  console.error('Failed to initialize Stripe:', error.message);
+  stripe = null;
+}
+
+/**
+ * Issue a full refund for an order via Stripe.
+ * Requires the order to have a stripePaymentIntentId.
+ * Returns { success, error? } — does not throw.
+ */
+async function refundOrder(order) {
+  if (!stripe) {
+    console.warn('Stripe not initialized — skipping refund for order', order.id);
+    return { success: false, error: 'Stripe not configured' };
+  }
+  if (!order.stripePaymentIntentId) {
+    console.warn('No payment intent ID on order', order.id, '— skipping refund');
+    return { success: false, error: 'No payment intent associated with order' };
+  }
+  try {
+    await stripe.refunds.create({
+      payment_intent: order.stripePaymentIntentId,
+    });
+    console.log('Refund issued for order', order.id, 'payment_intent', order.stripePaymentIntentId);
+    return { success: true };
+  } catch (err) {
+    console.error('Stripe refund failed for order', order.id, ':', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 const app = new Hono();
 
 // ============================================================
@@ -390,7 +428,7 @@ app.post('/api/v1/products', authMiddleware, requireRole('ADMIN'), async (c) => 
 
   try {
     const body = await c.req.json();
-    const { name, description, basePrice, type, imageUrls, properties, stock = 0, active = true } = body;
+    const { name, description, basePrice, type, imageUrls, properties, stock = 0, active = true, studentDiscountPercentage, upc } = body;
 
     // Validate required fields
     if (!name || !description || basePrice === undefined || !type) {
@@ -417,7 +455,9 @@ app.post('/api/v1/products', authMiddleware, requireRole('ADMIN'), async (c) => 
         imageUrls: imageUrls || [],
         properties: properties || {},
         stock,
-        active
+        active,
+        studentDiscountPercentage: studentDiscountPercentage ?? null,
+        upc: upc || '',
       }
     });
 
@@ -438,7 +478,7 @@ app.put('/api/v1/products/:id', authMiddleware, requireRole('ADMIN'), async (c) 
   try {
     const { id } = c.req.param();
     const body = await c.req.json();
-    const { name, description, basePrice, type, imageUrls, properties, stock, active } = body;
+    const { name, description, basePrice, type, imageUrls, properties, stock, active, studentDiscountPercentage, upc } = body;
 
     // Check if product exists
     const existingProduct = await prisma.product.findUnique({ where: { id } });
@@ -466,6 +506,8 @@ app.put('/api/v1/products/:id', authMiddleware, requireRole('ADMIN'), async (c) 
       updateData.stock = stock;
     }
     if (active !== undefined) updateData.active = active;
+    if (studentDiscountPercentage !== undefined) updateData.studentDiscountPercentage = studentDiscountPercentage;
+    if (upc !== undefined) updateData.upc = upc;
 
     // Update product
     const product = await prisma.product.update({
@@ -2153,6 +2195,79 @@ app.get('/api/v1/orders/:id', authMiddleware, async (c) => {
   }
 });
 
+// PUT /api/v1/orders/:id/cancel - Cancel an order (customer)
+app.put('/api/v1/orders/:id/cancel', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const { id } = c.req.param();
+
+    const existingOrder = await prisma.order.findUnique({
+      where: { id },
+      include: { items: true }
+    });
+
+    if (!existingOrder) {
+      return c.json({ error: 'Order not found' }, 404);
+    }
+
+    // Verify order belongs to user (unless admin)
+    if (existingOrder.userId !== user.userId && user.role !== 'ADMIN') {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    // Block if already delivered
+    if (existingOrder.status === 'DELIVERED') {
+      return c.json({ error: 'Cannot cancel a delivered order' }, 400);
+    }
+
+    // Block if already cancelled
+    if (existingOrder.status === 'CANCELLED') {
+      return c.json({ error: 'Order is already cancelled' }, 400);
+    }
+
+    // Issue Stripe refund
+    const refundResult = await refundOrder(existingOrder);
+
+    // Restore stock for each item
+    for (const item of existingOrder.items) {
+      await prisma.product.update({
+        where: { id: item.productId },
+        data: {
+          stock: { increment: item.quantity },
+          soldCount: { decrement: item.quantity }
+        }
+      });
+    }
+
+    // Cancel the order
+    const order = await prisma.order.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+
+    return c.json({
+      order,
+      message: 'Order cancelled successfully',
+      refund: refundResult.success ? 'Refund issued' : refundResult.error,
+    });
+
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    return c.json({ error: 'Failed to cancel order', message: error.message }, 500);
+  }
+});
+
 // GET /api/v1/orders/summary - Get order summary for user
 app.get('/api/v1/orders/summary', authMiddleware, async (c) => {
   if (!prisma) {
@@ -2275,13 +2390,38 @@ app.put('/api/v1/admin/orders/:id/status', authMiddleware, requireRole('ADMIN'),
       return c.json({ error: 'Invalid status' }, 400);
     }
 
-    // Check if order exists
+    // Check if order exists with items
     const existingOrder = await prisma.order.findUnique({
-      where: { id }
+      where: { id },
+      include: { items: true }
     });
 
     if (!existingOrder) {
       return c.json({ error: 'Order not found' }, 404);
+    }
+
+    // Block cancellation if order is already DELIVERED
+    if (status === 'CANCELLED' && existingOrder.status === 'DELIVERED') {
+      return c.json({ error: 'Cannot cancel a delivered order' }, 400);
+    }
+
+    // Block cancellation if already cancelled
+    if (status === 'CANCELLED' && existingOrder.status === 'CANCELLED') {
+      return c.json({ error: 'Order is already cancelled' }, 400);
+    }
+
+    // If cancelling, issue refund and restore stock
+    if (status === 'CANCELLED') {
+      await refundOrder(existingOrder);
+      for (const item of existingOrder.items) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: { increment: item.quantity },
+            soldCount: { decrement: item.quantity }
+          }
+        });
+      }
     }
 
     // Update order status
@@ -2331,13 +2471,38 @@ app.patch('/api/v1/admin/orders/:id/status', authMiddleware, requireRole('ADMIN'
       return c.json({ error: 'Invalid status' }, 400);
     }
 
-    // Check if order exists
+    // Check if order exists with items
     const existingOrder = await prisma.order.findUnique({
-      where: { id }
+      where: { id },
+      include: { items: true }
     });
 
     if (!existingOrder) {
       return c.json({ error: 'Order not found' }, 404);
+    }
+
+    // Block cancellation if order is already DELIVERED
+    if (status === 'CANCELLED' && existingOrder.status === 'DELIVERED') {
+      return c.json({ error: 'Cannot cancel a delivered order' }, 400);
+    }
+
+    // Block cancellation if already cancelled
+    if (status === 'CANCELLED' && existingOrder.status === 'CANCELLED') {
+      return c.json({ error: 'Order is already cancelled' }, 400);
+    }
+
+    // If cancelling, issue refund and restore stock
+    if (status === 'CANCELLED') {
+      await refundOrder(existingOrder);
+      for (const item of existingOrder.items) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: { increment: item.quantity },
+            soldCount: { decrement: item.quantity }
+          }
+        });
+      }
     }
 
     // Update order status
@@ -2364,6 +2529,45 @@ app.patch('/api/v1/admin/orders/:id/status', authMiddleware, requireRole('ADMIN'
   } catch (error) {
     console.error('Update order status error:', error);
     return c.json({ error: 'Failed to update order status', message: error.message }, 500);
+  }
+});
+
+// PUT /api/v1/admin/orders/:orderId/items/:itemId - Update order item serial number (admin only)
+app.put('/api/v1/admin/orders/:orderId/items/:itemId', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { orderId, itemId } = c.req.param();
+    const body = await c.req.json();
+    const { serialNumber } = body;
+
+    // Verify the order item exists and belongs to the order
+    const orderItem = await prisma.orderItem.findFirst({
+      where: {
+        id: itemId,
+        orderId: orderId
+      }
+    });
+
+    if (!orderItem) {
+      return c.json({ error: 'Order item not found' }, 404);
+    }
+
+    const updatedItem = await prisma.orderItem.update({
+      where: { id: itemId },
+      data: { serialNumber: serialNumber || null },
+      include: {
+        product: true
+      }
+    });
+
+    return c.json({ item: updatedItem, message: 'Serial number updated successfully' });
+
+  } catch (error) {
+    console.error('Update order item serial number error:', error);
+    return c.json({ error: 'Failed to update serial number', message: error.message }, 500);
   }
 });
 
@@ -2411,7 +2615,10 @@ app.get('/api/v1/admin/users', authMiddleware, requireRole('ADMIN'), async (c) =
           emailVerified: true,
           createdAt: true,
           updatedAt: true,
-          _count: { select: { orders: true } }
+          _count: { select: { orders: true } },
+          studentVerification: {
+            select: { id: true, status: true }
+          }
         }
       }),
       prisma.user.count({ where })
@@ -2990,6 +3197,187 @@ app.get('/test/jwt', async (c) => {
       error: error.message,
       timestamp: new Date().toISOString()
     }, 500);
+  }
+});
+
+// ============================================================
+// Subscription Routes
+// ============================================================
+
+// GET /api/v1/subscriptions/plans - Public, no auth
+// Pass ?all=true to include inactive plans (for admin)
+app.get('/api/v1/subscriptions/plans', async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const showAll = c.req.query('all') === 'true';
+    const plans = await prisma.plan.findMany({
+      where: showAll ? {} : { active: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+    return c.json({ plans });
+  } catch (error) {
+    console.error('Failed to fetch plans:', error);
+    return c.json({ error: 'Failed to fetch plans' }, 500);
+  }
+});
+
+// POST /api/v1/subscriptions/from-stripe - Internal webhook secret auth
+app.post('/api/v1/subscriptions/from-stripe', async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  const internalSecret = c.req.header('X-Internal-Secret');
+  const expectedSecret = process.env.INTERNAL_WEBHOOK_SECRET;
+
+  if (!expectedSecret || internalSecret !== expectedSecret) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  try {
+    const body = await c.req.json();
+    const {
+      userId,
+      planName,
+      stripeSubscriptionId,
+      stripeCustomerId,
+      status,
+      billingPeriod,
+      currentPeriodStart,
+      currentPeriodEnd,
+    } = body;
+
+    if (!userId || !planName) {
+      return c.json({ error: 'Missing required fields: userId and planName' }, 400);
+    }
+
+    // Look up Plan by name
+    const plan = await prisma.plan.findUnique({ where: { name: planName } });
+    if (!plan) {
+      return c.json({ error: `Plan not found: ${planName}` }, 404);
+    }
+
+    // Idempotency: check if subscription already exists with this stripeSubscriptionId
+    if (stripeSubscriptionId) {
+      const existing = await prisma.userSubscription.findUnique({
+        where: { stripeSubscriptionId },
+      });
+      if (existing) {
+        return c.json({ subscription: existing, message: 'Subscription already exists' });
+      }
+    }
+
+    // Upsert UserSubscription by userId (one subscription per user)
+    const subscription = await prisma.userSubscription.upsert({
+      where: { userId },
+      update: {
+        planId: plan.id,
+        stripeSubscriptionId: stripeSubscriptionId || undefined,
+        stripeCustomerId: stripeCustomerId || undefined,
+        status: status || 'ACTIVE',
+        billingPeriod: billingPeriod || 'monthly',
+        currentPeriodStart: currentPeriodStart ? new Date(currentPeriodStart) : undefined,
+        currentPeriodEnd: currentPeriodEnd ? new Date(currentPeriodEnd) : undefined,
+        canceledAt: status === 'CANCELED' ? new Date() : null,
+      },
+      create: {
+        userId,
+        planId: plan.id,
+        stripeSubscriptionId: stripeSubscriptionId || null,
+        stripeCustomerId: stripeCustomerId || null,
+        status: status || 'ACTIVE',
+        billingPeriod: billingPeriod || 'monthly',
+        currentPeriodStart: currentPeriodStart ? new Date(currentPeriodStart) : null,
+        currentPeriodEnd: currentPeriodEnd ? new Date(currentPeriodEnd) : null,
+      },
+    });
+
+    return c.json({ subscription });
+  } catch (error) {
+    console.error('Failed to create/update subscription:', error);
+    return c.json({ error: error.message || 'Failed to process subscription' }, 500);
+  }
+});
+
+// GET /api/v1/subscriptions/me - JWT auth
+app.get('/api/v1/subscriptions/me', authMiddleware, async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const user = c.get('user');
+    const subscription = await prisma.userSubscription.findUnique({
+      where: { userId: user.userId },
+      include: { plan: true },
+    });
+    return c.json({ subscription });
+  } catch (error) {
+    console.error('Failed to fetch user subscription:', error);
+    return c.json({ error: 'Failed to fetch subscription' }, 500);
+  }
+});
+
+// PUT /api/v1/subscriptions/plans/:id - Update plan (admin only)
+app.put('/api/v1/subscriptions/plans/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const plan = await prisma.plan.update({
+      where: { id },
+      data: { ...body },
+    });
+    return c.json({ plan });
+  } catch (error) {
+    console.error('Failed to update plan:', error);
+    return c.json({ error: 'Failed to update plan' }, 500);
+  }
+});
+
+// POST /api/v1/subscriptions/plans - Create plan (admin only)
+app.post('/api/v1/subscriptions/plans', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const body = await c.req.json();
+    const plan = await prisma.plan.create({
+      data: { ...body },
+    });
+    return c.json({ plan });
+  } catch (error) {
+    console.error('Failed to create plan:', error);
+    return c.json({ error: 'Failed to create plan' }, 500);
+  }
+});
+
+// DELETE /api/v1/subscriptions/plans/:id - Delete plan (admin only)
+app.delete('/api/v1/subscriptions/plans/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const id = c.req.param('id');
+    const activeCount = await prisma.userSubscription.count({
+      where: { planId: id, status: { not: 'CANCELED' } },
+    });
+    if (activeCount > 0) {
+      return c.json({ error: 'Cannot delete plan with active subscriptions' }, 400);
+    }
+    await prisma.plan.delete({ where: { id } });
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete plan:', error);
+    return c.json({ error: 'Failed to delete plan' }, 500);
   }
 });
 

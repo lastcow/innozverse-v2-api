@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { formatCurrency } from '@/lib/utils';
 
 interface OrderCardProps {
   order: {
@@ -57,7 +58,7 @@ export function OrderCard({ order }: OrderCardProps) {
               {order.status}
             </span>
             <p className="text-lg font-bold text-gray-900">
-              ${parseFloat(order.totalAmount).toFixed(2)}
+              ${formatCurrency(parseFloat(order.totalAmount))}
             </p>
           </div>
         </div>
@@ -86,7 +87,7 @@ export function OrderCard({ order }: OrderCardProps) {
                     {item.product.name}
                   </p>
                   <p className="text-sm text-gray-600">
-                    Quantity: {item.quantity} × ${parseFloat(item.price).toFixed(2)}
+                    Quantity: {item.quantity} × ${formatCurrency(parseFloat(item.price))}
                   </p>
                 </div>
               </div>
