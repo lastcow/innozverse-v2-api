@@ -159,20 +159,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, user, account }) {
       if (user) {
-        // Explicitly set sub to our DB user ID (overrides OAuth provider ID)
-        token.sub = user.id;
-        token.role = user.role;
-
         if (account?.provider === 'credentials') {
-          // Credentials login: use the accessToken from API
+          // Credentials login: user.id is the DB user ID from authorize()
+          token.sub = user.id;
+          token.role = user.role;
           token.accessToken = user.accessToken;
         } else if (account?.provider) {
-          // OAuth login: generate API-compatible access token
-          token.accessToken = await signApiToken({
-            userId: user.id!,
-            email: user.email!,
-            role: user.role!,
-          });
+          // OAuth login: user.id from signIn callback may not propagate,
+          // so look up the DB user directly by OAuth provider + ID
+          const oauthProvider = account.provider.toUpperCase() as keyof typeof OAuthProvider;
+          if (oauthProvider === 'GOOGLE' || oauthProvider === 'GITHUB') {
+            const dbUser = await prisma.user.findUnique({
+              where: {
+                oauthProvider_oauthId: {
+                  oauthProvider: OAuthProvider[oauthProvider],
+                  oauthId: account.providerAccountId,
+                },
+              },
+              select: { id: true, email: true, role: true },
+            });
+            if (dbUser) {
+              token.sub = dbUser.id;
+              token.role = dbUser.role;
+              token.accessToken = await signApiToken({
+                userId: dbUser.id,
+                email: dbUser.email,
+                role: dbUser.role,
+              });
+            }
+          }
         }
       }
 
