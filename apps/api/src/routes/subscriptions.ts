@@ -122,10 +122,13 @@ app.post('/api/v1/subscriptions/cancel', authMiddleware, async (c) => {
       return c.json({ error: 'Subscription not found or does not belong to user' }, 404)
     }
 
+    // Keep status ACTIVE — user retains access until period ends.
+    // Set canceledAt to indicate pending cancellation.
+    // Stripe will fire customer.subscription.deleted at period end,
+    // which the webhook handler will use to set status to CANCELED.
     await prisma.userSubscription.update({
       where: { userId: user.userId },
       data: {
-        status: 'CANCELED',
         canceledAt: new Date(),
       },
     })

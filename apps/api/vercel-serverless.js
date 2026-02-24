@@ -3334,7 +3334,6 @@ app.post('/api/v1/subscriptions/cancel', authMiddleware, async (c) => {
     await prisma.userSubscription.update({
       where: { userId: user.userId },
       data: {
-        status: 'CANCELED',
         canceledAt: new Date(),
       },
     });

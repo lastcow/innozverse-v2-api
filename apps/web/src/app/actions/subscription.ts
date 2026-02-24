@@ -55,8 +55,9 @@ export async function fetchUserSubscription(
 }
 
 /**
- * Cancel the user's active Stripe subscription.
- * Cancels immediately in Stripe and updates DB status via the API.
+ * Cancel the user's subscription at end of current billing period.
+ * Sets cancel_at_period_end in Stripe so the user retains access
+ * until the paid period ends, then Stripe stops renewal automatically.
  */
 export async function cancelSubscription(
   stripeSubscriptionId: string
@@ -67,19 +68,17 @@ export async function cancelSubscription(
   }
 
   try {
-    // Cancel in Stripe
     const stripe = getStripe()
     try {
-      // First verify the subscription exists
       const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId)
-      console.log('Stripe subscription found:', sub.id, 'status:', sub.status)
 
       if (sub.status !== 'canceled') {
-        await stripe.subscriptions.cancel(stripeSubscriptionId)
+        await stripe.subscriptions.update(stripeSubscriptionId, {
+          cancel_at_period_end: true,
+        })
       }
     } catch (stripeErr: any) {
       console.error('Stripe cancel error:', stripeErr?.code, stripeErr?.message)
-      // resource_missing = already canceled or doesn't exist — still update DB
       if (stripeErr?.code !== 'resource_missing') {
         throw stripeErr
       }

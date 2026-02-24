@@ -147,6 +147,7 @@ interface SerializedSubscription {
   billingPeriod: string
   currentPeriodStart: string | null
   currentPeriodEnd: string | null
+  canceledAt: string | null
   createdAt: string | null
   plan: SerializedPlan
 }
@@ -193,6 +194,7 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
   const STUDENT_DISCOUNT = 0.85 // 15% off
 
   const isSubscriptionCanceled = currentSubscription?.status === 'CANCELED'
+  const isPendingCancel = !isSubscriptionCanceled && currentSubscription?.canceledAt != null
   const activePlan = currentSubscription
     ? plans.find((p) => p.id === currentSubscription.planId) ?? null
     : null
@@ -354,7 +356,9 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                 className={`relative border-2 rounded-2xl overflow-hidden ${
                   isSubscriptionCanceled
                     ? 'border-slate-300 bg-slate-50/30'
-                    : 'border-blue-600 bg-blue-50/30'
+                    : isPendingCancel
+                      ? 'border-amber-400 bg-amber-50/30'
+                      : 'border-blue-600 bg-blue-50/30'
                 }`}
               >
                 <CardHeader className="pb-3">
@@ -366,6 +370,10 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                       {isSubscriptionCanceled ? (
                         <Badge className="bg-red-100 text-red-700 text-xs px-2.5 py-0.5">
                           Canceled
+                        </Badge>
+                      ) : isPendingCancel ? (
+                        <Badge className="bg-amber-100 text-amber-700 text-xs px-2.5 py-0.5">
+                          Cancels at period end
                         </Badge>
                       ) : (
                         <Badge className="bg-blue-600 text-white text-xs px-2.5 py-0.5">
@@ -409,8 +417,19 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                     </div>
                   )}
 
+                  {/* Pending cancel notice */}
+                  {isPendingCancel && currentSubscription.currentPeriodEnd && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                      <p className="text-sm text-amber-800">
+                        Your subscription has been canceled. You can continue using all plan features
+                        until <span className="font-semibold">{formatDate(currentSubscription.currentPeriodEnd)}</span>.
+                        No further charges will be made.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Action row */}
-                  {isPaid && !isSubscriptionCanceled && currentSubscription?.stripeSubscriptionId && (
+                  {isPaid && !isSubscriptionCanceled && !isPendingCancel && currentSubscription?.stripeSubscriptionId && (
                     <div className="flex items-center gap-3 pt-1">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -427,8 +446,10 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                             <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
                             <AlertDialogDescription>
                               Are you sure you want to cancel your <strong>{plan.name}</strong> plan?
-                              Your subscription will be canceled immediately and you will lose access
-                              to all plan features.
+                              {currentSubscription.currentPeriodEnd
+                                ? <> You will still have access until <strong>{formatDate(currentSubscription.currentPeriodEnd)}</strong>. No further charges will be made after that.</>
+                                : <> Your subscription will not renew at the end of the current billing period.</>
+                              }
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
