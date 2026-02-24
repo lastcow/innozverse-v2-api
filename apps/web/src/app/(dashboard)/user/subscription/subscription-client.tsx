@@ -140,6 +140,7 @@ interface SerializedSubscription {
   billingPeriod: string
   currentPeriodStart: string | null
   currentPeriodEnd: string | null
+  createdAt: string | null
   plan: SerializedPlan
 }
 
@@ -340,12 +341,16 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                         Active
                       </Badge>
                     </div>
-                    {currentSubscription.currentPeriodStart && currentSubscription.currentPeriodEnd && (
+                    {currentSubscription.currentPeriodStart && currentSubscription.currentPeriodEnd ? (
                       <span className="text-sm text-slate-500 text-right ml-auto whitespace-nowrap">
                         {formatShortDate(currentSubscription.currentPeriodStart)} &ndash;{' '}
                         {formatShortDate(currentSubscription.currentPeriodEnd)}
                       </span>
-                    )}
+                    ) : currentSubscription.createdAt ? (
+                      <span className="text-sm text-slate-500 text-right ml-auto whitespace-nowrap">
+                        Since {formatShortDate(currentSubscription.createdAt)}
+                      </span>
+                    ) : null}
                   </div>
                 </CardHeader>
 

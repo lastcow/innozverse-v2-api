@@ -77,11 +77,16 @@ async function handleSubscriptionCheckout(session: Stripe.Checkout.Session) {
 
   const billingPeriod = subscription.metadata?.billingPeriod ?? session.metadata?.billingPeriod ?? 'monthly'
 
-  const currentPeriodStart = (subscription as any).current_period_start
-    ? new Date((subscription as any).current_period_start * 1000).toISOString()
+  // In newer Stripe API versions, period dates are on subscription items
+  const subAny = subscription as any
+  const firstItem = subAny.items?.data?.[0]
+  const rawStart = subAny.current_period_start ?? firstItem?.current_period_start ?? null
+  const rawEnd = subAny.current_period_end ?? firstItem?.current_period_end ?? null
+  const currentPeriodStart = rawStart
+    ? new Date(rawStart * 1000).toISOString()
     : null
-  const currentPeriodEnd = (subscription as any).current_period_end
-    ? new Date((subscription as any).current_period_end * 1000).toISOString()
+  const currentPeriodEnd = rawEnd
+    ? new Date(rawEnd * 1000).toISOString()
     : null
 
   const stripeCustomerId =
@@ -139,11 +144,15 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     trialing: 'TRIALING',
   }
 
-  const currentPeriodStart = (subscription as any).current_period_start
-    ? new Date((subscription as any).current_period_start * 1000).toISOString()
+  const subAny = subscription as any
+  const firstItem = subAny.items?.data?.[0]
+  const rawStart = subAny.current_period_start ?? firstItem?.current_period_start ?? null
+  const rawEnd = subAny.current_period_end ?? firstItem?.current_period_end ?? null
+  const currentPeriodStart = rawStart
+    ? new Date(rawStart * 1000).toISOString()
     : null
-  const currentPeriodEnd = (subscription as any).current_period_end
-    ? new Date((subscription as any).current_period_end * 1000).toISOString()
+  const currentPeriodEnd = rawEnd
+    ? new Date(rawEnd * 1000).toISOString()
     : null
 
   const stripeCustomerId =
