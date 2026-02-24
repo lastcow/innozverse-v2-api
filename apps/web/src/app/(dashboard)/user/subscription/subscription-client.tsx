@@ -193,8 +193,7 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
 
   const STUDENT_DISCOUNT = 0.85 // 15% off
 
-  const isSubscriptionCanceled = currentSubscription?.status === 'CANCELED'
-  const isPendingCancel = !isSubscriptionCanceled && currentSubscription?.canceledAt != null
+  const isPendingCancel = currentSubscription?.canceledAt != null
   const activePlan = currentSubscription
     ? plans.find((p) => p.id === currentSubscription.planId) ?? null
     : null
@@ -354,11 +353,9 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
               <Card
                 key={plan.id}
                 className={`relative border-2 rounded-2xl overflow-hidden ${
-                  isSubscriptionCanceled
-                    ? 'border-slate-300 bg-slate-50/30'
-                    : isPendingCancel
-                      ? 'border-amber-400 bg-amber-50/30'
-                      : 'border-blue-600 bg-blue-50/30'
+                  isPendingCancel
+                    ? 'border-amber-400 bg-amber-50/30'
+                    : 'border-blue-600 bg-blue-50/30'
                 }`}
               >
                 <CardHeader className="pb-3">
@@ -367,11 +364,7 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                       <CardTitle className="text-2xl text-slate-900">
                         {plan.name} Plan
                       </CardTitle>
-                      {isSubscriptionCanceled ? (
-                        <Badge className="bg-red-100 text-red-700 text-xs px-2.5 py-0.5">
-                          Canceled
-                        </Badge>
-                      ) : isPendingCancel ? (
+                      {isPendingCancel ? (
                         <Badge className="bg-amber-100 text-amber-700 text-xs px-2.5 py-0.5">
                           Cancels at period end
                         </Badge>
@@ -429,7 +422,7 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                   )}
 
                   {/* Action row */}
-                  {isPaid && !isSubscriptionCanceled && !isPendingCancel && currentSubscription?.stripeSubscriptionId && (
+                  {isPaid && !isPendingCancel && currentSubscription?.stripeSubscriptionId && (
                     <div className="flex items-center gap-3 pt-1">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>

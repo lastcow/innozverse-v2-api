@@ -11,6 +11,7 @@ export default async function SubscriptionPage() {
   const plansData = plansRes.ok ? await plansRes.json() : { plans: [] }
 
   // Fetch user subscription from API (authenticated)
+  // CANCELED means the subscription has fully ended — treat as no subscription
   let subscription = null
   const session = await auth()
   if (session?.accessToken) {
@@ -20,7 +21,9 @@ export default async function SubscriptionPage() {
     })
     if (subRes.ok) {
       const subData = await subRes.json()
-      subscription = subData.subscription
+      if (subData.subscription?.status !== 'CANCELED') {
+        subscription = subData.subscription
+      }
     }
   }
 
