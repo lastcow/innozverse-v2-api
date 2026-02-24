@@ -159,6 +159,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, user, account }) {
       if (user) {
+        // Explicitly set sub to our DB user ID (overrides OAuth provider ID)
+        token.sub = user.id;
         token.role = user.role;
 
         if (account?.provider === 'credentials') {

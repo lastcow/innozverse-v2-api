@@ -21,17 +21,18 @@ interface CartItem {
 
 export async function createCheckoutSession(
   items: CartItem[],
-  userId: string
+  _userId?: string
 ): Promise<{ url?: string; error?: string }> {
   if (!items.length) {
     return { error: 'Cart is empty' }
   }
 
-  // Server-side auth verification — prevents direct API abuse
+  // Server-side auth verification — always use server-side session userId
   const session = await auth()
-  if (!session?.user || !userId) {
+  if (!session?.user?.id) {
     return { error: 'Unauthorized' }
   }
+  const userId = session.user.id
 
   try {
     const stripe = getStripe()
@@ -136,17 +137,20 @@ export async function createCheckoutSession(
 
 export async function createEmbeddedCheckoutSession(
   items: CartItem[],
-  userId: string,
+  _userId?: string,
   userEmail?: string
 ): Promise<{ clientSecret?: string; error?: string }> {
   if (!items.length) {
     return { error: 'Cart is empty' }
   }
 
+  // Always use server-side session userId to ensure FK integrity
   const session = await auth()
-  if (!session?.user || !userId) {
+  if (!session?.user?.id) {
     return { error: 'Unauthorized' }
   }
+  const userId = session.user.id
+  const email = userEmail || session.user.email || undefined
 
   try {
     const stripe = getStripe()
@@ -192,7 +196,7 @@ export async function createEmbeddedCheckoutSession(
         mode: 'subscription',
         ui_mode: 'embedded',
         line_items: lineItems,
-        ...(userEmail ? { customer_email: userEmail } : {}),
+        ...(email ? { customer_email: email } : {}),
         metadata: {
           userId,
           items: JSON.stringify(compactItems),
@@ -229,7 +233,7 @@ export async function createEmbeddedCheckoutSession(
       mode: 'payment',
       ui_mode: 'embedded',
       line_items: lineItems,
-      ...(userEmail ? { customer_email: userEmail } : {}),
+      ...(email ? { customer_email: email } : {}),
       metadata: {
         userId,
         items: JSON.stringify(compactItems),

@@ -3254,6 +3254,13 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
       return c.json({ error: 'Missing required fields: userId and planName' }, 400);
     }
 
+    // Verify user exists before creating subscription
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) {
+      console.error(`Subscription: user not found for userId=${userId}`);
+      return c.json({ error: `User not found: ${userId}` }, 404);
+    }
+
     // Look up Plan by name
     const plan = await prisma.plan.findUnique({ where: { name: planName } });
     if (!plan) {
