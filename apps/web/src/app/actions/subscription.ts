@@ -69,7 +69,21 @@ export async function cancelSubscription(
   try {
     // Cancel in Stripe
     const stripe = getStripe()
-    await stripe.subscriptions.cancel(stripeSubscriptionId)
+    try {
+      // First verify the subscription exists
+      const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId)
+      console.log('Stripe subscription found:', sub.id, 'status:', sub.status)
+
+      if (sub.status !== 'canceled') {
+        await stripe.subscriptions.cancel(stripeSubscriptionId)
+      }
+    } catch (stripeErr: any) {
+      console.error('Stripe cancel error:', stripeErr?.code, stripeErr?.message)
+      // resource_missing = already canceled or doesn't exist — still update DB
+      if (stripeErr?.code !== 'resource_missing') {
+        throw stripeErr
+      }
+    }
 
     // Update DB status via API
     const res = await fetch(`${apiUrl}/api/v1/subscriptions/cancel`, {
