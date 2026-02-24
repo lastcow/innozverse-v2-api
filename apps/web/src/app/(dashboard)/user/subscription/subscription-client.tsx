@@ -192,6 +192,7 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
 
   const STUDENT_DISCOUNT = 0.85 // 15% off
 
+  const isSubscriptionCanceled = currentSubscription?.status === 'CANCELED'
   const activePlan = currentSubscription
     ? plans.find((p) => p.id === currentSubscription.planId) ?? null
     : null
@@ -350,7 +351,11 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
             return (
               <Card
                 key={plan.id}
-                className="relative border-2 border-blue-600 bg-blue-50/30 rounded-2xl overflow-hidden"
+                className={`relative border-2 rounded-2xl overflow-hidden ${
+                  isSubscriptionCanceled
+                    ? 'border-slate-300 bg-slate-50/30'
+                    : 'border-blue-600 bg-blue-50/30'
+                }`}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between gap-3">
@@ -358,9 +363,15 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                       <CardTitle className="text-2xl text-slate-900">
                         {plan.name} Plan
                       </CardTitle>
-                      <Badge className="bg-blue-600 text-white text-xs px-2.5 py-0.5">
-                        Active
-                      </Badge>
+                      {isSubscriptionCanceled ? (
+                        <Badge className="bg-red-100 text-red-700 text-xs px-2.5 py-0.5">
+                          Canceled
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-blue-600 text-white text-xs px-2.5 py-0.5">
+                          Active
+                        </Badge>
+                      )}
                     </div>
                     {currentSubscription.currentPeriodStart && currentSubscription.currentPeriodEnd ? (
                       <span className="text-sm text-slate-500 text-right ml-auto whitespace-nowrap">
@@ -404,7 +415,7 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                   )}
 
                   {/* Action row */}
-                  {isPaid && currentSubscription?.stripeSubscriptionId && (
+                  {isPaid && !isSubscriptionCanceled && currentSubscription?.stripeSubscriptionId && (
                     <div className="flex items-center gap-3 pt-1">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
