@@ -307,6 +307,20 @@ model VirtualMachine {
   @@map("virtual_machines")
 }
 
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String   @db.Text
+  active    Boolean  @default(true)
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([active, startDate, endDate])
+  @@map("announcements")
+}
+
 enum SubscriptionStatus {
   ACTIVE
   PAST_DUE

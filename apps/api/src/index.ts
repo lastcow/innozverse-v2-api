@@ -5,6 +5,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import vmRoutes from './routes/vms';
 import subscriptionRoutes from './routes/subscriptions';
+import announcementRoutes from './routes/announcements';
 
 const app = new Hono();
 
@@ -29,6 +30,7 @@ app.get('/api/v1', (c) => {
 });
 app.route('/', vmRoutes);
 app.route('/', subscriptionRoutes);
+app.route('/', announcementRoutes);
 
 export default app;
 

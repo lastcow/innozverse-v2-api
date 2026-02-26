@@ -4143,6 +4143,125 @@ app.delete('/api/v1/vms/:vmid', authMiddleware, requireRole('ADMIN', 'SYSTEM'), 
   }
 });
 
+// ============================================================
+// Announcement Routes
+// ============================================================
+
+// GET /api/v1/announcements/active - Public, no auth
+app.get('/api/v1/announcements/active', async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const now = new Date();
+    const announcements = await prisma.announcement.findMany({
+      where: {
+        active: true,
+        startDate: { lte: now },
+        endDate: { gte: now },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return c.json({ announcements });
+  } catch (error) {
+    console.error('Failed to fetch active announcements:', error);
+    return c.json({ error: 'Failed to fetch announcements' }, 500);
+  }
+});
+
+// GET /api/v1/announcements - Admin only, all announcements
+app.get('/api/v1/announcements', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const announcements = await prisma.announcement.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    return c.json({ announcements });
+  } catch (error) {
+    console.error('Failed to fetch announcements:', error);
+    return c.json({ error: 'Failed to fetch announcements' }, 500);
+  }
+});
+
+// POST /api/v1/announcements - Admin only, create
+app.post('/api/v1/announcements', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { title, content, startDate, endDate, active } = body;
+
+    if (!title || !content || !startDate || !endDate) {
+      return c.json({ error: 'title, content, startDate, and endDate are required' }, 400);
+    }
+
+    const announcement = await prisma.announcement.create({
+      data: {
+        title,
+        content,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        active: active ?? true,
+      },
+    });
+    return c.json({ announcement }, 201);
+  } catch (error) {
+    console.error('Failed to create announcement:', error);
+    return c.json({ error: 'Failed to create announcement' }, 500);
+  }
+});
+
+// PUT /api/v1/announcements/:id - Admin only, update
+app.put('/api/v1/announcements/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const { title, content, startDate, endDate, active } = body;
+
+    const data = {};
+    if (title !== undefined) data.title = title;
+    if (content !== undefined) data.content = content;
+    if (startDate !== undefined) data.startDate = new Date(startDate);
+    if (endDate !== undefined) data.endDate = new Date(endDate);
+    if (active !== undefined) data.active = active;
+
+    const announcement = await prisma.announcement.update({
+      where: { id },
+      data,
+    });
+    return c.json({ announcement });
+  } catch (error) {
+    console.error('Failed to update announcement:', error);
+    return c.json({ error: 'Failed to update announcement' }, 500);
+  }
+});
+
+// DELETE /api/v1/announcements/:id - Admin only, hard delete
+app.delete('/api/v1/announcements/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const id = c.req.param('id');
+    await prisma.announcement.delete({ where: { id } });
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete announcement:', error);
+    return c.json({ error: 'Failed to delete announcement' }, 500);
+  }
+});
+
 // Export handler for Vercel
 const handler = async (req, res) => {
   try {
