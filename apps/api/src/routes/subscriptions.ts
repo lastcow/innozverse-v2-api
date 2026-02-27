@@ -123,6 +123,53 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
   }
 })
 
+// POST /api/v1/subscriptions/reprovision - Internal secret auth
+// Destroys old VMs and provisions new ones after a plan change
+app.post('/api/v1/subscriptions/reprovision', async (c) => {
+  const internalSecret = c.req.header('X-Internal-Secret')
+  const expectedSecret = process.env.INTERNAL_WEBHOOK_SECRET
+
+  if (!expectedSecret || internalSecret !== expectedSecret) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  try {
+    const { userId, newPlanName } = await c.req.json()
+
+    if (!userId || !newPlanName) {
+      return c.json({ error: 'Missing required fields: userId and newPlanName' }, 400)
+    }
+
+    const subscription = await prisma.userSubscription.findUnique({ where: { userId } })
+    if (!subscription) {
+      return c.json({ error: 'Subscription not found' }, 404)
+    }
+
+    const plan = await prisma.plan.findUnique({ where: { name: newPlanName } })
+    if (!plan) {
+      return c.json({ error: `Plan not found: ${newPlanName}` }, 404)
+    }
+
+    // Destroy existing VMs
+    await destroyVmsForSubscription(subscription.id)
+
+    // Update subscription's plan
+    await prisma.userSubscription.update({
+      where: { userId },
+      data: { planId: plan.id },
+    })
+
+    // Provision new VMs for the new plan
+    await provisionVmsForSubscription(userId, subscription.id, plan.id)
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Failed to reprovision:', error)
+    const message = error instanceof Error ? error.message : 'Failed to reprovision'
+    return c.json({ error: message }, 500)
+  }
+})
+
 // POST /api/v1/subscriptions/cancel - JWT auth
 app.post('/api/v1/subscriptions/cancel', authMiddleware, async (c) => {
   try {

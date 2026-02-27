@@ -17,7 +17,7 @@ import {
 import { useCartStore, type BillingPeriod } from '@/store/useCartStore'
 import { formatCurrency } from '@/lib/utils'
 import { getStudentVerificationStatus } from '@/app/actions/student'
-import { cancelSubscription, activateFreeSubscription } from '@/app/actions/subscription'
+import { cancelSubscription, activateFreeSubscription, changeSubscription } from '@/app/actions/subscription'
 import { toast } from 'sonner'
 
 /* ── Feature detail type ── */
@@ -184,6 +184,8 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
   const [canceling, setCanceling] = useState(false)
   const [freePlanConfirming, setFreePlanConfirming] = useState(false)
   const [freePlanLoading, setFreePlanLoading] = useState(false)
+  const [changePlanConfirming, setChangePlanConfirming] = useState<SerializedPlan | null>(null)
+  const [changePlanLoading, setChangePlanLoading] = useState(false)
 
   useEffect(() => {
     getStudentVerificationStatus()
@@ -236,6 +238,14 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
       setFreePlanConfirming(true)
       return
     }
+
+    // Paid→Paid plan change: use in-place subscription update
+    if (currentSubscription?.stripeSubscriptionId && plan.monthlyPrice > 0) {
+      setChangePlanConfirming(plan)
+      return
+    }
+
+    // New subscription (no existing Stripe subscription): go through checkout
     const price = getFinalPrice(plan)
     clearCart()
     addItem({
@@ -608,6 +618,80 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
               {freePlanLoading ? 'Activating...' : 'Activate'}
             </AlertDialogAction>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Plan Change (Upgrade/Downgrade) Confirmation Dialog */}
+      <AlertDialog
+        open={changePlanConfirming !== null}
+        onOpenChange={(open) => { if (!open) setChangePlanConfirming(null) }}
+      >
+        <AlertDialogContent>
+          {changePlanConfirming && (() => {
+            const isUpgrade = activePlan ? changePlanConfirming.level > activePlan.level : false
+            return (
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {isUpgrade ? 'Upgrade' : 'Downgrade'} to {changePlanConfirming.name} Plan
+                  </AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3">
+                      {isUpgrade ? (
+                        <p>
+                          You will be charged the prorated difference for the remainder of your
+                          current billing period immediately.
+                        </p>
+                      ) : (
+                        <p>
+                          A prorated credit will be applied to your next invoice.
+                        </p>
+                      )}
+                      <p className="font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        All existing VMs will be stopped and deleted. New VMs will be provisioned
+                        for the {changePlanConfirming.name} plan.
+                      </p>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={changePlanLoading}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={changePlanLoading}
+                    className={isUpgrade
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-slate-600 hover:bg-slate-700 text-white'
+                    }
+                    onClick={async (e) => {
+                      e.preventDefault()
+                      if (!currentSubscription?.stripeSubscriptionId) return
+                      setChangePlanLoading(true)
+                      const result = await changeSubscription(
+                        currentSubscription.stripeSubscriptionId,
+                        changePlanConfirming.name,
+                        getFinalPrice(changePlanConfirming),
+                        billingPeriod,
+                        isUpgrade ? 'upgrade' : 'downgrade'
+                      )
+                      setChangePlanLoading(false)
+                      if (result.success) {
+                        setChangePlanConfirming(null)
+                        toast.success(`Successfully ${isUpgrade ? 'upgraded' : 'downgraded'} to ${changePlanConfirming.name} plan`)
+                        router.refresh()
+                      } else {
+                        toast.error(result.error || 'Failed to change plan')
+                      }
+                    }}
+                  >
+                    {changePlanLoading
+                      ? (isUpgrade ? 'Upgrading...' : 'Downgrading...')
+                      : `Confirm ${isUpgrade ? 'Upgrade' : 'Downgrade'}`
+                    }
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </>
+            )
+          })()}
         </AlertDialogContent>
       </AlertDialog>
     </div>
