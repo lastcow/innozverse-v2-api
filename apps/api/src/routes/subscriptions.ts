@@ -92,12 +92,12 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
       },
     })
 
-    // Auto-provision VMs for new or reactivated subscriptions
+    // Auto-provision VMs when subscription becomes ACTIVE
+    // Idempotency is handled inside provisionVmsForSubscription (skips if VMs already exist)
     const resolvedStatus = status ?? 'ACTIVE'
-    const isNewSubscription = !existing && resolvedStatus === 'ACTIVE'
-    const isReactivation = existing?.status === 'CANCELED' && resolvedStatus === 'ACTIVE'
+    const needsProvisioning = resolvedStatus === 'ACTIVE' && (!existing || existing.status !== 'ACTIVE')
 
-    if (isNewSubscription || isReactivation) {
+    if (needsProvisioning) {
       provisionVmsForSubscription(userId, subscription.id, plan.id)
         .catch(err => console.error('VM provisioning error:', err))
     }
