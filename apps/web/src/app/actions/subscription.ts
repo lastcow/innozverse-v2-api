@@ -102,6 +102,86 @@ export async function activateFreeSubscription(): Promise<{ success: boolean; er
 }
 
 /**
+ * Change an existing paid subscription to a different paid plan.
+ * Uses stripe.subscriptions.update() — no checkout needed since
+ * the customer already has a payment method on file.
+ */
+export async function changeSubscription(
+  stripeSubscriptionId: string,
+  newPlanName: string,
+  newPlanPrice: number,
+  billingPeriod: 'monthly' | 'annual',
+  direction: 'upgrade' | 'downgrade'
+): Promise<{ success: boolean; error?: string }> {
+  const session = await auth()
+  if (!session?.user?.id || !session.accessToken) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  const internalSecret = process.env.INTERNAL_WEBHOOK_SECRET
+  if (!internalSecret) {
+    console.error('INTERNAL_WEBHOOK_SECRET not configured')
+    return { success: false, error: 'Server configuration error' }
+  }
+
+  try {
+    const stripe = getStripe()
+
+    // Retrieve the current subscription to get the subscription item ID
+    const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId)
+    const itemId = sub.items.data[0]?.id
+    if (!itemId) {
+      return { success: false, error: 'No subscription item found' }
+    }
+
+    // Create a new Price object (existing flow uses inline price_data, no stored Price IDs)
+    const newPrice = await stripe.prices.create({
+      currency: 'usd',
+      unit_amount: Math.round(newPlanPrice * 100),
+      recurring: { interval: billingPeriod === 'annual' ? 'year' : 'month' },
+      product_data: { name: `${newPlanName} Plan (${billingPeriod === 'annual' ? 'Annual' : 'Monthly'})` },
+    })
+
+    // Update the subscription in-place
+    await stripe.subscriptions.update(stripeSubscriptionId, {
+      items: [{ id: itemId, price: newPrice.id }],
+      proration_behavior: direction === 'upgrade' ? 'always_invoice' : 'create_prorations',
+      metadata: {
+        planId: `plan-${newPlanName.toLowerCase()}-${billingPeriod}`,
+        billingPeriod,
+        userId: session.user.id,
+      },
+    })
+
+    // Trigger VM reprovisioning (destroy old VMs, provision new ones)
+    try {
+      await fetch(`${apiUrl}/api/v1/subscriptions/reprovision`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Secret': internalSecret,
+        },
+        body: JSON.stringify({
+          userId: session.user.id,
+          newPlanName,
+        }),
+      })
+    } catch (err) {
+      console.error('VM reprovisioning request failed:', err)
+    }
+
+    const { revalidatePath } = await import('next/cache')
+    revalidatePath('/user/subscription')
+
+    return { success: true }
+  } catch (err) {
+    console.error('Failed to change subscription:', err)
+    const message = err instanceof Error ? err.message : 'Failed to change subscription'
+    return { success: false, error: message }
+  }
+}
+
+/**
  * Cancel the user's subscription at end of current billing period.
  * Sets cancel_at_period_end in Stripe so the user retains access
  * until the paid period ends, then Stripe stops renewal automatically.
