@@ -4791,9 +4791,15 @@ async function provisionSingleVM({ userId, subscriptionId, cloneFrom, cpuCores, 
     const username = generateProvisionUsername();
     const password = generateProvisionPassword();
 
-    // 3. Get next Proxmox VMID
+    // 3. Get next Proxmox VMID and verify it doesn't already exist
     const rawNextId = await proxmoxFetch('/cluster/nextid');
-    const newid = parseInt(String(rawNextId), 10);
+    let newid = parseInt(String(rawNextId), 10);
+    const existingVMs = await proxmoxFetch(`/nodes/${node}/qemu`);
+    const existingVmids = new Set((existingVMs || []).map(vm => vm.vmid));
+    while (existingVmids.has(newid)) {
+      console.warn(`VMID ${newid} already exists on Proxmox, trying next`);
+      newid++;
+    }
     console.log(`Got next VMID: ${newid}`);
 
     // 4. Update allocation with actual VMID

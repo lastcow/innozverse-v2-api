@@ -149,9 +149,15 @@ export async function provisionVM(params: ProvisionParams): Promise<ProvisionRes
     const username = generateUsername()
     const password = generatePassword()
 
-    // 3. Get next Proxmox VMID
+    // 3. Get next Proxmox VMID and verify it doesn't already exist
     const rawNextId = await proxmoxFetch<number | string>('/cluster/nextid')
-    const newid = typeof rawNextId === 'string' ? parseInt(rawNextId, 10) : rawNextId
+    let newid = typeof rawNextId === 'string' ? parseInt(rawNextId, 10) : rawNextId
+    const existingVMs = await proxmoxFetch<Array<{ vmid: number }>>(`/nodes/${node}/qemu`)
+    const existingVmids = new Set((existingVMs || []).map(vm => vm.vmid))
+    while (existingVmids.has(newid)) {
+      console.warn(`VMID ${newid} already exists on Proxmox, trying next`)
+      newid++
+    }
 
     console.log(`Got next VMID: ${newid}`)
 
