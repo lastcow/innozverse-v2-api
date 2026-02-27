@@ -55,6 +55,53 @@ export async function fetchUserSubscription(
 }
 
 /**
+ * Activate the Free plan for the current user.
+ * Calls the internal from-stripe endpoint (which handles null Stripe fields)
+ * to create the subscription and trigger VM provisioning.
+ */
+export async function activateFreeSubscription(): Promise<{ success: boolean; error?: string }> {
+  const session = await auth()
+  if (!session?.user?.id || !session.accessToken) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  const internalSecret = process.env.INTERNAL_WEBHOOK_SECRET
+  if (!internalSecret) {
+    console.error('INTERNAL_WEBHOOK_SECRET not configured')
+    return { success: false, error: 'Server configuration error' }
+  }
+
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/subscriptions/from-stripe`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Secret': internalSecret,
+      },
+      body: JSON.stringify({
+        userId: session.user.id,
+        planName: 'Free',
+        status: 'ACTIVE',
+        billingPeriod: 'monthly',
+      }),
+    })
+
+    if (!res.ok) {
+      const data = await res.json()
+      return { success: false, error: data.error || 'Failed to activate free plan' }
+    }
+
+    const { revalidatePath } = await import('next/cache')
+    revalidatePath('/user/subscription')
+
+    return { success: true }
+  } catch (err) {
+    console.error('Failed to activate free plan:', err)
+    return { success: false, error: 'Failed to activate free plan' }
+  }
+}
+
+/**
  * Cancel the user's subscription at end of current billing period.
  * Sets cancel_at_period_end in Stripe so the user retains access
  * until the paid period ends, then Stripe stops renewal automatically.
