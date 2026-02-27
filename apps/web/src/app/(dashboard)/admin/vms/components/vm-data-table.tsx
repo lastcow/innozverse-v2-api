@@ -96,6 +96,7 @@ export interface VMRow {
   password: string | null
   userId: string | null
   assignedUser: AssignedUser | null
+  subscription: { planName: string; status: string; billingPeriod: string } | null
   createdAt: string
 }
 
@@ -119,12 +120,30 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+const PROVISIONING_STATUSES = ['provisioning', 'cloning', 'configuring', 'starting']
+
 function StatusDot({ status }: { status: string }) {
-  const color = status === 'running' ? 'bg-green-500' : 'bg-gray-400'
+  const isProvisioningState = PROVISIONING_STATUSES.includes(status)
+  const isError = status === 'error'
+
+  const color = status === 'running'
+    ? 'bg-green-500'
+    : isProvisioningState
+      ? 'bg-blue-500 animate-pulse'
+      : isError
+        ? 'bg-red-500'
+        : 'bg-gray-400'
+
+  const label = isProvisioningState
+    ? `${status.charAt(0).toUpperCase() + status.slice(1)}...`
+    : status
+
   return (
     <div className="flex items-center gap-2">
       <span className={`w-2 h-2 rounded-full ${color}`} />
-      <span className="text-sm font-medium capitalize">{status}</span>
+      <span className={`text-sm font-medium capitalize ${isError ? 'text-red-600' : isProvisioningState ? 'text-blue-600' : ''}`}>
+        {label}
+      </span>
     </div>
   )
 }
@@ -240,6 +259,27 @@ const columns = [
               {vm.publicIpAddress}{vm.port ? `:${vm.port}` : ''}
             </span>
           )}
+        </div>
+      )
+    },
+  }),
+  columnHelper.display({
+    id: 'subscription',
+    header: 'Subscription',
+    cell: ({ row }) => {
+      const sub = row.original.subscription
+      if (!sub) return <span className="text-sm text-gray-400">-</span>
+      const statusColor = sub.status === 'ACTIVE'
+        ? 'bg-green-100 text-green-700'
+        : sub.status === 'CANCELLED'
+          ? 'bg-red-100 text-red-700'
+          : 'bg-gray-100 text-gray-600'
+      return (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium text-[#202224]">{sub.planName}</span>
+          <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full w-fit ${statusColor}`}>
+            {sub.status}
+          </span>
         </div>
       )
     },

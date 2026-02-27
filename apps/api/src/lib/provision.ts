@@ -167,10 +167,9 @@ export async function provisionVM(params: ProvisionParams): Promise<ProvisionRes
       body: { vmid: newid },
     })
 
-    // 5. Clone template
+    // 5. Pick storage and save VM to DB early (status: provisioning)
     const vmName = `vm-${newid}-${userId.slice(0, 8)}`
 
-    // Pick storage — most available space from vmable pools
     const storageRes = await apiFetch<{ storages: Array<{ name: string; vmable: boolean; active: boolean; availBytes: string }> }>(
       '/api/v1/storage', accessToken
     )
@@ -182,48 +181,7 @@ export async function provisionVM(params: ProvisionParams): Promise<ProvisionRes
       throw new Error('No vmable storage available')
     }
 
-    const upid = await proxmoxFetch<string>(`/nodes/${node}/qemu/${cloneFrom}/clone`, {
-      method: 'POST',
-      contentType: 'form',
-      body: { newid, name: vmName, full: 1, storage: vmableStorage.name },
-    })
-
-    console.log(`Cloning template ${cloneFrom} → VM ${newid}, task: ${upid}`)
-
-    // Poll clone task (5 min timeout)
-    const cloneSuccess = await pollTask(node, upid, 5 * 60 * 1000)
-    if (!cloneSuccess) {
-      throw new Error(`Clone task failed for VM ${vmName}`)
-    }
-
-    await sleep(2000)
-
-    // 6. Configure VM
-    await proxmoxFetch(`/nodes/${node}/qemu/${newid}/config`, {
-      method: 'PUT',
-      contentType: 'form',
-      body: {
-        cores: cpuCores,
-        memory,
-        ipconfig0: `ip=${ipAddress}/${cidr},gw=${gateway}`,
-        ciuser: username,
-        cipassword: password,
-      },
-    })
-
-    console.log(`Configured VM ${newid}: ${cpuCores} cores, ${memory}MB RAM, IP ${ipAddress}`)
-
-    // 7. Resize disk
-    await proxmoxFetch(`/nodes/${node}/qemu/${newid}/resize`, {
-      method: 'PUT',
-      contentType: 'form',
-      body: { disk: 'scsi0', size: `${storage}G` },
-    })
-
-    // 8. Start VM
-    await proxmoxFetch(`/nodes/${node}/qemu/${newid}/status/start`, { method: 'POST' })
-
-    // 9. Save to DB
+    // Save VM record early so UI can show progress
     await apiFetch('/api/v1/vms', accessToken, {
       method: 'POST',
       body: {
@@ -231,7 +189,7 @@ export async function provisionVM(params: ProvisionParams): Promise<ProvisionRes
         name: vmName,
         type: vmType,
         node,
-        status: 'running',
+        status: 'provisioning',
         memory,
         cpuCores,
         ipAddress,
@@ -244,9 +202,79 @@ export async function provisionVM(params: ProvisionParams): Promise<ProvisionRes
       },
     })
 
-    console.log(`VM ${vmName} (vmid=${newid}) provisioned successfully`)
+    console.log(`VM ${vmName} (vmid=${newid}) record created with status 'provisioning'`)
 
-    return { vmid: newid, ipAddress, username, password }
+    // Helper to update VM status
+    const updateStatus = async (status: string) => {
+      await apiFetch(`/api/v1/vms/${newid}`, accessToken, {
+        method: 'PATCH',
+        body: { status },
+      })
+    }
+
+    try {
+      // 6. Clone template
+      await updateStatus('cloning')
+
+      const upid = await proxmoxFetch<string>(`/nodes/${node}/qemu/${cloneFrom}/clone`, {
+        method: 'POST',
+        contentType: 'form',
+        body: { newid, name: vmName, full: 1, storage: vmableStorage.name },
+      })
+
+      console.log(`Cloning template ${cloneFrom} → VM ${newid}, task: ${upid}`)
+
+      const cloneSuccess = await pollTask(node, upid, 5 * 60 * 1000)
+      if (!cloneSuccess) {
+        throw new Error(`Clone task failed for VM ${vmName}`)
+      }
+
+      await sleep(2000)
+
+      // 7. Configure VM
+      await updateStatus('configuring')
+
+      await proxmoxFetch(`/nodes/${node}/qemu/${newid}/config`, {
+        method: 'PUT',
+        contentType: 'form',
+        body: {
+          cores: cpuCores,
+          memory,
+          ipconfig0: `ip=${ipAddress}/${cidr},gw=${gateway}`,
+          ciuser: username,
+          cipassword: password,
+        },
+      })
+
+      console.log(`Configured VM ${newid}: ${cpuCores} cores, ${memory}MB RAM, IP ${ipAddress}`)
+
+      // 8. Resize disk
+      await proxmoxFetch(`/nodes/${node}/qemu/${newid}/resize`, {
+        method: 'PUT',
+        contentType: 'form',
+        body: { disk: 'scsi0', size: `${storage}G` },
+      })
+
+      // 9. Start VM
+      await updateStatus('starting')
+
+      await proxmoxFetch(`/nodes/${node}/qemu/${newid}/status/start`, { method: 'POST' })
+
+      // 10. Mark as running
+      await updateStatus('running')
+
+      console.log(`VM ${vmName} (vmid=${newid}) provisioned successfully`)
+
+      return { vmid: newid, ipAddress, username, password }
+    } catch (innerError) {
+      // Mark VM as error in DB
+      try {
+        await updateStatus('error')
+      } catch {
+        console.error(`Failed to set error status for VM ${newid}`)
+      }
+      throw innerError
+    }
   } catch (error) {
     // Cleanup: release IP allocation on failure
     if (allocationId) {

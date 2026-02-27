@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Play, Square, Cpu, MemoryStick, Copy, Check, Terminal } from 'lucide-react'
 import { toggleUserVMStatus, type UserVM } from '@/app/actions/user-vms'
 import { toast } from 'sonner'
@@ -14,6 +15,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+
+const PROVISIONING_STATUSES = ['provisioning', 'cloning', 'configuring', 'starting']
+
+function isProvisioning(status: string) {
+  return PROVISIONING_STATUSES.includes(status)
+}
+
+function getProvisioningLabel(status: string) {
+  switch (status) {
+    case 'provisioning': return 'Provisioning...'
+    case 'cloning': return 'Cloning...'
+    case 'configuring': return 'Configuring...'
+    case 'starting': return 'Starting...'
+    default: return status
+  }
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -43,7 +60,14 @@ function VMCard({ vm }: { vm: UserVM }) {
   const [isPending, startTransition] = useTransition()
   const [confirmAction, setConfirmAction] = useState<'start' | 'stop' | null>(null)
 
+  // Sync status when prop changes (from polling refresh)
+  useEffect(() => {
+    setStatus(vm.status)
+  }, [vm.status])
+
   const isRunning = status === 'running'
+  const isProvisioningState = isProvisioning(status)
+  const isError = status === 'error'
   const connectionIp = vm.publicIpAddress || vm.ipAddress
   const connectionStr = connectionIp
     ? `ssh ${vm.username || 'user'}@${connectionIp}${vm.port ? ` -p ${vm.port}` : ''}`
@@ -61,11 +85,20 @@ function VMCard({ vm }: { vm: UserVM }) {
     })
   }
 
+  // Status dot color
+  const dotClass = isRunning
+    ? 'bg-green-500'
+    : isProvisioningState
+      ? 'bg-blue-500 animate-pulse'
+      : isError
+        ? 'bg-red-500'
+        : 'bg-gray-300'
+
   return (
     <div className="bg-white border border-gray-100 rounded-xl px-4 py-3 shadow-sm flex items-center gap-4">
       {/* Status dot + Name */}
       <div className="flex items-center gap-2.5 min-w-0 shrink-0">
-        <span className={`w-2 h-2 rounded-full shrink-0 ${isRunning ? 'bg-green-500' : 'bg-gray-300'}`} />
+        <span className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[#202224] truncate">{vm.name}</p>
           {vm.type && <p className="text-[11px] text-gray-400 leading-tight">{vm.type}</p>}
@@ -115,9 +148,19 @@ function VMCard({ vm }: { vm: UserVM }) {
         </div>
       )}
 
-      {/* Action button */}
+      {/* Action button / Provisioning status */}
       <div className="shrink-0 ml-auto">
-        {isRunning ? (
+        {isProvisioningState ? (
+          <span className="flex items-center gap-1.5 text-xs font-medium text-blue-600 border border-blue-200 bg-blue-50 rounded-lg px-3 py-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            {getProvisioningLabel(status)}
+          </span>
+        ) : isError ? (
+          <span className="flex items-center gap-1.5 text-xs font-medium text-red-600 border border-red-200 bg-red-50 rounded-lg px-3 py-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            Error
+          </span>
+        ) : isRunning ? (
           <button
             onClick={() => setConfirmAction('stop')}
             disabled={isPending}
@@ -169,7 +212,28 @@ function VMCard({ vm }: { vm: UserVM }) {
 }
 
 export function VMCardGrid({ initialVMs }: { initialVMs: UserVM[] }) {
-  if (initialVMs.length === 0) {
+  const router = useRouter()
+  const [vms, setVms] = useState(initialVMs)
+
+  // Sync when initialVMs prop changes (from server re-render)
+  useEffect(() => {
+    setVms(initialVMs)
+  }, [initialVMs])
+
+  // Auto-refresh while any VM is in a provisioning state
+  const hasProvisioning = vms.some((vm) => isProvisioning(vm.status))
+
+  useEffect(() => {
+    if (!hasProvisioning) return
+
+    const interval = setInterval(() => {
+      router.refresh()
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [hasProvisioning, router])
+
+  if (vms.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
         <Terminal className="w-8 h-8 text-gray-300 mx-auto mb-3" />
@@ -183,7 +247,7 @@ export function VMCardGrid({ initialVMs }: { initialVMs: UserVM[] }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {initialVMs.map((vm) => (
+      {vms.map((vm) => (
         <VMCard key={vm.id} vm={vm} />
       ))}
     </div>

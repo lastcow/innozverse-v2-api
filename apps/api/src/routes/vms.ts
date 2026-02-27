@@ -206,10 +206,11 @@ app.post('/api/v1/vms/sync', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), a
       }
     }
 
-    // Get VMs currently being provisioned (cloning) — skip overwriting their config
-    const cloningVmIds = new Set(
+    // Get VMs currently being provisioned — skip overwriting their config
+    const provisioningStatuses = ['provisioning', 'cloning', 'configuring', 'starting']
+    const provisioningVmIds = new Set(
       (await prisma.virtualMachine.findMany({
-        where: { status: 'cloning', deletedAt: null },
+        where: { status: { in: provisioningStatuses }, deletedAt: null },
         select: { vmid: true },
       })).map((v) => v.vmid)
     )
@@ -220,7 +221,7 @@ app.post('/api/v1/vms/sync', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), a
       proxmoxVmIds.add(vm.vmid)
 
       // Skip VMs mid-provisioning — their Proxmox state is transient
-      if (cloningVmIds.has(vm.vmid)) continue
+      if (provisioningVmIds.has(vm.vmid)) continue
 
       const config = configMap.get(vm.vmid)
       const { ip, gateway } = parseIpConfig(config?.ipconfig0)
@@ -288,6 +289,7 @@ app.get('/api/v1/vms', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), async (
       orderBy: { vmid: 'asc' },
       include: {
         user: { select: { id: true, email: true, fname: true, lname: true } },
+        subscription: { include: { plan: { select: { name: true } } } },
       },
     })
 
@@ -315,6 +317,13 @@ app.get('/api/v1/vms', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), async (
               id: vm.user.id,
               email: vm.user.email,
               name: [vm.user.fname, vm.user.lname].filter(Boolean).join(' ') || vm.user.email,
+            }
+          : null,
+        subscription: vm.subscription
+          ? {
+              planName: vm.subscription.plan.name,
+              status: vm.subscription.status,
+              billingPeriod: vm.subscription.billingPeriod,
             }
           : null,
         createdAt: vm.createdAt.toISOString(),
@@ -390,6 +399,36 @@ app.get('/api/v1/vms/tasks/:upid', authMiddleware, requireRole(['ADMIN', 'SYSTEM
   } catch (error) {
     console.error('Failed to get task status:', error)
     const message = error instanceof Error ? error.message : 'Failed to get task status'
+    return c.json({ error: message }, 500)
+  }
+})
+
+// PATCH /api/v1/vms/:vmid - Update VM status (used by provisioner to track progress)
+app.patch('/api/v1/vms/:vmid', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), async (c) => {
+  try {
+    const vmid = parseInt(c.req.param('vmid'), 10)
+    const { status } = await c.req.json()
+
+    if (!status) {
+      return c.json({ error: 'status is required' }, 400)
+    }
+
+    const vm = await prisma.virtualMachine.findFirst({
+      where: { vmid, deletedAt: null },
+    })
+    if (!vm) {
+      return c.json({ error: 'VM not found' }, 404)
+    }
+
+    await prisma.virtualMachine.update({
+      where: { id: vm.id },
+      data: { status },
+    })
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Failed to update VM status:', error)
+    const message = error instanceof Error ? error.message : 'Failed to update VM status'
     return c.json({ error: message }, 500)
   }
 })

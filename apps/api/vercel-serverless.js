@@ -3906,10 +3906,23 @@ app.post('/api/v1/vms/sync', authMiddleware, requireRole('ADMIN', 'SYSTEM'), asy
       }
     }
 
+    // Get VMs currently being provisioned — skip overwriting their config
+    const provisioningStatuses = ['provisioning', 'cloning', 'configuring', 'starting'];
+    const provisioningVmIds = new Set(
+      (await prisma.virtualMachine.findMany({
+        where: { status: { in: provisioningStatuses }, deletedAt: null },
+        select: { vmid: true },
+      })).map((v) => v.vmid)
+    );
+
     // Upsert each VM
     const proxmoxVmIds = new Set();
     for (const vm of activeVMs) {
       proxmoxVmIds.add(vm.vmid);
+
+      // Skip VMs mid-provisioning — their Proxmox state is transient
+      if (provisioningVmIds.has(vm.vmid)) continue;
+
       const config = configMap.get(vm.vmid);
       const { ip, gateway } = parseIpConfig(config?.ipconfig0);
       const memory = parseInt(config?.memory ?? Math.round(vm.maxmem / (1024 * 1024)), 10) || 2048;
@@ -3977,6 +3990,7 @@ app.get('/api/v1/vms', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c)
       orderBy: { vmid: 'asc' },
       include: {
         user: { select: { id: true, email: true, fname: true, lname: true } },
+        subscription: { include: { plan: { select: { name: true } } } },
       },
     });
 
@@ -4004,6 +4018,13 @@ app.get('/api/v1/vms', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c)
               id: vm.user.id,
               email: vm.user.email,
               name: [vm.user.fname, vm.user.lname].filter(Boolean).join(' ') || vm.user.email,
+            }
+          : null,
+        subscription: vm.subscription
+          ? {
+              planName: vm.subscription.plan.name,
+              status: vm.subscription.status,
+              billingPeriod: vm.subscription.billingPeriod,
             }
           : null,
         createdAt: vm.createdAt.toISOString(),
@@ -4080,6 +4101,25 @@ app.get('/api/v1/vms/tasks/:upid', authMiddleware, requireRole('ADMIN', 'SYSTEM'
   } catch (error) {
     console.error('Failed to get task status:', error);
     return c.json({ error: error.message || 'Failed to get task status' }, 500);
+  }
+});
+
+// PATCH /api/v1/vms/:vmid - Update VM status (used by provisioner to track progress)
+app.patch('/api/v1/vms/:vmid', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const vmid = parseInt(c.req.param('vmid'), 10);
+    const { status } = await c.req.json();
+    if (!status) return c.json({ error: 'status is required' }, 400);
+
+    const vm = await prisma.virtualMachine.findFirst({ where: { vmid, deletedAt: null } });
+    if (!vm) return c.json({ error: 'VM not found' }, 404);
+
+    await prisma.virtualMachine.update({ where: { id: vm.id }, data: { status } });
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to update VM status:', error);
+    return c.json({ error: error.message || 'Failed to update VM status' }, 500);
   }
 });
 
@@ -4805,7 +4845,7 @@ async function provisionSingleVM({ userId, subscriptionId, cloneFrom, cpuCores, 
     // 4. Update allocation with actual VMID
     await apiFetchInternal(`/api/v1/ip-pool/allocations/${allocationId}`, accessToken, { method: 'PATCH', body: { vmid: newid } });
 
-    // 5. Pick storage and clone template
+    // 5. Pick storage and save VM to DB early (status: provisioning)
     const vmName = `vm-${newid}-${userId.slice(0, 8)}`;
     const storageRes = await apiFetchInternal('/api/v1/storage', accessToken);
     const vmableStorage = (storageRes.storages || [])
@@ -4813,44 +4853,66 @@ async function provisionSingleVM({ userId, subscriptionId, cloneFrom, cpuCores, 
       .sort((a, b) => Number(b.availBytes) - Number(a.availBytes))[0];
     if (!vmableStorage) throw new Error('No vmable storage available');
 
-    const upid = await proxmoxFetch(`/nodes/${node}/qemu/${cloneFrom}/clone`, {
-      method: 'POST', contentType: 'form',
-      body: { newid, name: vmName, full: 1, storage: vmableStorage.name },
-    });
-    console.log(`Cloning template ${cloneFrom} -> VM ${newid}, task: ${upid}`);
-
-    const cloneOk = await pollProxmoxTask(node, upid, 300000);
-    if (!cloneOk) throw new Error(`Clone task failed for VM ${vmName}`);
-    await new Promise(r => setTimeout(r, 2000));
-
-    // 6. Configure VM
-    await proxmoxFetch(`/nodes/${node}/qemu/${newid}/config`, {
-      method: 'PUT', contentType: 'form',
-      body: { cores: cpuCores, memory, ipconfig0: `ip=${ipAddress}/${cidr},gw=${gateway}`, ciuser: username, cipassword: password },
-    });
-    console.log(`Configured VM ${newid}: ${cpuCores} cores, ${memory}MB RAM, IP ${ipAddress}`);
-
-    // 7. Resize disk
-    await proxmoxFetch(`/nodes/${node}/qemu/${newid}/resize`, {
-      method: 'PUT', contentType: 'form',
-      body: { disk: 'scsi0', size: `${storage}G` },
-    });
-
-    // 8. Start VM
-    await proxmoxFetch(`/nodes/${node}/qemu/${newid}/status/start`, { method: 'POST' });
-
-    // 9. Save to DB via API
+    // Save VM record early so UI can show progress
     await apiFetchInternal('/api/v1/vms', accessToken, {
       method: 'POST',
       body: {
-        vmid: newid, name: vmName, type: vmType, node, status: 'running',
+        vmid: newid, name: vmName, type: vmType, node, status: 'provisioning',
         memory, cpuCores, ipAddress, gateway, username, password,
         userId, subscriptionId: subscriptionId || null, storage: vmableStorage.name,
       },
     });
+    console.log(`VM ${vmName} (vmid=${newid}) record created with status 'provisioning'`);
 
-    console.log(`VM ${vmName} (vmid=${newid}) provisioned successfully`);
-    return { vmid: newid, ipAddress, username, password };
+    // Helper to update VM status
+    const updateStatus = async (status) => {
+      await apiFetchInternal(`/api/v1/vms/${newid}`, accessToken, { method: 'PATCH', body: { status } });
+    };
+
+    try {
+      // 6. Clone template
+      await updateStatus('cloning');
+
+      const upid = await proxmoxFetch(`/nodes/${node}/qemu/${cloneFrom}/clone`, {
+        method: 'POST', contentType: 'form',
+        body: { newid, name: vmName, full: 1, storage: vmableStorage.name },
+      });
+      console.log(`Cloning template ${cloneFrom} -> VM ${newid}, task: ${upid}`);
+
+      const cloneOk = await pollProxmoxTask(node, upid, 300000);
+      if (!cloneOk) throw new Error(`Clone task failed for VM ${vmName}`);
+      await new Promise(r => setTimeout(r, 2000));
+
+      // 7. Configure VM
+      await updateStatus('configuring');
+
+      await proxmoxFetch(`/nodes/${node}/qemu/${newid}/config`, {
+        method: 'PUT', contentType: 'form',
+        body: { cores: cpuCores, memory, ipconfig0: `ip=${ipAddress}/${cidr},gw=${gateway}`, ciuser: username, cipassword: password },
+      });
+      console.log(`Configured VM ${newid}: ${cpuCores} cores, ${memory}MB RAM, IP ${ipAddress}`);
+
+      // 8. Resize disk
+      await proxmoxFetch(`/nodes/${node}/qemu/${newid}/resize`, {
+        method: 'PUT', contentType: 'form',
+        body: { disk: 'scsi0', size: `${storage}G` },
+      });
+
+      // 9. Start VM
+      await updateStatus('starting');
+
+      await proxmoxFetch(`/nodes/${node}/qemu/${newid}/status/start`, { method: 'POST' });
+
+      // 10. Mark as running
+      await updateStatus('running');
+
+      console.log(`VM ${vmName} (vmid=${newid}) provisioned successfully`);
+      return { vmid: newid, ipAddress, username, password };
+    } catch (innerError) {
+      // Mark VM as error in DB
+      try { await updateStatus('error'); } catch { console.error(`Failed to set error status for VM ${newid}`); }
+      throw innerError;
+    }
   } catch (error) {
     if (allocationId) {
       try {
