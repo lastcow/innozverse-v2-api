@@ -32,9 +32,9 @@ export async function AnnouncementBanner() {
           key={a.id}
           className="bg-yellow-50 border-b border-yellow-300 px-4 py-3"
         >
-          <div className="max-w-7xl mx-auto flex items-start gap-3">
-            <Megaphone className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
-            <p className="text-sm text-yellow-800">
+          <div className="max-w-7xl mx-auto flex items-center justify-center gap-3">
+            <Megaphone className="w-5 h-5 text-yellow-600 shrink-0" />
+            <p className="text-sm text-yellow-800 text-center">
               <span className="font-semibold">{a.title}</span>
               {' — '}
               {a.content}
