@@ -4900,14 +4900,34 @@ async function destroyVmsForSubscription(subscriptionId) {
   const vms = await prisma.virtualMachine.findMany({ where: { subscriptionId, deletedAt: null } });
   if (vms.length === 0) return;
 
+  console.log(`Destroying ${vms.length} VMs for subscription ${subscriptionId}`);
   const node = getProxmoxNode();
   for (const vm of vms) {
     try {
+      // 1. Stop VM if running — poll task until complete
       if (vm.status === 'running') {
-        try { await proxmoxFetch(`/nodes/${node}/qemu/${vm.vmid}/status/stop`, { method: 'POST' }); await new Promise(r => setTimeout(r, 3000)); } catch {}
+        try {
+          const upid = await proxmoxFetch(`/nodes/${node}/qemu/${vm.vmid}/status/stop`, { method: 'POST' });
+          if (upid) {
+            const stopped = await pollProxmoxTask(node, upid, 60000);
+            if (!stopped) console.warn(`Stop task for VM ${vm.vmid} did not complete in time, attempting delete anyway`);
+          }
+        } catch (err) {
+          console.warn(`Failed to stop VM ${vm.vmid}:`, err);
+        }
       }
-      try { await proxmoxFetch(`/nodes/${node}/qemu/${vm.vmid}`, { method: 'DELETE' }); } catch {}
+
+      // 2. Delete from Proxmox
+      try {
+        await proxmoxFetch(`/nodes/${node}/qemu/${vm.vmid}`, { method: 'DELETE' });
+        console.log(`VM ${vm.name} (vmid=${vm.vmid}) deleted from Proxmox`);
+      } catch (err) {
+        console.error(`Failed to delete VM ${vm.vmid} from Proxmox:`, err);
+      }
+
+      // 3. Soft-delete in DB
       await prisma.virtualMachine.update({ where: { id: vm.id }, data: { deletedAt: new Date(), status: 'deleted' } });
+      console.log(`VM ${vm.name} (vmid=${vm.vmid}) destroyed`);
     } catch (error) {
       console.error(`Failed to destroy VM ${vm.name}:`, error);
     }

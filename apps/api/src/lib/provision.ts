@@ -84,7 +84,7 @@ async function apiFetch<T = unknown>(
   return response.json() as Promise<T>
 }
 
-async function pollTask(node: string, upid: string, timeoutMs: number): Promise<boolean> {
+export async function pollTask(node: string, upid: string, timeoutMs: number): Promise<boolean> {
   const encodedUpid = encodeURIComponent(upid)
   const start = Date.now()
 

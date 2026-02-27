@@ -1,7 +1,7 @@
 import { SignJWT } from 'jose'
 import { prisma } from '@repo/database'
 import { proxmoxFetch, getProxmoxNode } from './proxmox'
-import { provisionVM } from './provision'
+import { provisionVM, pollTask } from './provision'
 
 const API_URL = `http://localhost:${process.env.PORT || '3001'}`
 
@@ -145,21 +145,28 @@ export async function destroyVmsForSubscription(subscriptionId: string) {
 
   for (const vm of vms) {
     try {
+      // 1. Stop VM if running — poll task until complete
       if (vm.status === 'running') {
         try {
-          await proxmoxFetch(`/nodes/${node}/qemu/${vm.vmid}/status/stop`, { method: 'POST' })
-          await sleep(3000)
+          const upid = await proxmoxFetch(`/nodes/${node}/qemu/${vm.vmid}/status/stop`, { method: 'POST' })
+          if (upid) {
+            const stopped = await pollTask(node, String(upid), 60000)
+            if (!stopped) console.warn(`Stop task for VM ${vm.vmid} did not complete in time, attempting delete anyway`)
+          }
         } catch {
-          // May already be stopped
+          console.warn(`Failed to stop VM ${vm.vmid}, may already be stopped`)
         }
       }
 
+      // 2. Delete from Proxmox
       try {
         await proxmoxFetch(`/nodes/${node}/qemu/${vm.vmid}`, { method: 'DELETE' })
+        console.log(`VM ${vm.name} (vmid=${vm.vmid}) deleted from Proxmox`)
       } catch (error) {
-        console.warn(`Failed to delete VM ${vm.vmid} from Proxmox:`, error)
+        console.error(`Failed to delete VM ${vm.vmid} from Proxmox:`, error)
       }
 
+      // 3. Soft-delete in DB
       await prisma.virtualMachine.update({
         where: { id: vm.id },
         data: { deletedAt: new Date(), status: 'deleted' },
@@ -172,6 +179,3 @@ export async function destroyVmsForSubscription(subscriptionId: string) {
   }
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
