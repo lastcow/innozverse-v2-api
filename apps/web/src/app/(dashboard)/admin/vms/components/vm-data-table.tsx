@@ -14,6 +14,7 @@ import {
   Server,
   Cpu,
   MemoryStick,
+  HardDrive,
   Network,
   Route,
   User,
@@ -88,6 +89,7 @@ export interface VMRow {
   status: string
   memory: number
   cpuCores: number
+  storage: string | null
   ipAddress: string | null
   publicIpAddress: string | null
   port: number | null
@@ -183,9 +185,17 @@ const columns = [
   columnHelper.accessor('node', {
     header: 'Node',
     cell: (info) => (
-      <div className="flex items-center gap-1.5 text-sm text-gray-600">
-        <Server size={14} className="text-gray-400" />
-        {info.getValue()}
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1.5 text-sm text-gray-600">
+          <Server size={14} className="text-gray-400" />
+          {info.getValue()}
+        </div>
+        {info.row.original.storage && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <HardDrive size={14} className="text-gray-300" />
+            {info.row.original.storage}
+          </div>
+        )}
       </div>
     ),
   }),
