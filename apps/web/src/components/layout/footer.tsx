@@ -37,12 +37,7 @@ export function Footer() {
                 </li>
                 <li>
                   <Link href="/pricing" className="text-sm hover:text-blue-400 transition-colors">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/pricing/pro" className="text-sm hover:text-blue-400 transition-colors">
-                    Subscriptions
+                    Subscription
                   </Link>
                 </li>
               </ul>
@@ -65,17 +60,7 @@ export function Footer() {
                   </a>
                 </li>
                 <li>
-                  <a
-                    href="https://community.innozverse.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm hover:text-blue-400 transition-colors"
-                  >
-                    Community
-                  </a>
-                </li>
-                <li>
-                  <Link href="/auth/register" className="text-sm hover:text-blue-400 transition-colors">
+                  <Link href="/user/settings/profile" className="text-sm hover:text-blue-400 transition-colors">
                     Student Verification
                   </Link>
                 </li>
