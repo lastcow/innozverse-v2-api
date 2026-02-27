@@ -122,6 +122,68 @@ app.post('/api/v1/vms/me/:vmid/status', authMiddleware, async (c) => {
 // Admin endpoints
 // ============================================================
 
+// POST /api/v1/vms - Create a VirtualMachine record in DB (used by provisionVM)
+app.post('/api/v1/vms', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), async (c) => {
+  try {
+    const body = await c.req.json()
+    const { vmid, name, type, node, status, memory, cpuCores, ipAddress, gateway, username, password, userId, subscriptionId, storage } = body
+
+    if (!vmid || !name) {
+      return c.json({ error: 'vmid and name are required' }, 400)
+    }
+
+    const vm = await prisma.virtualMachine.upsert({
+      where: { vmid: parseInt(String(vmid), 10) },
+      update: {
+        name,
+        type: type ?? null,
+        node: node ?? 'pve',
+        status: status ?? 'stopped',
+        memory: memory ? parseInt(String(memory), 10) : 2048,
+        cpuCores: cpuCores ? parseInt(String(cpuCores), 10) : 2,
+        ipAddress: ipAddress ?? null,
+        gateway: gateway ?? null,
+        username: username ?? null,
+        password: password ?? null,
+        userId: userId ?? null,
+        subscriptionId: subscriptionId ?? null,
+        storage: storage ?? null,
+        deletedAt: null,
+      },
+      create: {
+        vmid: parseInt(String(vmid), 10),
+        name,
+        type: type ?? null,
+        node: node ?? 'pve',
+        status: status ?? 'stopped',
+        memory: memory ? parseInt(String(memory), 10) : 2048,
+        cpuCores: cpuCores ? parseInt(String(cpuCores), 10) : 2,
+        ipAddress: ipAddress ?? null,
+        gateway: gateway ?? null,
+        username: username ?? null,
+        password: password ?? null,
+        userId: userId ?? null,
+        subscriptionId: subscriptionId ?? null,
+        storage: storage ?? null,
+      },
+    })
+
+    return c.json({
+      vm: {
+        id: vm.id,
+        vmid: vm.vmid,
+        name: vm.name,
+        status: vm.status,
+        createdAt: vm.createdAt.toISOString(),
+      },
+    }, 201)
+  } catch (error) {
+    console.error('Failed to create VM record:', error)
+    const message = error instanceof Error ? error.message : 'Failed to create VM record'
+    return c.json({ error: message }, 500)
+  }
+})
+
 // POST /api/v1/vms/sync - Sync VMs from Proxmox into local DB
 app.post('/api/v1/vms/sync', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), async (c) => {
   try {
@@ -144,15 +206,28 @@ app.post('/api/v1/vms/sync', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), a
       }
     }
 
+    // Get VMs currently being provisioned (cloning) — skip overwriting their config
+    const cloningVmIds = new Set(
+      (await prisma.virtualMachine.findMany({
+        where: { status: 'cloning', deletedAt: null },
+        select: { vmid: true },
+      })).map((v) => v.vmid)
+    )
+
     // Upsert each VM
     const proxmoxVmIds = new Set<number>()
     for (const vm of activeVMs) {
       proxmoxVmIds.add(vm.vmid)
+
+      // Skip VMs mid-provisioning — their Proxmox state is transient
+      if (cloningVmIds.has(vm.vmid)) continue
+
       const config = configMap.get(vm.vmid)
       const { ip, gateway } = parseIpConfig(config?.ipconfig0)
       const memory = parseInt(String(config?.memory ?? Math.round(vm.maxmem / (1024 * 1024))), 10) || 2048
       const cpuCores = parseInt(String(config?.cores ?? vm.cpus), 10) || 2
 
+      // Don't overwrite username/password on update — Proxmox returns '***' for cipassword
       await prisma.virtualMachine.upsert({
         where: { vmid: vm.vmid },
         update: {
@@ -163,8 +238,6 @@ app.post('/api/v1/vms/sync', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), a
           cpuCores,
           ipAddress: ip ?? null,
           gateway: gateway ?? null,
-          username: config?.ciuser ?? null,
-          password: config?.cipassword ?? null,
           deletedAt: null,
         },
         create: {
@@ -235,6 +308,8 @@ app.get('/api/v1/vms', authMiddleware, requireRole(['ADMIN', 'SYSTEM']), async (
         username: vm.username,
         password: vm.password,
         userId: vm.userId,
+        subscriptionId: vm.subscriptionId,
+        storage: vm.storage,
         assignedUser: vm.user
           ? {
               id: vm.user.id,

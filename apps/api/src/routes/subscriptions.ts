@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import Stripe from 'stripe'
 import { prisma } from '@repo/database'
 import { authMiddleware, requireRole } from '../middleware/auth'
+import { provisionVmsForSubscription, destroyVmsForSubscription } from '../lib/vm-provisioner'
 import type { AuthContext } from '../types'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
@@ -63,6 +64,9 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
       return c.json({ error: `Plan not found: ${planName}` }, 404)
     }
 
+    // Check existing subscription before upsert (for provisioning logic)
+    const existing = await prisma.userSubscription.findUnique({ where: { userId } })
+
     // Upsert UserSubscription by userId (one subscription per user)
     const subscription = await prisma.userSubscription.upsert({
       where: { userId },
@@ -87,6 +91,22 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
         currentPeriodEnd: currentPeriodEnd ? new Date(currentPeriodEnd) : null,
       },
     })
+
+    // Auto-provision VMs for new or reactivated subscriptions
+    const resolvedStatus = status ?? 'ACTIVE'
+    const isNewSubscription = !existing && resolvedStatus === 'ACTIVE'
+    const isReactivation = existing?.status === 'CANCELED' && resolvedStatus === 'ACTIVE'
+
+    if (isNewSubscription || isReactivation) {
+      provisionVmsForSubscription(userId, subscription.id, plan.id)
+        .catch(err => console.error('VM provisioning error:', err))
+    }
+
+    // Destroy linked VMs when subscription is canceled
+    if (resolvedStatus === 'CANCELED') {
+      destroyVmsForSubscription(subscription.id)
+        .catch(err => console.error('VM destruction error:', err))
+    }
 
     return c.json({ subscription })
   } catch (error) {
@@ -238,7 +258,7 @@ app.get('/api/v1/admin/subscriptions', authMiddleware, requireRole(['ADMIN']), a
         where,
         include: {
           user: { select: { id: true, email: true, fname: true, lname: true } },
-          plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true } },
+          plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true, vmConfig: true } },
         },
         orderBy: { plan: { name: 'asc' } },
         skip: (page - 1) * limit,
@@ -289,6 +309,30 @@ app.get('/api/v1/admin/subscriptions', authMiddleware, requireRole(['ADMIN']), a
   }
 })
 
+// POST /api/v1/admin/subscriptions/:id/provision - Manually trigger VM provisioning
+app.post('/api/v1/admin/subscriptions/:id/provision', authMiddleware, requireRole(['ADMIN']), async (c) => {
+  try {
+    const id = c.req.param('id')
+    const subscription = await prisma.userSubscription.findUnique({ where: { id } })
+
+    if (!subscription) {
+      return c.json({ error: 'Subscription not found' }, 404)
+    }
+
+    if (subscription.status !== 'ACTIVE') {
+      return c.json({ error: 'Subscription is not active' }, 400)
+    }
+
+    provisionVmsForSubscription(subscription.userId, subscription.id, subscription.planId)
+      .catch(err => console.error('VM provisioning error:', err))
+
+    return c.json({ success: true, message: 'VM provisioning started' })
+  } catch (error) {
+    console.error('Failed to trigger provisioning:', error)
+    return c.json({ error: 'Failed to trigger provisioning' }, 500)
+  }
+})
+
 // POST /api/v1/admin/subscriptions/:id/cancel - Cancel subscription at period end
 app.post('/api/v1/admin/subscriptions/:id/cancel', authMiddleware, requireRole(['ADMIN']), async (c) => {
   try {
@@ -319,7 +363,7 @@ app.post('/api/v1/admin/subscriptions/:id/cancel', authMiddleware, requireRole([
       data: { canceledAt: new Date() },
       include: {
         user: { select: { id: true, email: true, fname: true, lname: true } },
-        plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true } },
+        plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true, vmConfig: true } },
       },
     })
 

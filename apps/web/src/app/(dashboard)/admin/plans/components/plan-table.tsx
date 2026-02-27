@@ -4,6 +4,13 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
 
+export interface VmConfigSpec {
+  template: 'ubuntu' | 'kali'
+  cores: number
+  memory: number
+  diskSize?: number
+}
+
 export interface Plan {
   id: string
   name: string
@@ -12,6 +19,7 @@ export interface Plan {
   annualTotalPrice: number
   description: string
   highlights: string[]
+  vmConfig: VmConfigSpec[]
   active: boolean
   sortOrder: number
   createdAt: string

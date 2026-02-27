@@ -3,6 +3,17 @@
 import { useState, useTransition } from 'react'
 import { Play, Square, Cpu, MemoryStick, Copy, Check, Terminal } from 'lucide-react'
 import { toggleUserVMStatus, type UserVM } from '@/app/actions/user-vms'
+import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -30,6 +41,7 @@ function formatMemory(mb: number): string {
 function VMCard({ vm }: { vm: UserVM }) {
   const [status, setStatus] = useState(vm.status)
   const [isPending, startTransition] = useTransition()
+  const [confirmAction, setConfirmAction] = useState<'start' | 'stop' | null>(null)
 
   const isRunning = status === 'running'
   const connectionIp = vm.publicIpAddress || vm.ipAddress
@@ -42,6 +54,9 @@ function VMCard({ vm }: { vm: UserVM }) {
       const result = await toggleUserVMStatus(vm.vmid, action)
       if (result.success) {
         setStatus(action === 'start' ? 'running' : 'stopped')
+        toast.success(action === 'start' ? `${vm.name} started successfully` : `${vm.name} stopped successfully`)
+      } else {
+        toast.error(`Failed to ${action} ${vm.name}`)
       }
     })
   }
@@ -104,7 +119,7 @@ function VMCard({ vm }: { vm: UserVM }) {
       <div className="shrink-0 ml-auto">
         {isRunning ? (
           <button
-            onClick={() => handleToggle('stop')}
+            onClick={() => setConfirmAction('stop')}
             disabled={isPending}
             className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
           >
@@ -113,7 +128,7 @@ function VMCard({ vm }: { vm: UserVM }) {
           </button>
         ) : (
           <button
-            onClick={() => handleToggle('start')}
+            onClick={() => setConfirmAction('start')}
             disabled={isPending}
             className="flex items-center gap-1.5 text-xs font-medium text-white bg-[#4379EE] hover:bg-[#3568d4] rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
           >
@@ -122,6 +137,33 @@ function VMCard({ vm }: { vm: UserVM }) {
           </button>
         )}
       </div>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction === 'stop' ? 'Stop' : 'Start'} VM
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to {confirmAction} <span className="font-medium text-gray-700">{vm.name}</span>?
+              {confirmAction === 'stop' && ' Any unsaved work may be lost.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmAction) handleToggle(confirmAction)
+                setConfirmAction(null)
+              }}
+              className={confirmAction === 'stop' ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-[#4379EE] hover:bg-[#3568d4] text-white'}
+            >
+              {confirmAction === 'stop' ? 'Stop' : 'Start'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

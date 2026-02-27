@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Ban, RotateCcw, MoreHorizontal, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Ban, RotateCcw, MoreHorizontal, ChevronLeft, ChevronRight, Server } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,6 +22,13 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { formatCurrency } from '@/lib/utils'
+
+interface VmSpec {
+  template: string
+  cores: number
+  memory: number
+  diskSize?: number
+}
 
 export interface Subscription {
   id: string
@@ -47,6 +54,7 @@ export interface Subscription {
     monthlyPrice: number
     annualTotalPrice: number
     level: number
+    vmConfig?: VmSpec[]
   }
 }
 
@@ -64,6 +72,7 @@ interface SubscriptionTableProps {
   onPageChange: (page: number) => void
   onCancel: (subscription: Subscription) => Promise<void>
   onRefund: (subscription: Subscription, amount?: number) => Promise<void>
+  onProvision: (subscription: Subscription) => Promise<void>
 }
 
 const statusColors: Record<string, string> = {
@@ -81,8 +90,10 @@ export function SubscriptionTable({
   onPageChange,
   onCancel,
   onRefund,
+  onProvision,
 }: SubscriptionTableProps) {
   const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null)
+  const [provisionTarget, setProvisionTarget] = useState<Subscription | null>(null)
   const [refundTarget, setRefundTarget] = useState<Subscription | null>(null)
   const [refundAmount, setRefundAmount] = useState('')
   const [isFullRefund, setIsFullRefund] = useState(true)
@@ -96,6 +107,17 @@ export function SubscriptionTable({
     } finally {
       setActionLoading(false)
       setCancelTarget(null)
+    }
+  }
+
+  const handleProvision = async () => {
+    if (!provisionTarget) return
+    setActionLoading(true)
+    try {
+      await onProvision(provisionTarget)
+    } finally {
+      setActionLoading(false)
+      setProvisionTarget(null)
     }
   }
 
@@ -219,6 +241,10 @@ export function SubscriptionTable({
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setProvisionTarget(sub)}>
+                            <Server className="w-4 h-4 mr-2" />
+                            Provision VMs
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setCancelTarget(sub)}>
                             <Ban className="w-4 h-4 mr-2" />
                             Cancel Subscription
@@ -295,6 +321,74 @@ export function SubscriptionTable({
               className="bg-red-600 hover:bg-red-700"
             >
               {actionLoading ? 'Cancelling...' : 'Confirm Cancellation'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Provision Dialog */}
+      <AlertDialog open={!!provisionTarget} onOpenChange={(open) => !open && setProvisionTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Provision VMs</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                <p>
+                  Provision VMs for <strong>{provisionTarget?.user.email}</strong> on
+                  the <strong>{provisionTarget?.plan.name}</strong> plan.
+                </p>
+                {(() => {
+                  const specs = provisionTarget?.plan.vmConfig
+                  if (!specs || specs.length === 0) {
+                    return (
+                      <p className="mt-3 text-sm text-amber-600">
+                        This plan has no VM configuration. No VMs will be created.
+                      </p>
+                    )
+                  }
+                  return (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-sm font-medium text-gray-700">
+                        {specs.length} VM{specs.length !== 1 ? 's' : ''} will be created:
+                      </p>
+                      <div className="rounded-lg border border-gray-200 overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 text-gray-500 text-xs">
+                              <th className="text-left px-3 py-2 font-medium">#</th>
+                              <th className="text-left px-3 py-2 font-medium">Template</th>
+                              <th className="text-left px-3 py-2 font-medium">vCPU</th>
+                              <th className="text-left px-3 py-2 font-medium">RAM</th>
+                              <th className="text-left px-3 py-2 font-medium">Disk</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {specs.map((vm, i) => (
+                              <tr key={i} className="border-t border-gray-100">
+                                <td className="px-3 py-2 text-gray-400">{i + 1}</td>
+                                <td className="px-3 py-2 font-medium capitalize">{vm.template}</td>
+                                <td className="px-3 py-2">{vm.cores} cores</td>
+                                <td className="px-3 py-2">{vm.memory >= 1024 ? `${vm.memory / 1024} GB` : `${vm.memory} MB`}</td>
+                                <td className="px-3 py-2">{vm.diskSize ? `${vm.diskSize} GB` : 'Default'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleProvision}
+              disabled={actionLoading || !provisionTarget?.plan.vmConfig?.length}
+              className="bg-[#4379EE] hover:bg-[#3568d4]"
+            >
+              {actionLoading ? 'Provisioning...' : 'Confirm Provision'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Search } from 'lucide-react'
+import { Search, CheckCircle2, XCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -10,6 +10,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
 import { formatCurrency } from '@/lib/utils'
 import { SubscriptionTable, type Subscription, type Pagination } from './components/subscription-table'
@@ -45,6 +54,9 @@ export default function AdminSubscriptionsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [billingFilter, setBillingFilter] = useState('')
   const [page, setPage] = useState(1)
+
+  // Info dialog state
+  const [infoDialog, setInfoDialog] = useState<{ title: string; message: string; success: boolean } | null>(null)
 
   // Debounced search
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -98,6 +110,28 @@ export default function AdminSubscriptionsPage() {
   useEffect(() => {
     setPage(1)
   }, [planFilter, statusFilter, billingFilter, debouncedSearch])
+
+  const handleProvision = async (sub: Subscription) => {
+    if (!accessToken) return
+    const res = await fetch(`${apiUrl}/api/v1/admin/subscriptions/${sub.id}/provision`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (res.ok) {
+      setInfoDialog({
+        title: 'Provisioning Started',
+        message: `VM provisioning has been triggered for ${sub.user.email}. VMs will appear shortly once cloning and configuration completes.`,
+        success: true,
+      })
+    } else {
+      const err = await res.json().catch(() => ({}))
+      setInfoDialog({
+        title: 'Provisioning Failed',
+        message: (err as { error?: string }).error || 'Failed to trigger VM provisioning. Please try again.',
+        success: false,
+      })
+    }
+  }
 
   const handleCancel = async (sub: Subscription) => {
     if (!accessToken) return
@@ -231,8 +265,40 @@ export default function AdminSubscriptionsPage() {
           onPageChange={setPage}
           onCancel={handleCancel}
           onRefund={handleRefund}
+          onProvision={handleProvision}
         />
       </div>
+
+      {/* Provision Info Dialog */}
+      <Dialog open={!!infoDialog} onOpenChange={(open) => !open && setInfoDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              {infoDialog?.success ? (
+                <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                </div>
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                  <XCircle className="w-5 h-5 text-red-600" />
+                </div>
+              )}
+              <DialogTitle>{infoDialog?.title}</DialogTitle>
+            </div>
+            <DialogDescription className="pt-2">
+              {infoDialog?.message}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setInfoDialog(null)}
+              className="bg-[#4379EE] hover:bg-[#3568d4] text-white"
+            >
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

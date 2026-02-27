@@ -20,6 +20,9 @@ import {
   Layers,
   Receipt,
   Megaphone,
+  HardDrive,
+  Network,
+  Box,
 } from 'lucide-react'
 import {
   Sheet,
@@ -73,6 +76,9 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
             { label: 'Workshops', href: '/admin/workshops', icon: Calendar },
             { label: 'Studio Slots', href: '/admin/studio-slots', icon: Clock },
             { label: 'VMs', href: '/admin/vms', icon: Server },
+            { label: 'Storage', href: '/admin/storage', icon: HardDrive },
+            { label: 'IP Pools', href: '/admin/ip-pool', icon: Network },
+            { label: 'Templates', href: '/admin/vm-templates', icon: Box },
             { label: 'Plans', href: '/admin/plans', icon: Layers },
             { label: 'Subscriptions', href: '/admin/subscriptions', icon: Receipt },
             { label: 'Announcements', href: '/admin/announcements', icon: Megaphone },

@@ -6,6 +6,9 @@ import { logger } from 'hono/logger';
 import vmRoutes from './routes/vms';
 import subscriptionRoutes from './routes/subscriptions';
 import announcementRoutes from './routes/announcements';
+import storageRoutes from './routes/storage';
+import vmTemplateRoutes from './routes/vm-templates';
+import ipPoolRoutes from './routes/ip-pool';
 
 const app = new Hono();
 
@@ -31,6 +34,9 @@ app.get('/api/v1', (c) => {
 app.route('/', vmRoutes);
 app.route('/', subscriptionRoutes);
 app.route('/', announcementRoutes);
+app.route('/', storageRoutes);
+app.route('/', vmTemplateRoutes);
+app.route('/', ipPoolRoutes);
 
 export default app;
 

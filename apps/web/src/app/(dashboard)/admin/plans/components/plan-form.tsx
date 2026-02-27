@@ -33,12 +33,20 @@ import {
 } from '@/components/ui/select'
 import type { Plan } from './plan-table'
 
+const vmSpecSchema = z.object({
+  template: z.enum(['ubuntu', 'kali']),
+  cores: z.number().int().min(1),
+  memory: z.number().int().min(256),
+  diskSize: z.number().int().min(1).optional(),
+})
+
 const planSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   level: z.number().int().min(0, 'Level must be 0 or higher'),
   monthlyPrice: z.number().min(0, 'Price cannot be negative'),
   description: z.string().min(1, 'Description is required'),
   highlights: z.array(z.object({ value: z.string().min(1, 'Highlight is required') })).min(1, 'At least one highlight'),
+  vmSpecs: z.array(vmSpecSchema),
   active: z.boolean(),
   sortOrder: z.number().int().min(0),
 })
@@ -66,6 +74,7 @@ export function PlanForm({ open, plan, accessToken, onSuccess, onCancel }: PlanF
       monthlyPrice: 0,
       description: '',
       highlights: [{ value: '' }],
+      vmSpecs: [],
       active: true,
       sortOrder: 0,
     },
@@ -76,16 +85,28 @@ export function PlanForm({ open, plan, accessToken, onSuccess, onCancel }: PlanF
     name: 'highlights',
   })
 
+  const { fields: vmFields, append: appendVm, remove: removeVm } = useFieldArray({
+    control: form.control,
+    name: 'vmSpecs',
+  })
+
   useEffect(() => {
     if (open) {
       if (plan) {
         const hl = (plan.highlights as string[]) || []
+        const vm = Array.isArray(plan.vmConfig) ? plan.vmConfig : []
         form.reset({
           name: plan.name,
           level: plan.level,
           monthlyPrice: Number(plan.monthlyPrice) || 0,
           description: plan.description,
           highlights: hl.length > 0 ? hl.map((v) => ({ value: v })) : [{ value: '' }],
+          vmSpecs: vm.map((s) => ({
+            template: s.template,
+            cores: s.cores,
+            memory: s.memory,
+            diskSize: s.diskSize,
+          })),
           active: plan.active,
           sortOrder: plan.sortOrder,
         })
@@ -96,6 +117,7 @@ export function PlanForm({ open, plan, accessToken, onSuccess, onCancel }: PlanF
           monthlyPrice: 0,
           description: '',
           highlights: [{ value: '' }],
+          vmSpecs: [],
           active: true,
           sortOrder: 0,
         })
@@ -105,6 +127,11 @@ export function PlanForm({ open, plan, accessToken, onSuccess, onCancel }: PlanF
 
   const onSubmit = async (data: PlanFormData) => {
     const annualTotalPrice = Math.round(data.monthlyPrice * 12 * 100) / 100
+    const vmConfig = data.vmSpecs.map((s) => {
+      const spec: Record<string, unknown> = { template: s.template, cores: s.cores, memory: s.memory }
+      if (s.diskSize) spec.diskSize = s.diskSize
+      return spec
+    })
     const payload = {
       name: data.name,
       level: data.level,
@@ -112,6 +139,7 @@ export function PlanForm({ open, plan, accessToken, onSuccess, onCancel }: PlanF
       annualTotalPrice,
       description: data.description,
       highlights: data.highlights.map((h) => h.value),
+      vmConfig,
       active: data.active,
       sortOrder: data.sortOrder,
     }
@@ -266,6 +294,114 @@ export function PlanForm({ open, plan, accessToken, onSuccess, onCancel }: PlanF
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />
                   Add Highlight
+                </Button>
+              </div>
+            </div>
+
+            {/* VM Configuration */}
+            <div>
+              <FormLabel>VM Configuration</FormLabel>
+              <p className="text-xs text-gray-400 mb-2">VMs auto-provisioned when a user subscribes to this plan.</p>
+              <div className="space-y-3 mt-1.5">
+                {vmFields.map((field, index) => (
+                  <div key={field.id} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-4 gap-2 flex-1">
+                      <FormField
+                        control={form.control}
+                        name={`vmSpecs.${index}.template`}
+                        render={({ field: f }) => (
+                          <FormItem>
+                            <Select value={f.value} onValueChange={f.onChange}>
+                              <FormControl>
+                                <SelectTrigger className="h-9 text-xs">
+                                  <SelectValue placeholder="Template" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="ubuntu">Ubuntu</SelectItem>
+                                <SelectItem value="kali">Kali</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`vmSpecs.${index}.cores`}
+                        render={({ field: f }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={1}
+                                placeholder="Cores"
+                                className="h-9 text-xs"
+                                {...f}
+                                onChange={(e) => f.onChange(parseInt(e.target.value) || 1)}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`vmSpecs.${index}.memory`}
+                        render={({ field: f }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={256}
+                                step={256}
+                                placeholder="RAM (MB)"
+                                className="h-9 text-xs"
+                                {...f}
+                                onChange={(e) => f.onChange(parseInt(e.target.value) || 512)}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`vmSpecs.${index}.diskSize`}
+                        render={({ field: f }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={1}
+                                placeholder="Disk (GB)"
+                                className="h-9 text-xs"
+                                value={f.value ?? ''}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  f.onChange(v ? parseInt(v) : undefined)
+                                }}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeVm(index)}
+                      className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors shrink-0 mt-0.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => appendVm({ template: 'ubuntu', cores: 2, memory: 2048 })}
+                  className="text-xs"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Add VM
                 </Button>
               </div>
             </div>

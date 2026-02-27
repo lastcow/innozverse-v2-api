@@ -296,14 +296,18 @@ model VirtualMachine {
   username        String?
   password        String?
   userId          String?   @map("user_id")
+  subscriptionId  String?   @map("subscription_id")
+  storage         String?
   deletedAt       DateTime? @map("deleted_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  user User? @relation(fields: [userId], references: [id])
+  user         User?             @relation(fields: [userId], references: [id])
+  subscription UserSubscription? @relation(fields: [subscriptionId], references: [id])
 
   @@index([userId])
   @@index([deletedAt])
+  @@index([subscriptionId])
   @@map("virtual_machines")
 }
 
@@ -337,6 +341,7 @@ model Plan {
   annualTotalPrice Float    @map("annual_total_price")
   description      String   @db.Text
   highlights       Json     @default("[]")
+  vmConfig         Json     @default("[]") @map("vm_config")
   active           Boolean  @default(true)
   sortOrder        Int      @default(0) @map("sort_order")
   createdAt        DateTime @default(now()) @map("created_at")
@@ -365,6 +370,66 @@ model UserSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan Plan @relation(fields: [planId], references: [id], onDelete: Restrict)
 
+  virtualMachines VirtualMachine[]
+
   @@index([status])
   @@map("user_subscriptions")
+}
+
+model Storage {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  node       String   @default("pve")
+  type       String?
+  totalBytes BigInt   @default(0) @map("total_bytes")
+  usedBytes  BigInt   @default(0) @map("used_bytes")
+  availBytes BigInt   @default(0) @map("avail_bytes")
+  active     Boolean  @default(true)
+  vmable     Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([active, vmable])
+  @@map("storages")
+}
+
+model VmTemplate {
+  id        String   @id @default(cuid())
+  vmid      Int      @unique
+  osType    String   @map("os_type")
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([osType, active])
+  @@map("vm_templates")
+}
+
+model IpPool {
+  id          String         @id @default(cuid())
+  name        String
+  startIp     String         @map("start_ip")
+  endIp       String         @map("end_ip")
+  cidr        Int            @default(24)
+  gateway     String
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  allocations IpAllocation[]
+
+  @@map("ip_pools")
+}
+
+model IpAllocation {
+  id        String   @id @default(cuid())
+  ipAddress String   @unique @map("ip_address")
+  poolId    String   @map("pool_id")
+  vmid      Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  pool IpPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  @@index([poolId])
+  @@map("ip_allocations")
 }

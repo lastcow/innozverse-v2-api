@@ -3267,6 +3267,9 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
       return c.json({ error: `Plan not found: ${planName}` }, 404);
     }
 
+    // Check existing subscription before upsert (for provisioning logic)
+    const existing = await prisma.userSubscription.findUnique({ where: { userId } });
+
     // Upsert UserSubscription by userId (one subscription per user)
     const subscription = await prisma.userSubscription.upsert({
       where: { userId },
@@ -3291,6 +3294,22 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
         currentPeriodEnd: currentPeriodEnd ? new Date(currentPeriodEnd) : null,
       },
     });
+
+    // Auto-provision VMs for new or reactivated subscriptions
+    const resolvedStatus = status || 'ACTIVE';
+    const isNewSubscription = !existing && resolvedStatus === 'ACTIVE';
+    const isReactivation = existing && existing.status === 'CANCELED' && resolvedStatus === 'ACTIVE';
+
+    if (isNewSubscription || isReactivation) {
+      provisionVmsForSubscription(userId, subscription.id, plan.id)
+        .catch(err => console.error('VM provisioning error:', err));
+    }
+
+    // Destroy linked VMs when subscription is canceled
+    if (resolvedStatus === 'CANCELED') {
+      destroyVmsForSubscription(subscription.id)
+        .catch(err => console.error('VM destruction error:', err));
+    }
 
     return c.json({ subscription });
   } catch (error) {
@@ -3459,7 +3478,7 @@ app.get('/api/v1/admin/subscriptions', authMiddleware, requireRole('ADMIN'), asy
         where,
         include: {
           user: { select: { id: true, email: true, fname: true, lname: true } },
-          plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true } },
+          plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true, vmConfig: true } },
         },
         orderBy: { plan: { name: 'asc' } },
         skip: (page - 1) * limit,
@@ -3539,7 +3558,7 @@ app.post('/api/v1/admin/subscriptions/:id/cancel', authMiddleware, requireRole('
       data: { canceledAt: new Date() },
       include: {
         user: { select: { id: true, email: true, fname: true, lname: true } },
-        plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true } },
+        plan: { select: { id: true, name: true, monthlyPrice: true, annualTotalPrice: true, level: true, vmConfig: true } },
       },
     });
 
@@ -3814,6 +3833,44 @@ app.post('/api/v1/vms/me/:vmid/status', authMiddleware, async (c) => {
   }
 });
 
+// POST /api/v1/vms - Create a VirtualMachine record in DB (used by provisionVM)
+app.post('/api/v1/vms', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const body = await c.req.json();
+    const { vmid, name, type, node, status, memory, cpuCores, ipAddress, gateway, username, password, userId, subscriptionId, storage } = body;
+    if (!vmid || !name) return c.json({ error: 'vmid and name are required' }, 400);
+
+    const vm = await prisma.virtualMachine.upsert({
+      where: { vmid: parseInt(String(vmid), 10) },
+      update: {
+        name, type: type ?? null, node: node ?? 'pve', status: status ?? 'stopped',
+        memory: memory ? parseInt(String(memory), 10) : 2048,
+        cpuCores: cpuCores ? parseInt(String(cpuCores), 10) : 2,
+        ipAddress: ipAddress ?? null, gateway: gateway ?? null,
+        username: username ?? null, password: password ?? null,
+        userId: userId ?? null, subscriptionId: subscriptionId ?? null,
+        storage: storage ?? null, deletedAt: null,
+      },
+      create: {
+        vmid: parseInt(String(vmid), 10), name, type: type ?? null, node: node ?? 'pve',
+        status: status ?? 'stopped',
+        memory: memory ? parseInt(String(memory), 10) : 2048,
+        cpuCores: cpuCores ? parseInt(String(cpuCores), 10) : 2,
+        ipAddress: ipAddress ?? null, gateway: gateway ?? null,
+        username: username ?? null, password: password ?? null,
+        userId: userId ?? null, subscriptionId: subscriptionId ?? null,
+        storage: storage ?? null,
+      },
+    });
+
+    return c.json({ vm: { id: vm.id, vmid: vm.vmid, name: vm.name, status: vm.status, createdAt: vm.createdAt.toISOString() } }, 201);
+  } catch (error) {
+    console.error('Failed to create VM record:', error);
+    return c.json({ error: error.message || 'Failed to create VM record' }, 500);
+  }
+});
+
 // ============================================================
 // Admin VM endpoints
 // ============================================================
@@ -3851,6 +3908,7 @@ app.post('/api/v1/vms/sync', authMiddleware, requireRole('ADMIN', 'SYSTEM'), asy
       const memory = parseInt(config?.memory ?? Math.round(vm.maxmem / (1024 * 1024)), 10) || 2048;
       const cpuCores = parseInt(config?.cores ?? vm.cpus, 10) || 2;
 
+      // Don't overwrite username/password on update — Proxmox returns '***' for cipassword
       await prisma.virtualMachine.upsert({
         where: { vmid: vm.vmid },
         update: {
@@ -3861,8 +3919,6 @@ app.post('/api/v1/vms/sync', authMiddleware, requireRole('ADMIN', 'SYSTEM'), asy
           cpuCores,
           ipAddress: ip ?? null,
           gateway: gateway ?? null,
-          username: config?.ciuser ?? null,
-          password: config?.cipassword ?? null,
           deletedAt: null,
         },
         create: {
@@ -3934,6 +3990,8 @@ app.get('/api/v1/vms', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c)
         username: vm.username,
         password: vm.password,
         userId: vm.userId,
+        subscriptionId: vm.subscriptionId,
+        storage: vm.storage,
         assignedUser: vm.user
           ? {
               id: vm.user.id,
@@ -4259,6 +4317,633 @@ app.delete('/api/v1/announcements/:id', authMiddleware, requireRole('ADMIN', 'SY
   } catch (error) {
     console.error('Failed to delete announcement:', error);
     return c.json({ error: 'Failed to delete announcement' }, 500);
+  }
+});
+
+// ============================================================
+// Storage Routes
+// ============================================================
+
+// POST /api/v1/storage/sync - Sync storage pools from Proxmox
+app.post('/api/v1/storage/sync', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const node = getProxmoxNode();
+    const pools = await proxmoxFetch(`/nodes/${node}/storage?content=images`);
+
+    for (const pool of pools) {
+      let status;
+      try {
+        status = await proxmoxFetch(`/nodes/${node}/storage/${pool.storage}/status`);
+      } catch {
+        console.warn(`Failed to get status for storage ${pool.storage}, skipping`);
+        continue;
+      }
+
+      await prisma.storage.upsert({
+        where: { name: pool.storage },
+        update: {
+          node,
+          type: status.type || pool.type,
+          totalBytes: BigInt(status.total || 0),
+          usedBytes: BigInt(status.used || 0),
+          availBytes: BigInt(status.avail || 0),
+          active: pool.active === 1,
+        },
+        create: {
+          name: pool.storage,
+          node,
+          type: status.type || pool.type,
+          totalBytes: BigInt(status.total || 0),
+          usedBytes: BigInt(status.used || 0),
+          availBytes: BigInt(status.avail || 0),
+          active: pool.active === 1,
+          vmable: false,
+        },
+      });
+    }
+
+    const storages = await prisma.storage.findMany({ orderBy: { name: 'asc' } });
+    return c.json({ success: true, storages: storages.map(serializeStorage) });
+  } catch (error) {
+    console.error('Failed to sync storage:', error);
+    return c.json({ error: error.message || 'Failed to sync storage' }, 500);
+  }
+});
+
+// GET /api/v1/storage - List all storage pools
+app.get('/api/v1/storage', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const storages = await prisma.storage.findMany({ orderBy: { name: 'asc' } });
+    return c.json({ storages: storages.map(serializeStorage) });
+  } catch (error) {
+    console.error('Failed to fetch storage:', error);
+    return c.json({ error: 'Failed to fetch storage' }, 500);
+  }
+});
+
+// PUT /api/v1/storage/:id - Update storage (toggle vmable, active)
+app.put('/api/v1/storage/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const data = {};
+    if ('vmable' in body) data.vmable = !!body.vmable;
+    if ('active' in body) data.active = !!body.active;
+
+    const storage = await prisma.storage.update({ where: { id }, data });
+    return c.json({ storage: serializeStorage(storage) });
+  } catch (error) {
+    console.error('Failed to update storage:', error);
+    return c.json({ error: 'Failed to update storage' }, 500);
+  }
+});
+
+function serializeStorage(s) {
+  return {
+    id: s.id,
+    name: s.name,
+    node: s.node,
+    type: s.type,
+    totalBytes: s.totalBytes.toString(),
+    usedBytes: s.usedBytes.toString(),
+    availBytes: s.availBytes.toString(),
+    active: s.active,
+    vmable: s.vmable,
+    createdAt: s.createdAt.toISOString(),
+    updatedAt: s.updatedAt.toISOString(),
+  };
+}
+
+// ============================================================
+// VM Template Management
+// ============================================================
+
+// GET /api/v1/vm-templates
+app.get('/api/v1/vm-templates', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const osType = c.req.query('osType');
+    const activeParam = c.req.query('active');
+    const where = {};
+    if (osType) where.osType = osType;
+    if (activeParam !== undefined) where.active = activeParam === 'true';
+
+    const templates = await prisma.vmTemplate.findMany({ where, orderBy: { createdAt: 'desc' } });
+    return c.json({
+      templates: templates.map((t) => ({
+        id: t.id, vmid: t.vmid, osType: t.osType, name: t.name, active: t.active,
+        createdAt: t.createdAt.toISOString(), updatedAt: t.updatedAt.toISOString(),
+      })),
+    });
+  } catch (error) {
+    console.error('Failed to fetch VM templates:', error);
+    return c.json({ error: 'Failed to fetch VM templates' }, 500);
+  }
+});
+
+// POST /api/v1/vm-templates
+app.post('/api/v1/vm-templates', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const body = await c.req.json();
+    const { vmid, osType, name, active } = body;
+    if (!vmid || !osType || !name) return c.json({ error: 'vmid, osType, and name are required' }, 400);
+
+    const template = await prisma.vmTemplate.create({
+      data: { vmid: parseInt(String(vmid), 10), osType, name, active: active !== false },
+    });
+    return c.json({
+      template: {
+        id: template.id, vmid: template.vmid, osType: template.osType, name: template.name,
+        active: template.active, createdAt: template.createdAt.toISOString(), updatedAt: template.updatedAt.toISOString(),
+      },
+    }, 201);
+  } catch (error) {
+    console.error('Failed to create VM template:', error);
+    return c.json({ error: error.message || 'Failed to create VM template' }, 500);
+  }
+});
+
+// PUT /api/v1/vm-templates/:id
+app.put('/api/v1/vm-templates/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const data = {};
+    if ('vmid' in body) data.vmid = parseInt(String(body.vmid), 10);
+    if ('osType' in body) data.osType = body.osType;
+    if ('name' in body) data.name = body.name;
+    if ('active' in body) data.active = !!body.active;
+
+    const template = await prisma.vmTemplate.update({ where: { id }, data });
+    return c.json({
+      template: {
+        id: template.id, vmid: template.vmid, osType: template.osType, name: template.name,
+        active: template.active, createdAt: template.createdAt.toISOString(), updatedAt: template.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Failed to update VM template:', error);
+    return c.json({ error: error.message || 'Failed to update VM template' }, 500);
+  }
+});
+
+// DELETE /api/v1/vm-templates/:id
+app.delete('/api/v1/vm-templates/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const id = c.req.param('id');
+    await prisma.vmTemplate.delete({ where: { id } });
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete VM template:', error);
+    return c.json({ error: error.message || 'Failed to delete VM template' }, 500);
+  }
+});
+
+// ============================================================
+// IP Pool Management
+// ============================================================
+
+function ipToNum(ip) {
+  return ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct), 0) >>> 0;
+}
+function numToIp(num) {
+  return [(num >>> 24) & 255, (num >>> 16) & 255, (num >>> 8) & 255, num & 255].join('.');
+}
+
+// GET /api/v1/ip-pool
+app.get('/api/v1/ip-pool', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const pools = await prisma.ipPool.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { _count: { select: { allocations: true } } },
+    });
+    return c.json({
+      pools: pools.map((p) => ({
+        id: p.id, name: p.name, startIp: p.startIp, endIp: p.endIp, cidr: p.cidr,
+        gateway: p.gateway, allocationCount: p._count.allocations,
+        createdAt: p.createdAt.toISOString(), updatedAt: p.updatedAt.toISOString(),
+      })),
+    });
+  } catch (error) {
+    console.error('Failed to fetch IP pools:', error);
+    return c.json({ error: 'Failed to fetch IP pools' }, 500);
+  }
+});
+
+// POST /api/v1/ip-pool
+app.post('/api/v1/ip-pool', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const body = await c.req.json();
+    const { name, startIp, endIp, cidr, gateway } = body;
+    if (!name || !startIp || !endIp || !gateway) return c.json({ error: 'name, startIp, endIp, and gateway are required' }, 400);
+
+    const pool = await prisma.ipPool.create({ data: { name, startIp, endIp, cidr: cidr ?? 24, gateway } });
+    return c.json({
+      pool: {
+        id: pool.id, name: pool.name, startIp: pool.startIp, endIp: pool.endIp, cidr: pool.cidr,
+        gateway: pool.gateway, allocationCount: 0,
+        createdAt: pool.createdAt.toISOString(), updatedAt: pool.updatedAt.toISOString(),
+      },
+    }, 201);
+  } catch (error) {
+    console.error('Failed to create IP pool:', error);
+    return c.json({ error: error.message || 'Failed to create IP pool' }, 500);
+  }
+});
+
+// PUT /api/v1/ip-pool/:id
+app.put('/api/v1/ip-pool/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const data = {};
+    if ('name' in body) data.name = body.name;
+    if ('startIp' in body) data.startIp = body.startIp;
+    if ('endIp' in body) data.endIp = body.endIp;
+    if ('cidr' in body) data.cidr = parseInt(String(body.cidr), 10);
+    if ('gateway' in body) data.gateway = body.gateway;
+
+    const pool = await prisma.ipPool.update({
+      where: { id }, data,
+      include: { _count: { select: { allocations: true } } },
+    });
+    return c.json({
+      pool: {
+        id: pool.id, name: pool.name, startIp: pool.startIp, endIp: pool.endIp, cidr: pool.cidr,
+        gateway: pool.gateway, allocationCount: pool._count.allocations,
+        createdAt: pool.createdAt.toISOString(), updatedAt: pool.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Failed to update IP pool:', error);
+    return c.json({ error: error.message || 'Failed to update IP pool' }, 500);
+  }
+});
+
+// DELETE /api/v1/ip-pool/:id
+app.delete('/api/v1/ip-pool/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const id = c.req.param('id');
+    await prisma.ipPool.delete({ where: { id } });
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete IP pool:', error);
+    return c.json({ error: error.message || 'Failed to delete IP pool' }, 500);
+  }
+});
+
+// GET /api/v1/ip-pool/:id/allocations
+app.get('/api/v1/ip-pool/:id/allocations', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const poolId = c.req.param('id');
+    const allocations = await prisma.ipAllocation.findMany({
+      where: { poolId }, orderBy: { createdAt: 'desc' },
+    });
+    return c.json({
+      allocations: allocations.map((a) => ({
+        id: a.id, ipAddress: a.ipAddress, vmid: a.vmid, poolId: a.poolId,
+        createdAt: a.createdAt.toISOString(),
+      })),
+    });
+  } catch (error) {
+    console.error('Failed to fetch allocations:', error);
+    return c.json({ error: 'Failed to fetch allocations' }, 500);
+  }
+});
+
+// DELETE /api/v1/ip-pool/allocations/:id
+app.delete('/api/v1/ip-pool/allocations/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const id = c.req.param('id');
+    await prisma.ipAllocation.delete({ where: { id } });
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to release allocation:', error);
+    return c.json({ error: error.message || 'Failed to release allocation' }, 500);
+  }
+});
+
+// POST /api/v1/ip-pool/allocate
+app.post('/api/v1/ip-pool/allocate', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    let poolId;
+    try { const body = await c.req.json(); poolId = body.poolId; } catch {}
+
+    const pool = poolId
+      ? await prisma.ipPool.findUnique({ where: { id: poolId } })
+      : await prisma.ipPool.findFirst({ orderBy: { createdAt: 'asc' } });
+    if (!pool) return c.json({ error: 'No IP pool available' }, 404);
+
+    const existing = await prisma.ipAllocation.findMany({
+      where: { poolId: pool.id }, select: { ipAddress: true },
+    });
+    const usedIps = new Set(existing.map((a) => a.ipAddress));
+
+    const startNum = ipToNum(pool.startIp);
+    const endNum = ipToNum(pool.endIp);
+    let allocatedIp = null;
+    for (let num = startNum; num <= endNum; num++) {
+      const ip = numToIp(num);
+      if (!usedIps.has(ip)) { allocatedIp = ip; break; }
+    }
+    if (!allocatedIp) return c.json({ error: 'No IPs available in pool' }, 409);
+
+    const allocation = await prisma.ipAllocation.create({
+      data: { ipAddress: allocatedIp, poolId: pool.id, vmid: -1 },
+    });
+
+    return c.json({ allocationId: allocation.id, ipAddress: allocatedIp, cidr: pool.cidr, gateway: pool.gateway }, 201);
+  } catch (error) {
+    console.error('Failed to allocate IP:', error);
+    return c.json({ error: error.message || 'Failed to allocate IP' }, 500);
+  }
+});
+
+// PATCH /api/v1/ip-pool/allocations/:id
+app.patch('/api/v1/ip-pool/allocations/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    if (body.vmid === undefined) return c.json({ error: 'vmid is required' }, 400);
+
+    const allocation = await prisma.ipAllocation.update({
+      where: { id }, data: { vmid: parseInt(String(body.vmid), 10) },
+    });
+    return c.json({
+      allocation: {
+        id: allocation.id, ipAddress: allocation.ipAddress, vmid: allocation.vmid,
+        poolId: allocation.poolId, createdAt: allocation.createdAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Failed to update allocation:', error);
+    return c.json({ error: error.message || 'Failed to update allocation' }, 500);
+  }
+});
+
+// ============================================================
+// VM Provisioner (uses provisionVM utility via API calls)
+// ============================================================
+
+const crypto = require('crypto');
+
+const FALLBACK_TEMPLATE_IDS = { ubuntu: 11001, kali: 11002 };
+const PROVISION_API_URL = `http://localhost:${process.env.PORT || '3001'}`;
+
+function generateProvisionUsername() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz';
+  let result = '';
+  for (let i = 0; i < 8; i++) result += chars[crypto.randomInt(chars.length)];
+  return result;
+}
+
+function generateProvisionPassword() {
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lower = 'abcdefghijklmnopqrstuvwxyz';
+  const digits = '0123456789';
+  const symbols = '!@#$%^&*';
+  const all = upper + lower + digits + symbols;
+  let result = '';
+  result += upper[crypto.randomInt(upper.length)];
+  result += lower[crypto.randomInt(lower.length)];
+  result += digits[crypto.randomInt(digits.length)];
+  result += symbols[crypto.randomInt(symbols.length)];
+  for (let i = 4; i < 16; i++) result += all[crypto.randomInt(all.length)];
+  const arr = result.split('');
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.join('');
+}
+
+function generateSystemToken() {
+  const JWT_SECRET = process.env.JWT_SECRET;
+  if (!JWT_SECRET) throw new Error('JWT_SECRET not configured');
+  const jwt = require('jsonwebtoken');
+  return jwt.sign({ userId: 'system', email: 'system@internal', role: 'SYSTEM' }, JWT_SECRET, { expiresIn: '10m' });
+}
+
+async function apiFetchInternal(path, accessToken, options) {
+  const response = await fetch(`${PROVISION_API_URL}${path}`, {
+    method: (options && options.method) || 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    ...(options && options.body ? { body: JSON.stringify(options.body) } : {}),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `API error ${response.status}`);
+  }
+  return response.json();
+}
+
+async function resolveTemplateVmid(osType, accessToken) {
+  try {
+    const data = await apiFetchInternal(`/api/v1/vm-templates?osType=${encodeURIComponent(osType)}&active=true`, accessToken);
+    if (data.templates && data.templates.length > 0) return data.templates[0].vmid;
+  } catch (err) {
+    console.warn(`Failed to resolve template for osType=${osType} via API:`, err);
+  }
+  return FALLBACK_TEMPLATE_IDS[osType] || null;
+}
+
+/**
+ * Provision a single VM using API calls for DB ops + IP pool allocation.
+ */
+async function provisionSingleVM({ userId, subscriptionId, cloneFrom, cpuCores, memory, storage, vmType, accessToken }) {
+  const node = getProxmoxNode();
+  let allocationId = null;
+
+  try {
+    // 1. Allocate IP from pool
+    const ipResult = await apiFetchInternal('/api/v1/ip-pool/allocate', accessToken, { method: 'POST' });
+    allocationId = ipResult.allocationId;
+    const { ipAddress, cidr, gateway } = ipResult;
+    console.log(`Allocated IP ${ipAddress}/${cidr} (allocation: ${allocationId})`);
+
+    // 2. Generate credentials
+    const username = generateProvisionUsername();
+    const password = generateProvisionPassword();
+
+    // 3. Get next Proxmox VMID
+    const rawNextId = await proxmoxFetch('/cluster/nextid');
+    const newid = parseInt(String(rawNextId), 10);
+    console.log(`Got next VMID: ${newid}`);
+
+    // 4. Update allocation with actual VMID
+    await apiFetchInternal(`/api/v1/ip-pool/allocations/${allocationId}`, accessToken, { method: 'PATCH', body: { vmid: newid } });
+
+    // 5. Pick storage and clone template
+    const vmName = `vm-${newid}-${userId.slice(0, 8)}`;
+    const storageRes = await apiFetchInternal('/api/v1/storage', accessToken);
+    const vmableStorage = (storageRes.storages || [])
+      .filter(s => s.active && s.vmable)
+      .sort((a, b) => Number(b.availBytes) - Number(a.availBytes))[0];
+    if (!vmableStorage) throw new Error('No vmable storage available');
+
+    const upid = await proxmoxFetch(`/nodes/${node}/qemu/${cloneFrom}/clone`, {
+      method: 'POST', contentType: 'form',
+      body: { newid, name: vmName, full: 1, storage: vmableStorage.name },
+    });
+    console.log(`Cloning template ${cloneFrom} -> VM ${newid}, task: ${upid}`);
+
+    const cloneOk = await pollProxmoxTask(node, upid, 300000);
+    if (!cloneOk) throw new Error(`Clone task failed for VM ${vmName}`);
+    await new Promise(r => setTimeout(r, 2000));
+
+    // 6. Configure VM
+    await proxmoxFetch(`/nodes/${node}/qemu/${newid}/config`, {
+      method: 'PUT', contentType: 'form',
+      body: { cores: cpuCores, memory, ipconfig0: `ip=${ipAddress}/${cidr},gw=${gateway}`, ciuser: username, cipassword: password },
+    });
+    console.log(`Configured VM ${newid}: ${cpuCores} cores, ${memory}MB RAM, IP ${ipAddress}`);
+
+    // 7. Resize disk
+    await proxmoxFetch(`/nodes/${node}/qemu/${newid}/resize`, {
+      method: 'PUT', contentType: 'form',
+      body: { disk: 'scsi0', size: `${storage}G` },
+    });
+
+    // 8. Start VM
+    await proxmoxFetch(`/nodes/${node}/qemu/${newid}/status/start`, { method: 'POST' });
+
+    // 9. Save to DB via API
+    await apiFetchInternal('/api/v1/vms', accessToken, {
+      method: 'POST',
+      body: {
+        vmid: newid, name: vmName, type: vmType, node, status: 'running',
+        memory, cpuCores, ipAddress, gateway, username, password,
+        userId, subscriptionId: subscriptionId || null, storage: vmableStorage.name,
+      },
+    });
+
+    console.log(`VM ${vmName} (vmid=${newid}) provisioned successfully`);
+    return { vmid: newid, ipAddress, username, password };
+  } catch (error) {
+    if (allocationId) {
+      try {
+        await apiFetchInternal(`/api/v1/ip-pool/allocations/${allocationId}`, accessToken, { method: 'DELETE' });
+        console.log(`Released IP allocation ${allocationId} after provisioning failure`);
+      } catch { console.error(`Failed to release IP allocation ${allocationId}`); }
+    }
+    throw error;
+  }
+}
+
+async function provisionVmsForSubscription(userId, subscriptionId, planId) {
+  if (!prisma) return;
+
+  const existing = await prisma.virtualMachine.count({
+    where: { subscriptionId, deletedAt: null },
+  });
+  if (existing > 0) {
+    console.log(`VMs already provisioned for subscription ${subscriptionId}, skipping`);
+    return;
+  }
+
+  const plan = await prisma.plan.findUnique({ where: { id: planId } });
+  if (!plan) return;
+
+  const vmConfig = plan.vmConfig;
+  if (!Array.isArray(vmConfig) || vmConfig.length === 0) return;
+
+  const accessToken = generateSystemToken();
+
+  console.log(`Provisioning ${vmConfig.length} VMs for user ${userId}, plan ${plan.name}`);
+
+  for (let i = 0; i < vmConfig.length; i++) {
+    const spec = vmConfig[i];
+
+    try {
+      const templateVmid = await resolveTemplateVmid(spec.template, accessToken);
+      if (!templateVmid) { console.error(`Unknown template: ${spec.template}`); continue; }
+
+      const vmType = spec.template.charAt(0).toUpperCase() + spec.template.slice(1);
+
+      const result = await provisionSingleVM({
+        userId,
+        subscriptionId,
+        cloneFrom: templateVmid,
+        cpuCores: spec.cores,
+        memory: spec.memory,
+        storage: spec.diskSize || 32,
+        vmType,
+        accessToken,
+      });
+
+      console.log(`VM provisioned for subscription ${subscriptionId}: vmid=${result.vmid}, ip=${result.ipAddress}`);
+    } catch (error) {
+      console.error(`Failed to provision VM ${i + 1} (${spec.template}):`, error);
+    }
+  }
+}
+
+async function destroyVmsForSubscription(subscriptionId) {
+  if (!prisma) return;
+  const vms = await prisma.virtualMachine.findMany({ where: { subscriptionId, deletedAt: null } });
+  if (vms.length === 0) return;
+
+  const node = getProxmoxNode();
+  for (const vm of vms) {
+    try {
+      if (vm.status === 'running') {
+        try { await proxmoxFetch(`/nodes/${node}/qemu/${vm.vmid}/status/stop`, { method: 'POST' }); await new Promise(r => setTimeout(r, 3000)); } catch {}
+      }
+      try { await proxmoxFetch(`/nodes/${node}/qemu/${vm.vmid}`, { method: 'DELETE' }); } catch {}
+      await prisma.virtualMachine.update({ where: { id: vm.id }, data: { deletedAt: new Date(), status: 'deleted' } });
+    } catch (error) {
+      console.error(`Failed to destroy VM ${vm.name}:`, error);
+    }
+  }
+}
+
+async function pollProxmoxTask(node, upid, timeoutMs) {
+  const encoded = encodeURIComponent(upid);
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      const status = await proxmoxFetch(`/nodes/${node}/tasks/${encoded}/status`);
+      if (status.status === 'stopped') return status.exitstatus === 'OK';
+    } catch {}
+  }
+  return false;
+}
+
+// POST /api/v1/admin/subscriptions/:id/provision - Manually trigger VM provisioning for a subscription
+app.post('/api/v1/admin/subscriptions/:id/provision', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const id = c.req.param('id');
+    const subscription = await prisma.userSubscription.findUnique({ where: { id } });
+    if (!subscription) return c.json({ error: 'Subscription not found' }, 404);
+    if (subscription.status !== 'ACTIVE') return c.json({ error: 'Subscription is not active' }, 400);
+
+    // Fire-and-forget provisioning
+    provisionVmsForSubscription(subscription.userId, subscription.id, subscription.planId)
+      .catch(err => console.error('VM provisioning error:', err));
+
+    return c.json({ success: true, message: 'VM provisioning started' });
+  } catch (error) {
+    console.error('Failed to trigger provisioning:', error);
+    return c.json({ error: 'Failed to trigger provisioning' }, 500);
   }
 });
 
