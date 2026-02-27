@@ -92,8 +92,18 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
       },
     })
 
-    // VM provisioning is done manually via admin -> subscriptions -> provision
+    // Auto-provision VMs when subscription becomes ACTIVE
+    // Idempotency handled inside provisionVmsForSubscription (skips if VMs already exist)
     const resolvedStatus = status ?? 'ACTIVE'
+    const needsProvisioning = resolvedStatus === 'ACTIVE' && (!existing || existing.status !== 'ACTIVE')
+
+    if (needsProvisioning) {
+      try {
+        await provisionVmsForSubscription(userId, subscription.id, plan.id)
+      } catch (err) {
+        console.error('VM provisioning error:', err)
+      }
+    }
 
     // Destroy linked VMs when subscription is canceled
     // Await — Vercel serverless kills background tasks after response
