@@ -676,7 +676,11 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                       setChangePlanLoading(false)
                       if (result.success) {
                         setChangePlanConfirming(null)
-                        toast.success(`Successfully ${isUpgrade ? 'upgraded' : 'downgraded'} to ${changePlanConfirming.name} plan`)
+                        if (result.error) {
+                          toast.warning(result.error)
+                        } else {
+                          toast.success(`Successfully ${isUpgrade ? 'upgraded' : 'downgraded'} to ${changePlanConfirming.name} plan`)
+                        }
                         router.refresh()
                       } else {
                         toast.error(result.error || 'Failed to change plan')

@@ -156,7 +156,7 @@ export async function changeSubscription(
 
     // Trigger VM reprovisioning (destroy old VMs, provision new ones)
     try {
-      await fetch(`${apiUrl}/api/v1/subscriptions/reprovision`, {
+      const reprovisionRes = await fetch(`${apiUrl}/api/v1/subscriptions/reprovision`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,8 +167,14 @@ export async function changeSubscription(
           newPlanName,
         }),
       })
+      if (!reprovisionRes.ok) {
+        const body = await reprovisionRes.json().catch(() => ({}))
+        console.error('VM reprovisioning failed:', reprovisionRes.status, body)
+        return { success: true, error: `Plan updated but VM reprovisioning failed: ${body.error || reprovisionRes.status}` }
+      }
     } catch (err) {
       console.error('VM reprovisioning request failed:', err)
+      return { success: true, error: 'Plan updated but could not reach reprovisioning service' }
     }
 
     const { revalidatePath } = await import('next/cache')
