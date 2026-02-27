@@ -28,7 +28,7 @@ const navLinks: NavLink[] = [
       { href: '/youth-program/open-studio', label: 'Open Studio' },
     ],
   },
-  { href: '/pricing', label: 'Plans & Pricing' },
+  { href: '/pricing', label: 'Subscription' },
   { href: '/company', label: 'Company' },
 ]
 
