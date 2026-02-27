@@ -3299,9 +3299,13 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
     const resolvedStatus = status || 'ACTIVE';
 
     // Destroy linked VMs when subscription is canceled
+    // Await — Vercel serverless kills background tasks after response
     if (resolvedStatus === 'CANCELED') {
-      destroyVmsForSubscription(subscription.id)
-        .catch(err => console.error('VM destruction error:', err));
+      try {
+        await destroyVmsForSubscription(subscription.id);
+      } catch (err) {
+        console.error('VM destruction error:', err);
+      }
     }
 
     return c.json({ subscription });
