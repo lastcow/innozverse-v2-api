@@ -23,12 +23,15 @@ import {
   HardDrive,
   Network,
   Box,
+  ChevronDown,
+  Database,
 } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { useState } from 'react'
 
 interface SidebarProps {
   userRole: 'USER' | 'ADMIN' | 'SYSTEM'
@@ -40,6 +43,7 @@ interface NavItem {
   label: string
   href: string
   icon: React.ComponentType<{ className?: string }>
+  children?: NavItem[]
 }
 
 interface NavSection {
@@ -75,10 +79,15 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
             { label: 'Discounts', href: '/admin/discounts', icon: Tag },
             { label: 'Workshops', href: '/admin/workshops', icon: Calendar },
             { label: 'Studio Slots', href: '/admin/studio-slots', icon: Clock },
-            { label: 'VMs', href: '/admin/vms', icon: Server },
-            { label: 'Storage', href: '/admin/storage', icon: HardDrive },
-            { label: 'IP Pools', href: '/admin/ip-pool', icon: Network },
-            { label: 'Templates', href: '/admin/vm-templates', icon: Box },
+            {
+              label: 'Proxmox', href: '/admin/vms', icon: Database,
+              children: [
+                { label: 'VMs', href: '/admin/vms', icon: Server },
+                { label: 'Storage', href: '/admin/storage', icon: HardDrive },
+                { label: 'IP Pools', href: '/admin/ip-pool', icon: Network },
+                { label: 'Templates', href: '/admin/vm-templates', icon: Box },
+              ],
+            },
             { label: 'Plans', href: '/admin/plans', icon: Layers },
             { label: 'Subscriptions', href: '/admin/subscriptions', icon: Receipt },
             { label: 'Announcements', href: '/admin/announcements', icon: Megaphone },
@@ -104,6 +113,22 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
   const isActive = (href: string) => {
     if (href === '/user/dashboard') return pathname === '/user/dashboard'
     return pathname.startsWith(href)
+  }
+
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {}
+    for (const section of [...commonNavigation, ...settingsNavigation, ...adminNavigation]) {
+      for (const item of section.items) {
+        if (item.children?.some((child) => isActive(child.href))) {
+          initial[item.label] = true
+        }
+      }
+    }
+    return initial
+  })
+
+  const toggleMenu = (label: string) => {
+    setExpandedMenus((prev) => ({ ...prev, [label]: !prev[label] }))
   }
 
   const SidebarContent = () => (
@@ -133,6 +158,51 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
             <div className="space-y-1">
               {section.items.map((item) => {
                 const Icon = item.icon
+
+                if (item.children) {
+                  const isOpen = expandedMenus[item.label] ?? false
+                  const hasActiveChild = item.children.some((child) => isActive(child.href))
+                  return (
+                    <div key={item.label}>
+                      <button
+                        onClick={() => toggleMenu(item.label)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150 ${
+                          hasActiveChild
+                            ? 'text-[#4379EE]'
+                            : 'text-gray-500 hover:bg-gray-50 hover:text-[#4379EE]'
+                        }`}
+                      >
+                        <Icon className="w-[18px] h-[18px] shrink-0" />
+                        {item.label}
+                        <ChevronDown className={`w-4 h-4 ml-auto transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {isOpen && (
+                        <div className="ml-4 mt-1 space-y-1">
+                          {item.children.map((child) => {
+                            const ChildIcon = child.icon
+                            const active = isActive(child.href)
+                            return (
+                              <Link
+                                key={child.href}
+                                href={child.href}
+                                onClick={onMobileClose}
+                                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150 ${
+                                  active
+                                    ? 'bg-[#4379EE] text-white shadow-md shadow-blue-500/20'
+                                    : 'text-gray-500 hover:bg-gray-50 hover:text-[#4379EE]'
+                                }`}
+                              >
+                                <ChildIcon className="w-[16px] h-[16px] shrink-0" />
+                                {child.label}
+                              </Link>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+
                 const active = isActive(item.href)
                 return (
                   <Link
