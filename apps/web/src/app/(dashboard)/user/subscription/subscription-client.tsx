@@ -17,7 +17,7 @@ import {
 import { useCartStore, type BillingPeriod } from '@/store/useCartStore'
 import { formatCurrency } from '@/lib/utils'
 import { getStudentVerificationStatus } from '@/app/actions/student'
-import { cancelSubscription } from '@/app/actions/subscription'
+import { cancelSubscription, activateFreeSubscription } from '@/app/actions/subscription'
 import { toast } from 'sonner'
 
 /* ── Feature detail type ── */
@@ -182,6 +182,8 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null)
   const [isStudent, setIsStudent] = useState(false)
   const [canceling, setCanceling] = useState(false)
+  const [freePlanConfirming, setFreePlanConfirming] = useState(false)
+  const [freePlanLoading, setFreePlanLoading] = useState(false)
 
   useEffect(() => {
     getStudentVerificationStatus()
@@ -231,7 +233,7 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
 
   const handleSubscribe = (plan: SerializedPlan) => {
     if (plan.monthlyPrice === 0) {
-      router.push('/user')
+      setFreePlanConfirming(true)
       return
     }
     const price = getFinalPrice(plan)
@@ -572,6 +574,42 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
           )
         })}
       </div>
+
+      {/* Free Plan Confirmation Dialog */}
+      <AlertDialog open={freePlanConfirming} onOpenChange={setFreePlanConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Activate Free Plan</AlertDialogTitle>
+            <AlertDialogDescription>
+              You&apos;re about to activate the <strong>Free</strong> plan. This includes a standard
+              Linux VM (1 vCPU, 512MB RAM, 25GB SSD) that will be provisioned automatically.
+              No payment is required.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={freePlanLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={freePlanLoading}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={async (e) => {
+                e.preventDefault()
+                setFreePlanLoading(true)
+                const result = await activateFreeSubscription()
+                setFreePlanLoading(false)
+                if (result.success) {
+                  setFreePlanConfirming(false)
+                  toast.success('Free plan activated! Your VM is being provisioned.')
+                  router.refresh()
+                } else {
+                  toast.error(result.error || 'Failed to activate free plan')
+                }
+              }}
+            >
+              {freePlanLoading ? 'Activating...' : 'Activate'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
