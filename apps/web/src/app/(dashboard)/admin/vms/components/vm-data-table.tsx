@@ -453,7 +453,7 @@ export function VMDataTable({ data, loading, accessToken, onRefresh }: VMDataTab
                 headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4"
+                    className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-4 whitespace-nowrap"
                   >
                     {header.isPlaceholder
                       ? null
@@ -482,7 +482,7 @@ export function VMDataTable({ data, loading, accessToken, onRefresh }: VMDataTab
                   {row.getVisibleCells().map((cell) => {
                     if (cell.column.id === 'actions') {
                       return (
-                        <td key={cell.id} className="px-5 py-4 text-right">
+                        <td key={cell.id} className="px-5 py-4 text-right whitespace-nowrap">
                           <ActionsCell
                             vm={row.original}
                             onToggleStatus={handleToggleStatus}
@@ -493,7 +493,7 @@ export function VMDataTable({ data, loading, accessToken, onRefresh }: VMDataTab
                       )
                     }
                     return (
-                      <td key={cell.id} className="px-5 py-4">
+                      <td key={cell.id} className="px-5 py-4 whitespace-nowrap">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     )
