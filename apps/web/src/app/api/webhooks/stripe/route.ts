@@ -386,29 +386,46 @@ export async function POST(req: NextRequest) {
 
     case 'customer.subscription.deleted': {
       const subscription = event.data.object as Stripe.Subscription
-      // Treat deletion as cancellation
       const userId = subscription.metadata?.userId
-      if (userId) {
-        const { apiUrl, internalSecret } = getApiConfig()
-        if (internalSecret) {
-          const rawPlanId = subscription.metadata?.planId ?? ''
-          const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
-          const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
-
-          await forwardToApi(
-            '/api/v1/subscriptions/from-stripe',
-            {
-              userId,
-              planName,
-              stripeSubscriptionId: subscription.id,
-              status: 'CANCELED',
-              billingPeriod: subscription.metadata?.billingPeriod ?? 'monthly',
-            },
-            internalSecret,
-            apiUrl
-          )
-        }
+      if (!userId) {
+        console.error('customer.subscription.deleted: missing userId in metadata')
+        return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
       }
+
+      const { apiUrl, internalSecret } = getApiConfig()
+      if (!internalSecret) {
+        console.error('INTERNAL_WEBHOOK_SECRET not configured')
+        return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+      }
+
+      const rawPlanId = subscription.metadata?.planId ?? ''
+      const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
+      const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
+
+      const stripeCustomerId =
+        typeof subscription.customer === 'string'
+          ? subscription.customer
+          : subscription.customer?.id ?? null
+
+      const result = await forwardToApi(
+        '/api/v1/subscriptions/from-stripe',
+        {
+          userId,
+          planName,
+          stripeSubscriptionId: subscription.id,
+          stripeCustomerId,
+          status: 'CANCELED',
+          billingPeriod: subscription.metadata?.billingPeriod ?? 'monthly',
+        },
+        internalSecret,
+        apiUrl
+      )
+
+      if (!result.ok) {
+        console.error('API subscription deletion failed:', result.status, result.body)
+        return NextResponse.json({ error: 'Failed to cancel subscription' }, { status: 500 })
+      }
+
       return NextResponse.json({ received: true })
     }
 
