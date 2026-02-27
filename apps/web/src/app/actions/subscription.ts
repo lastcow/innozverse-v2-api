@@ -138,6 +138,7 @@ export async function changeSubscription(
     const newPrice = await stripe.prices.create({
       currency: 'usd',
       unit_amount: Math.round(newPlanPrice * 100),
+      tax_behavior: 'exclusive',
       recurring: { interval: billingPeriod === 'annual' ? 'year' : 'month' },
       product_data: { name: `${newPlanName} Plan (${billingPeriod === 'annual' ? 'Annual' : 'Monthly'})` },
     })
