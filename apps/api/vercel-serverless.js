@@ -4695,7 +4695,9 @@ app.patch('/api/v1/ip-pool/allocations/:id', authMiddleware, requireRole('ADMIN'
 const crypto = require('crypto');
 
 const FALLBACK_TEMPLATE_IDS = { ubuntu: 11001, kali: 11002 };
-const PROVISION_API_URL = `http://localhost:${process.env.PORT || '3001'}`;
+const PROVISION_API_URL = process.env.VERCEL
+  ? 'https://api.innozverse.com'
+  : `http://localhost:${process.env.PORT || '3001'}`;
 
 function generateProvisionUsername() {
   const chars = 'abcdefghijklmnopqrstuvwxyz';
@@ -4949,11 +4951,14 @@ app.post('/api/v1/admin/subscriptions/:id/provision', authMiddleware, requireRol
     if (!subscription) return c.json({ error: 'Subscription not found' }, 404);
     if (subscription.status !== 'ACTIVE') return c.json({ error: 'Subscription is not active' }, 400);
 
-    // Fire-and-forget provisioning
-    provisionVmsForSubscription(subscription.userId, subscription.id, subscription.planId)
-      .catch(err => console.error('VM provisioning error:', err));
-
-    return c.json({ success: true, message: 'VM provisioning started' });
+    // Await provisioning — Vercel serverless kills background tasks after response
+    try {
+      await provisionVmsForSubscription(subscription.userId, subscription.id, subscription.planId);
+      return c.json({ success: true, message: 'VM provisioning completed' });
+    } catch (err) {
+      console.error('VM provisioning error:', err);
+      return c.json({ success: true, message: 'VM provisioning started with errors', error: String(err) });
+    }
   } catch (error) {
     console.error('Failed to trigger provisioning:', error);
     return c.json({ error: 'Failed to trigger provisioning' }, 500);

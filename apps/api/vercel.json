@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "functions": {
+    "vercel-serverless.js": {
+      "maxDuration": 300
+    }
+  },
   "builds": [
     {
       "src": "vercel-serverless.js",
