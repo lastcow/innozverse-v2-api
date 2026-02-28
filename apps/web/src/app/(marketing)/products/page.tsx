@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Cpu, Monitor, Gamepad2, Loader2, Tag, Percent } from 'lucide-react'
+import { Cpu, Monitor, Gamepad2, Keyboard, Loader2, Tag, Percent } from 'lucide-react'
 import Link from 'next/link'
 import type { EventDiscount } from '@repo/types'
 import {
@@ -24,7 +24,7 @@ const HomeNetworkCanvas = dynamic(
   { ssr: false }
 )
 
-type ProductType = 'SURFACE' | 'LAPTOP' | 'XBOX'
+type ProductType = 'SURFACE' | 'LAPTOP' | 'XBOX' | 'ACCESSORY'
 type CategoryFilter = 'all' | ProductType
 
 interface Product {
@@ -52,6 +52,7 @@ const categories: { value: CategoryFilter; label: string }[] = [
   { value: 'SURFACE', label: 'Surface' },
   { value: 'LAPTOP', label: 'Laptops' },
   { value: 'XBOX', label: 'Xbox' },
+  { value: 'ACCESSORY', label: 'Accessories' },
 ]
 
 const getCategoryIcon = (type: ProductType) => {
@@ -62,6 +63,8 @@ const getCategoryIcon = (type: ProductType) => {
       return <Cpu className="w-16 h-16 text-slate-400 mx-auto mb-2" />
     case 'XBOX':
       return <Gamepad2 className="w-16 h-16 text-slate-400 mx-auto mb-2" />
+    case 'ACCESSORY':
+      return <Keyboard className="w-16 h-16 text-slate-400 mx-auto mb-2" />
     default:
       return <Cpu className="w-16 h-16 text-slate-400 mx-auto mb-2" />
   }
@@ -95,6 +98,8 @@ const getProductTag = (product: Product): string => {
       return 'Power User'
     case 'XBOX':
       return 'Gaming'
+    case 'ACCESSORY':
+      return 'Accessory'
     default:
       return 'Featured'
   }
