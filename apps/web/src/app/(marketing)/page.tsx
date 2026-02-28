@@ -5,22 +5,27 @@ import { CommunityTrust } from '@/components/home/community-trust'
 import { prisma } from '@repo/database'
 
 export default async function HomePage() {
-  const featuredProducts = await prisma.product.findMany({
-    where: { active: true },
-    orderBy: { soldCount: 'desc' },
-    take: 3,
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      basePrice: true,
-      imageUrls: true,
-      studentDiscountPercentage: true,
-      type: true,
-      stock: true,
-      properties: true,
-    },
-  })
+  const [featuredProducts, eventDiscounts] = await Promise.all([
+    prisma.product.findMany({
+      where: { active: true },
+      orderBy: { soldCount: 'desc' },
+      take: 3,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        basePrice: true,
+        imageUrls: true,
+        studentDiscountPercentage: true,
+        type: true,
+        stock: true,
+        properties: true,
+      },
+    }),
+    prisma.eventDiscount.findMany({
+      where: { active: true },
+    }),
+  ])
 
   const serialized = featuredProducts.map((p) => ({
     id: p.id,
@@ -36,11 +41,16 @@ export default async function HomePage() {
     properties: p.properties as Record<string, string>,
   }))
 
+  const serializedDiscounts = eventDiscounts.map((d) => ({
+    ...d,
+    percentage: Number(d.percentage),
+  }))
+
   return (
     <>
       <Hero />
       <HybridLearning />
-      <StudentAdvantage products={serialized} />
+      <StudentAdvantage products={serialized} activeEventDiscounts={serializedDiscounts} />
       <CommunityTrust />
     </>
   )

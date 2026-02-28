@@ -116,7 +116,7 @@ export function HybridLearning() {
               Not sure which path is right for you?
             </p>
             <a
-              href="/learning-paths"
+              href="/knowledge-base"
               className="text-blue-600 font-medium hover:text-blue-700 underline underline-offset-4"
             >
               Explore our learning paths →

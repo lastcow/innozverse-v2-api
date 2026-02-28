@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tag, CheckCircle2, Percent, Monitor, Cpu, Gamepad2, Package } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
+import { calculateDiscountBreakdown, getActiveEventDiscount, formatDiscountPercentage } from '@/lib/discount'
+import type { EventDiscount } from '@repo/types'
 
 interface FeaturedProduct {
   id: string
@@ -21,6 +23,7 @@ interface FeaturedProduct {
 
 interface StudentAdvantageProps {
   products: FeaturedProduct[]
+  activeEventDiscounts?: EventDiscount[]
 }
 
 const getCategoryIcon = (type: string) => {
@@ -60,7 +63,9 @@ const getProductSpecs = (properties: Record<string, string>): { label: string; v
     }))
 }
 
-export function StudentAdvantage({ products }: StudentAdvantageProps) {
+export function StudentAdvantage({ products, activeEventDiscounts = [] }: StudentAdvantageProps) {
+  const activeEventDiscount = getActiveEventDiscount(activeEventDiscounts)
+  const hasEventDiscount = activeEventDiscount !== null && activeEventDiscount.percentage > 0
   return (
     <section className="py-24 bg-gradient-to-br from-blue-50 via-white to-blue-50/30">
       <div className="container px-4 sm:px-6 lg:px-8">
@@ -109,10 +114,13 @@ export function StudentAdvantage({ products }: StudentAdvantageProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
               {products.map((product) => {
                 const hasStudentDiscount = product.studentDiscountPercentage !== null && product.studentDiscountPercentage > 0
-                const discountPercent = hasStudentDiscount ? product.studentDiscountPercentage! : 0
-                const discountedPrice = hasStudentDiscount
-                  ? product.basePrice * (1 - discountPercent / 100)
-                  : product.basePrice
+                const eventDiscountPercentage = hasEventDiscount ? activeEventDiscount!.percentage : null
+                const discountBreakdown = calculateDiscountBreakdown(
+                  product.basePrice,
+                  hasStudentDiscount ? product.studentDiscountPercentage : null,
+                  eventDiscountPercentage
+                )
+                const hasAnyDiscount = hasStudentDiscount || hasEventDiscount
                 const specs = getProductSpecs(product.properties)
                 const tag = (product.properties as Record<string, string>).tag || getProductTag(product.type)
 
@@ -169,19 +177,27 @@ export function StudentAdvantage({ products }: StudentAdvantageProps) {
                     <CardContent className="flex flex-col flex-grow pb-6">
                       <div className="flex-grow" />
                       <div className="space-y-3">
-                        {/* Discount Badge */}
-                        {hasStudentDiscount && (
+                        {/* Discount Badges */}
+                        {hasAnyDiscount && (
                           <div className="flex flex-wrap gap-2">
-                            <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5 flex items-center gap-1">
-                              <Percent className="w-3 h-3" />
-                              Student -{discountPercent}%
-                            </Badge>
+                            {hasStudentDiscount && (
+                              <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5 flex items-center gap-1">
+                                <Percent className="w-3 h-3" />
+                                Student -{formatDiscountPercentage(product.studentDiscountPercentage!)}
+                              </Badge>
+                            )}
+                            {hasEventDiscount && (
+                              <Badge className="bg-green-600 text-white text-xs px-2 py-0.5 flex items-center gap-1">
+                                <Percent className="w-3 h-3" />
+                                {activeEventDiscount!.name} -{formatDiscountPercentage(activeEventDiscount!.percentage)}
+                              </Badge>
+                            )}
                           </div>
                         )}
 
                         {/* Pricing */}
                         <div className="space-y-1">
-                          {hasStudentDiscount ? (
+                          {hasAnyDiscount ? (
                             <>
                               <div className="flex items-center gap-2">
                                 <span className="text-slate-400 line-through text-lg">
@@ -190,11 +206,11 @@ export function StudentAdvantage({ products }: StudentAdvantageProps) {
                               </div>
                               <div className="flex items-baseline gap-1">
                                 <span className="text-4xl font-bold text-blue-600">
-                                  ${formatCurrency(discountedPrice)}
+                                  ${formatCurrency(discountBreakdown.finalPrice)}
                                 </span>
                               </div>
                               <p className="text-xs text-green-600 font-semibold">
-                                Save ${formatCurrency(product.basePrice - discountedPrice)}
+                                Save ${formatCurrency(discountBreakdown.totalDiscountAmount)}
                               </p>
                             </>
                           ) : (
