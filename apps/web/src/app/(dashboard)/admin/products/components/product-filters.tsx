@@ -13,6 +13,7 @@ const typeOptions = [
   { value: 'SURFACE', label: 'Surface' },
   { value: 'LAPTOP', label: 'Laptop' },
   { value: 'XBOX', label: 'Xbox' },
+  { value: 'ACCESSORY', label: 'Accessory' },
 ]
 
 const stockOptions = [
