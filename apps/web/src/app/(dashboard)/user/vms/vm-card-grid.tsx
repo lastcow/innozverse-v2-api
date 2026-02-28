@@ -68,9 +68,10 @@ function VMCard({ vm }: { vm: UserVM }) {
   const isRunning = status === 'running'
   const isProvisioningState = isProvisioning(status)
   const isError = status === 'error'
-  const connectionIp = vm.publicIpAddress || vm.ipAddress
-  const connectionStr = connectionIp
-    ? `ssh ${vm.username || 'user'}@${connectionIp}${vm.port ? ` -p ${vm.port}` : ''}`
+  const username = vm.username || 'user'
+  const internalStr = vm.ipAddress ? `ssh ${username}@${vm.ipAddress}` : null
+  const internetStr = vm.publicIpAddress
+    ? `ssh ${username}@${vm.publicIpAddress}${vm.port ? ` -p ${vm.port}` : ''}`
     : null
 
   const handleToggle = (action: 'start' | 'stop') => {
@@ -117,12 +118,25 @@ function VMCard({ vm }: { vm: UserVM }) {
         </span>
       </div>
 
-      {/* Connection string */}
-      {connectionStr ? (
-        <div className="flex-1 min-w-0 hidden md:flex items-center gap-1.5 bg-gray-50 rounded-lg px-2.5 py-1.5">
-          <Terminal className="w-3 h-3 text-gray-400 shrink-0" />
-          <code className="text-[11px] text-gray-600 font-mono truncate">{connectionStr}</code>
-          <CopyButton text={connectionStr} />
+      {/* Connection string(s) */}
+      {internalStr || internetStr ? (
+        <div className="flex-1 min-w-0 hidden md:flex items-center gap-2">
+          {internalStr && (
+            <div className={`flex-1 min-w-0 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 ${internetStr ? 'bg-gray-50 border border-gray-200' : 'bg-gray-50'}`}>
+              {internetStr && <span className="text-[9px] font-medium text-gray-400 uppercase shrink-0">Internal</span>}
+              <Terminal className="w-3 h-3 text-gray-400 shrink-0" />
+              <code className="text-[11px] text-gray-600 font-mono truncate">{internalStr}</code>
+              <CopyButton text={internalStr} />
+            </div>
+          )}
+          {internetStr && (
+            <div className="flex-1 min-w-0 flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
+              <span className="text-[9px] font-medium text-blue-400 uppercase shrink-0">Internet</span>
+              <Terminal className="w-3 h-3 text-blue-400 shrink-0" />
+              <code className="text-[11px] text-blue-600 font-mono truncate">{internetStr}</code>
+              <CopyButton text={internetStr} />
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex-1 min-w-0 hidden md:block" />
