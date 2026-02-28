@@ -25,13 +25,7 @@ const nextConfig = {
     return config;
   },
   async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/countdown',
-        permanent: false,
-      },
-    ]
+    return []
   },
   images: {
     remotePatterns: [
