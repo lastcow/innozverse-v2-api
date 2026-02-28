@@ -33,6 +33,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { Product } from '@repo/database'
 
@@ -50,6 +51,8 @@ const productSchema = z.object({
     })
   ),
   imageUrls: z.array(z.string().url('Must be a valid URL')),
+  isRefurbished: z.boolean(),
+  isOpenBox: z.boolean(),
   studentDiscountPercentage: z.number().min(0).max(100).nullable().optional(),
 })
 
@@ -79,6 +82,8 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
       stock: 0,
       properties: [],
       imageUrls: [],
+      isRefurbished: false,
+      isOpenBox: false,
       studentDiscountPercentage: null,
     },
   })
@@ -101,6 +106,8 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
         stock: product.stock,
         properties,
         imageUrls: (product.imageUrls as string[]) || [],
+        isRefurbished: (product as any).isRefurbished ?? false,
+        isOpenBox: (product as any).isOpenBox ?? false,
         studentDiscountPercentage: product.studentDiscountPercentage ? Number(product.studentDiscountPercentage) : null,
       })
     } else {
@@ -113,6 +120,8 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
         stock: 0,
         properties: [],
         imageUrls: [],
+        isRefurbished: false,
+        isOpenBox: false,
         studentDiscountPercentage: null,
       })
     }
@@ -138,6 +147,8 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
         properties: propertiesObj,
         active: true,
         imageUrls: data.imageUrls,
+        isRefurbished: data.isRefurbished,
+        isOpenBox: data.isOpenBox,
         studentDiscountPercentage: data.studentDiscountPercentage ?? null,
       }
 
@@ -295,6 +306,39 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
                     </FormItem>
                   )}
                 />
+
+                <div className="flex items-center gap-6">
+                  <FormField
+                    control={form.control}
+                    name="isRefurbished"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-2 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">Refurbished</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="isOpenBox"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-2 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">Open Box</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}

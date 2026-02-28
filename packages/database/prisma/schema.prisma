@@ -105,6 +105,8 @@ model Product {
   active      Boolean     @default(true)
   properties  Json        @default("{}")
   imageUrls                 Json     @default("[]") @map("image_urls")
+  isRefurbished             Boolean  @default(false) @map("is_refurbished")
+  isOpenBox                 Boolean  @default(false) @map("is_open_box")
   studentDiscountPercentage Decimal? @map("student_discount_percentage") @db.Decimal(5, 2)
   createdAt                 DateTime @default(now()) @map("created_at")
   updatedAt                 DateTime @updatedAt @map("updated_at")

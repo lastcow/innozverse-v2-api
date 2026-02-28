@@ -37,6 +37,8 @@ interface Product {
   active: boolean
   properties: Record<string, unknown>
   imageUrls: string[]
+  isRefurbished: boolean
+  isOpenBox: boolean
   studentDiscountPercentage: number | null
   createdAt: string
   updatedAt: string
@@ -360,6 +362,22 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
       </div>
 
       <CardHeader className="space-y-4 pb-6">
+        {/* Condition Badges */}
+        {(product.isRefurbished || product.isOpenBox) && (
+          <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
+            {product.isRefurbished && (
+              <Badge className="bg-amber-500 text-white text-[10px] px-2 py-0.5">
+                Refurbished
+              </Badge>
+            )}
+            {product.isOpenBox && (
+              <Badge className="bg-purple-500 text-white text-[10px] px-2 py-0.5">
+                Open Box
+              </Badge>
+            )}
+          </div>
+        )}
+
         {/* Product Image or Placeholder */}
         <div className="aspect-square rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center overflow-hidden">
           {product.imageUrls && product.imageUrls.length > 0 ? (

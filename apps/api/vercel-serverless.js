@@ -428,7 +428,7 @@ app.post('/api/v1/products', authMiddleware, requireRole('ADMIN'), async (c) => 
 
   try {
     const body = await c.req.json();
-    const { name, description, basePrice, type, imageUrls, properties, stock = 0, active = true, studentDiscountPercentage, upc } = body;
+    const { name, description, basePrice, type, imageUrls, properties, stock = 0, active = true, isRefurbished, isOpenBox, studentDiscountPercentage, upc } = body;
 
     // Validate required fields
     if (!name || !description || basePrice === undefined || !type) {
@@ -456,6 +456,8 @@ app.post('/api/v1/products', authMiddleware, requireRole('ADMIN'), async (c) => 
         properties: properties || {},
         stock,
         active,
+        isRefurbished: isRefurbished ?? false,
+        isOpenBox: isOpenBox ?? false,
         studentDiscountPercentage: studentDiscountPercentage ?? null,
         upc: upc || '',
       }
@@ -478,7 +480,7 @@ app.put('/api/v1/products/:id', authMiddleware, requireRole('ADMIN'), async (c) 
   try {
     const { id } = c.req.param();
     const body = await c.req.json();
-    const { name, description, basePrice, type, imageUrls, properties, stock, active, studentDiscountPercentage, upc } = body;
+    const { name, description, basePrice, type, imageUrls, properties, stock, active, isRefurbished, isOpenBox, studentDiscountPercentage, upc } = body;
 
     // Check if product exists
     const existingProduct = await prisma.product.findUnique({ where: { id } });
@@ -506,6 +508,8 @@ app.put('/api/v1/products/:id', authMiddleware, requireRole('ADMIN'), async (c) 
       updateData.stock = stock;
     }
     if (active !== undefined) updateData.active = active;
+    if (isRefurbished !== undefined) updateData.isRefurbished = isRefurbished;
+    if (isOpenBox !== undefined) updateData.isOpenBox = isOpenBox;
     if (studentDiscountPercentage !== undefined) updateData.studentDiscountPercentage = studentDiscountPercentage;
     if (upc !== undefined) updateData.upc = upc;
 
