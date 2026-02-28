@@ -732,10 +732,18 @@ app.get('/api/v1/workshops', async (c) => {
     const workshops = await prisma.workshop.findMany({
       where: { isPublished: true },
       orderBy: { startDate: 'asc' },
-      include: { _count: { select: { registrations: true } } }
+      include: {
+        _count: { select: { registrations: true } },
+        products: { include: { product: { select: { id: true, name: true, basePrice: true, imageUrls: true, type: true } } } },
+      }
     });
 
-    return c.json({ workshops });
+    return c.json({
+      workshops: workshops.map((w) => ({
+        ...w,
+        products: w.products.map((wp) => ({ ...wp.product, quantity: wp.quantity })),
+      })),
+    });
 
   } catch (error) {
     console.error('Get workshops error:', error);
@@ -751,10 +759,18 @@ app.get('/api/v1/workshops/admin', authMiddleware, requireRole('ADMIN', 'SYSTEM'
 
   try {
     const workshops = await prisma.workshop.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: {
+        products: { include: { product: { select: { id: true, name: true, basePrice: true, imageUrls: true, type: true } } } },
+      }
     });
 
-    return c.json({ workshops });
+    return c.json({
+      workshops: workshops.map((w) => ({
+        ...w,
+        products: w.products.map((wp) => ({ ...wp.product, quantity: wp.quantity })),
+      })),
+    });
 
   } catch (error) {
     console.error('Get admin workshops error:', error);
@@ -770,7 +786,7 @@ app.post('/api/v1/workshops', authMiddleware, requireRole('ADMIN', 'SYSTEM'), as
 
   try {
     const body = await c.req.json();
-    const { title, description, imageUrls, startDate, endDate, capacity, isPublished = false } = body;
+    const { title, description, imageUrls, startDate, endDate, capacity, isPublished = false, products = [] } = body;
 
     if (!title || !description || !startDate || !endDate) {
       return c.json({ error: 'Missing required fields: title, description, startDate, endDate' }, 400);
@@ -780,16 +796,30 @@ app.post('/api/v1/workshops', authMiddleware, requireRole('ADMIN', 'SYSTEM'), as
       return c.json({ error: 'End date must be after start date' }, 400);
     }
 
-    const workshop = await prisma.workshop.create({
-      data: {
-        title,
-        description,
-        imageUrls: imageUrls || [],
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        capacity: capacity !== undefined ? Number(capacity) : 0,
-        isPublished
+    const workshop = await prisma.$transaction(async (tx) => {
+      const w = await tx.workshop.create({
+        data: {
+          title,
+          description,
+          imageUrls: imageUrls || [],
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          capacity: capacity !== undefined ? Number(capacity) : 0,
+          isPublished
+        }
+      });
+
+      if (products.length > 0) {
+        await tx.workshopProduct.createMany({
+          data: products.map((p) => ({
+            workshopId: w.id,
+            productId: p.productId,
+            quantity: p.quantity || 1,
+          })),
+        });
       }
+
+      return w;
     });
 
     return c.json({ workshop, message: 'Workshop created successfully' }, 201);
@@ -809,7 +839,7 @@ app.put('/api/v1/workshops/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'),
   try {
     const { id } = c.req.param();
     const body = await c.req.json();
-    const { title, description, imageUrls, startDate, endDate, capacity, isPublished } = body;
+    const { title, description, imageUrls, startDate, endDate, capacity, isPublished, products } = body;
 
     const existingWorkshop = await prisma.workshop.findUnique({ where: { id } });
     if (!existingWorkshop) {
@@ -832,9 +862,26 @@ app.put('/api/v1/workshops/:id', authMiddleware, requireRole('ADMIN', 'SYSTEM'),
       return c.json({ error: 'End date must be after start date' }, 400);
     }
 
-    const workshop = await prisma.workshop.update({
-      where: { id },
-      data: updateData
+    const workshop = await prisma.$transaction(async (tx) => {
+      const w = await tx.workshop.update({
+        where: { id },
+        data: updateData
+      });
+
+      if (products !== undefined) {
+        await tx.workshopProduct.deleteMany({ where: { workshopId: id } });
+        if (products.length > 0) {
+          await tx.workshopProduct.createMany({
+            data: products.map((p) => ({
+              workshopId: id,
+              productId: p.productId,
+              quantity: p.quantity || 1,
+            })),
+          });
+        }
+      }
+
+      return w;
     });
 
     return c.json({ workshop, message: 'Workshop updated successfully' });
@@ -921,14 +968,22 @@ app.get('/api/v1/workshops/:id', optionalAuthMiddleware, async (c) => {
     const { id } = c.req.param();
     const user = c.get('user');
 
-    const workshop = await prisma.workshop.findUnique({
+    const workshopRaw = await prisma.workshop.findUnique({
       where: { id },
-      include: { _count: { select: { registrations: true } } },
+      include: {
+        _count: { select: { registrations: true } },
+        products: { include: { product: { select: { id: true, name: true, basePrice: true, imageUrls: true, type: true } } } },
+      },
     });
 
-    if (!workshop || !workshop.isPublished) {
+    if (!workshopRaw || !workshopRaw.isPublished) {
       return c.json({ error: 'Workshop not found' }, 404);
     }
+
+    const workshop = {
+      ...workshopRaw,
+      products: workshopRaw.products.map((wp) => ({ ...wp.product, quantity: wp.quantity })),
+    };
 
     let isRegistered = false;
     if (user) {

@@ -22,6 +22,10 @@ export const CreateWorkshopRequestSchema = z.object({
   endDate: z.coerce.date(),
   capacity: z.number().int().min(0).default(0),
   isPublished: z.boolean().default(false),
+  products: z.array(z.object({
+    productId: z.string().uuid(),
+    quantity: z.number().int().min(1),
+  })).default([]),
 }).refine((data) => data.endDate > data.startDate, {
   message: 'End date must be after start date',
   path: ['endDate'],
@@ -36,6 +40,10 @@ export const UpdateWorkshopRequestSchema = z.object({
   endDate: z.coerce.date().optional(),
   capacity: z.number().int().min(0).optional(),
   isPublished: z.boolean().optional(),
+  products: z.array(z.object({
+    productId: z.string().uuid(),
+    quantity: z.number().int().min(1),
+  })).optional(),
 }).refine((data) => {
   if (data.startDate && data.endDate) {
     return data.endDate > data.startDate;

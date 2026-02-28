@@ -114,6 +114,7 @@ model Product {
 
   cartItems  CartItem[]
   orderItems OrderItem[]
+  workshops  WorkshopProduct[]
 
   @@map("products")
   @@index([type, active])
@@ -234,6 +235,7 @@ model Workshop {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   registrations WorkshopRegistration[]
+  products      WorkshopProduct[]
 
   @@index([isPublished, startDate])
   @@map("workshops")
@@ -251,6 +253,20 @@ model WorkshopRegistration {
   @@unique([userId, workshopId])
   @@index([workshopId])
   @@map("workshop_registrations")
+}
+
+model WorkshopProduct {
+  id         String @id @default(uuid())
+  workshopId String @map("workshop_id")
+  productId  String @map("product_id")
+  quantity   Int    @default(1)
+
+  workshop Workshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([workshopId, productId])
+  @@index([productId])
+  @@map("workshop_products")
 }
 
 model StudioSlot {

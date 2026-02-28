@@ -2,7 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { auth } from '@/auth'
-import { CalendarDays, Users, ArrowLeft } from 'lucide-react'
+import { CalendarDays, Users, ArrowLeft, ShoppingBag } from 'lucide-react'
 import { RegisterButton } from '@/components/workshops/register-button'
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
@@ -66,6 +66,18 @@ export default async function WorkshopDetailPage({
       ? `${registered} / ${workshop.capacity} Seats Taken`
       : 'Unlimited Seats'
 
+  const products = Array.isArray(workshop.products) ? workshop.products as Array<{
+    id: string
+    name: string
+    basePrice: string
+    quantity: number
+  }> : []
+
+  const totalPrice = products.reduce(
+    (sum, p) => sum + Number(p.basePrice) * p.quantity,
+    0
+  )
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* Back Link */}
@@ -109,6 +121,38 @@ export default async function WorkshopDetailPage({
           {seatsText}
         </span>
       </div>
+
+      {/* Required Products */}
+      {products.length > 0 && (
+        <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <ShoppingBag className="w-5 h-5 text-amber-600" />
+            <h3 className="font-semibold text-amber-900">
+              Materials required &mdash; order online or purchase on arrival
+            </h3>
+          </div>
+          <ul className="space-y-2 mb-3">
+            {products.map((p) => (
+              <li key={p.id} className="flex items-center justify-between text-sm">
+                <Link
+                  href={`/products/${p.id}`}
+                  className="text-amber-800 hover:text-[#4379EE] hover:underline"
+                >
+                  {p.name}
+                  {p.quantity > 1 && <span className="text-amber-600 ml-1">&times;{p.quantity}</span>}
+                </Link>
+                <span className="text-amber-700 font-medium">
+                  ${(Number(p.basePrice) * p.quantity).toFixed(2)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex justify-between border-t border-amber-200 pt-2 text-sm font-semibold text-amber-900">
+            <span>Total</span>
+            <span>${totalPrice.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
 
       {/* Registration Button */}
       <div className="mb-8 max-w-xs">

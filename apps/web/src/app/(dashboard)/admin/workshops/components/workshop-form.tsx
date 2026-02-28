@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -24,8 +24,21 @@ import {
   FormMessage,
   FormDescription,
 } from '@/components/ui/form'
+import { Checkbox } from '@/components/ui/checkbox'
 import { MultiImageUpload } from '@/components/ui/multi-image-upload'
 import type { Workshop } from '@repo/types'
+
+interface AvailableProduct {
+  id: string
+  name: string
+  basePrice: string
+  type: string
+}
+
+interface ProductSelection {
+  productId: string
+  quantity: number
+}
 
 const workshopSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
@@ -35,6 +48,10 @@ const workshopSchema = z.object({
   capacity: z.coerce.number().int().min(0, 'Capacity must be 0 or more'),
   isPublished: z.boolean(),
   imageUrls: z.array(z.string()),
+  products: z.array(z.object({
+    productId: z.string(),
+    quantity: z.coerce.number().int().min(1),
+  })),
 }).refine((data) => {
   const start = new Date(data.startDate)
   const end = new Date(data.endDate)
@@ -78,6 +95,7 @@ const getNextWeekDate = () => {
 
 export function WorkshopForm({ open, workshop, accessToken, onSuccess, onCancel }: WorkshopFormProps) {
   const isEditing = !!workshop
+  const [availableProducts, setAvailableProducts] = useState<AvailableProduct[]>([])
 
   const form = useForm<WorkshopFormData>({
     resolver: zodResolver(workshopSchema),
@@ -89,13 +107,29 @@ export function WorkshopForm({ open, workshop, accessToken, onSuccess, onCancel 
       capacity: 0,
       isPublished: false,
       imageUrls: [],
+      products: [],
     },
   })
+
+  useEffect(() => {
+    if (!open) return
+    fetch(`${apiUrl}/api/v1/products?active=true&limit=100`)
+      .then((r) => r.ok ? r.json() : { products: [] })
+      .then((data) => setAvailableProducts(data.products || []))
+      .catch(() => setAvailableProducts([]))
+  }, [open])
 
   useEffect(() => {
     if (workshop) {
       const images = Array.isArray(workshop.imageUrls)
         ? (workshop.imageUrls as string[])
+        : []
+      const workshopAny = workshop as Record<string, unknown>
+      const existingProducts = Array.isArray(workshopAny.products)
+        ? (workshopAny.products as Array<{ id: string; quantity: number }>).map((p) => ({
+            productId: p.id,
+            quantity: p.quantity,
+          }))
         : []
       form.reset({
         title: workshop.title,
@@ -105,6 +139,7 @@ export function WorkshopForm({ open, workshop, accessToken, onSuccess, onCancel 
         capacity: (workshop as Workshop & { capacity?: number }).capacity ?? 0,
         isPublished: workshop.isPublished,
         imageUrls: images,
+        products: existingProducts,
       })
     } else {
       form.reset({
@@ -115,9 +150,31 @@ export function WorkshopForm({ open, workshop, accessToken, onSuccess, onCancel 
         capacity: 0,
         isPublished: false,
         imageUrls: [],
+        products: [],
       })
     }
   }, [workshop, form])
+
+  const selectedProducts = form.watch('products')
+
+  const toggleProduct = (productId: string) => {
+    const current = form.getValues('products')
+    const exists = current.find((p) => p.productId === productId)
+    if (exists) {
+      form.setValue('products', current.filter((p) => p.productId !== productId), { shouldDirty: true })
+    } else {
+      form.setValue('products', [...current, { productId, quantity: 1 }], { shouldDirty: true })
+    }
+  }
+
+  const updateQuantity = (productId: string, quantity: number) => {
+    const current = form.getValues('products')
+    form.setValue(
+      'products',
+      current.map((p) => p.productId === productId ? { ...p, quantity: Math.max(1, quantity) } : p),
+      { shouldDirty: true }
+    )
+  }
 
   const onSubmit = async (data: WorkshopFormData) => {
     try {
@@ -129,6 +186,7 @@ export function WorkshopForm({ open, workshop, accessToken, onSuccess, onCancel 
         capacity: data.capacity,
         isPublished: data.isPublished,
         imageUrls: data.imageUrls,
+        products: data.products,
       }
       const url = isEditing
         ? `${apiUrl}/api/v1/workshops/${workshop.id}`
@@ -292,6 +350,44 @@ export function WorkshopForm({ open, workshop, accessToken, onSuccess, onCancel 
                 </FormItem>
               )}
             />
+
+            {/* Products Section */}
+            {availableProducts.length > 0 && (
+              <div className="space-y-3">
+                <FormLabel>Required Kits / Products (optional)</FormLabel>
+                <FormDescription>
+                  Select products that participants need for this workshop
+                </FormDescription>
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+                  {availableProducts.map((product) => {
+                    const selected = selectedProducts.find((p) => p.productId === product.id)
+                    return (
+                      <div key={product.id} className="flex items-center gap-3">
+                        <Checkbox
+                          checked={!!selected}
+                          onCheckedChange={() => toggleProduct(product.id)}
+                        />
+                        <span className="flex-1 text-sm truncate">
+                          {product.name}
+                          <span className="text-gray-400 ml-1">
+                            (${Number(product.basePrice).toFixed(2)})
+                          </span>
+                        </span>
+                        {selected && (
+                          <Input
+                            type="number"
+                            min={1}
+                            value={selected.quantity}
+                            onChange={(e) => updateQuantity(product.id, Number(e.target.value))}
+                            className="w-20 h-8 text-sm"
+                          />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             <FormField
               control={form.control}
