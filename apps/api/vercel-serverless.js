@@ -4296,6 +4296,9 @@ app.delete('/api/v1/vms/:vmid', authMiddleware, requireRole('ADMIN', 'SYSTEM'), 
       data: { deletedAt: new Date(), status: 'deleted' },
     });
 
+    // Release IP allocation
+    await releaseIpAllocation(vmid);
+
     return c.json({ success: true });
   } catch (error) {
     console.error('Failed to delete VM:', error);
@@ -5027,6 +5030,14 @@ async function provisionVmsForSubscription(userId, subscriptionId, planId) {
   }
 }
 
+async function releaseIpAllocation(vmid) {
+  if (!prisma) return;
+  const result = await prisma.ipAllocation.deleteMany({ where: { vmid } });
+  if (result.count > 0) {
+    console.log(`Released ${result.count} IP allocation(s) for vmid=${vmid}`);
+  }
+}
+
 async function destroyVmsForSubscription(subscriptionId) {
   if (!prisma) return;
   const vms = await prisma.virtualMachine.findMany({ where: { subscriptionId, deletedAt: null } });
@@ -5059,6 +5070,10 @@ async function destroyVmsForSubscription(subscriptionId) {
 
       // 3. Soft-delete in DB
       await prisma.virtualMachine.update({ where: { id: vm.id }, data: { deletedAt: new Date(), status: 'deleted' } });
+
+      // 4. Release IP allocation
+      await releaseIpAllocation(vm.vmid);
+
       console.log(`VM ${vm.name} (vmid=${vm.vmid}) destroyed`);
     } catch (error) {
       console.error(`Failed to destroy VM ${vm.name}:`, error);

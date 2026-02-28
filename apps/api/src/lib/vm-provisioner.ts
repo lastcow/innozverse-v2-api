@@ -2,6 +2,7 @@ import { SignJWT } from 'jose'
 import { prisma } from '@repo/database'
 import { proxmoxFetch, getProxmoxNode } from './proxmox'
 import { provisionVM, pollTask } from './provision'
+import { releaseIpAllocation } from './ip-utils'
 
 const API_URL = `http://localhost:${process.env.PORT || '3001'}`
 
@@ -171,6 +172,9 @@ export async function destroyVmsForSubscription(subscriptionId: string) {
         where: { id: vm.id },
         data: { deletedAt: new Date(), status: 'deleted' },
       })
+
+      // 4. Release IP allocation
+      await releaseIpAllocation(vm.vmid)
 
       console.log(`VM ${vm.name} (vmid=${vm.vmid}) destroyed`)
     } catch (error) {

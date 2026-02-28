@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { prisma } from '@repo/database'
 import { authMiddleware, requireRole } from '../middleware/auth'
 import { proxmoxFetch, getProxmoxNode } from '../lib/proxmox'
+import { releaseIpAllocation } from '../lib/ip-utils'
 import type { AuthContext } from '../types'
 
 const app = new Hono<{ Variables: AuthContext }>()
@@ -549,6 +550,9 @@ app.delete('/api/v1/vms/:vmid', authMiddleware, requireRole(['ADMIN', 'SYSTEM'])
       where: { vmid },
       data: { deletedAt: new Date(), status: 'deleted' },
     })
+
+    // Release IP allocation
+    await releaseIpAllocation(vmid)
 
     return c.json({ success: true })
   } catch (error) {
