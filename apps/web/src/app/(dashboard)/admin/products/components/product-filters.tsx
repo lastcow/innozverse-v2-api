@@ -14,6 +14,7 @@ const typeOptions = [
   { value: 'LAPTOP', label: 'Laptop' },
   { value: 'XBOX', label: 'Xbox' },
   { value: 'ACCESSORY', label: 'Accessory' },
+  { value: 'STEM', label: 'STEM' },
 ]
 
 const stockOptions = [

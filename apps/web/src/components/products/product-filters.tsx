@@ -9,6 +9,7 @@ const productTypes = [
   { value: 'SURFACE', label: 'Surface' },
   { value: 'XBOX', label: 'Xbox' },
   { value: 'ACCESSORY', label: 'Accessories' },
+  { value: 'STEM', label: 'STEM' },
 ];
 
 interface ProductFiltersProps {

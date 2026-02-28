@@ -91,6 +91,7 @@ enum ProductType {
   LAPTOP
   XBOX
   ACCESSORY
+  STEM
 }
 
 model Product {

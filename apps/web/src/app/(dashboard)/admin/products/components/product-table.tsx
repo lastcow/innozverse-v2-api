@@ -18,6 +18,7 @@ const getProductTypeBadge = (type: string) => {
     LAPTOP: 'bg-purple-50 text-purple-600 border-0',
     XBOX: 'bg-green-50 text-green-600 border-0',
     ACCESSORY: 'bg-amber-50 text-amber-600 border-0',
+    STEM: 'bg-teal-50 text-teal-600 border-0',
   }
   return colors[type as keyof typeof colors] || 'bg-gray-50 text-gray-600 border-0'
 }

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ProductTypeSchema = z.enum(['SURFACE', 'LAPTOP', 'XBOX', 'ACCESSORY']);
+export const ProductTypeSchema = z.enum(['SURFACE', 'LAPTOP', 'XBOX', 'ACCESSORY', 'STEM']);
 export type ProductType = z.infer<typeof ProductTypeSchema>;
 
 export const ProductPropertiesSchema = z.record(z.unknown());
