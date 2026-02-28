@@ -90,6 +90,7 @@ enum ProductType {
   SURFACE
   LAPTOP
   XBOX
+  ACCESSORY
 }
 
 model Product {

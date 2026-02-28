@@ -40,7 +40,7 @@ const productSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   upc: z.string().optional(),
   description: z.string().min(10, 'Description must be at least 10 characters'),
-  type: z.enum(['SURFACE', 'LAPTOP', 'XBOX']),
+  type: z.enum(['SURFACE', 'LAPTOP', 'XBOX', 'ACCESSORY']),
   basePrice: z.number().min(0.01, 'Price must be greater than 0'),
   stock: z.number().int().min(0, 'Stock cannot be negative'),
   properties: z.array(
@@ -96,7 +96,7 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
         name: product.name,
         upc: (product as Product & { upc?: string }).upc || '',
         description: product.description,
-        type: product.type as 'SURFACE' | 'LAPTOP' | 'XBOX',
+        type: product.type as 'SURFACE' | 'LAPTOP' | 'XBOX' | 'ACCESSORY',
         basePrice: Number(product.basePrice),
         stock: product.stock,
         properties,
@@ -248,6 +248,7 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
                             <SelectItem value="SURFACE">Surface</SelectItem>
                             <SelectItem value="LAPTOP">Laptop</SelectItem>
                             <SelectItem value="XBOX">Xbox</SelectItem>
+                            <SelectItem value="ACCESSORY">Accessory</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
