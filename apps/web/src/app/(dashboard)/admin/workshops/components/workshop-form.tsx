@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -24,7 +24,6 @@ import {
   FormMessage,
   FormDescription,
 } from '@/components/ui/form'
-import { Checkbox } from '@/components/ui/checkbox'
 import { MultiImageUpload } from '@/components/ui/multi-image-upload'
 import type { Workshop } from '@repo/types'
 
@@ -156,15 +155,36 @@ export function WorkshopForm({ open, workshop, accessToken, onSuccess, onCancel 
   }, [workshop, form])
 
   const selectedProducts = form.watch('products')
+  const [productSearch, setProductSearch] = useState('')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
-  const toggleProduct = (productId: string) => {
-    const current = form.getValues('products')
-    const exists = current.find((p) => p.productId === productId)
-    if (exists) {
-      form.setValue('products', current.filter((p) => p.productId !== productId), { shouldDirty: true })
-    } else {
-      form.setValue('products', [...current, { productId, quantity: 1 }], { shouldDirty: true })
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
     }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const filteredProducts = availableProducts.filter(
+    (p) =>
+      !selectedProducts.some((sp) => sp.productId === p.id) &&
+      p.name.toLowerCase().includes(productSearch.toLowerCase())
+  )
+
+  const addProduct = (productId: string) => {
+    const current = form.getValues('products')
+    form.setValue('products', [...current, { productId, quantity: 1 }], { shouldDirty: true })
+    setProductSearch('')
+    setDropdownOpen(false)
+  }
+
+  const removeProduct = (productId: string) => {
+    const current = form.getValues('products')
+    form.setValue('products', current.filter((p) => p.productId !== productId), { shouldDirty: true })
   }
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -174,6 +194,10 @@ export function WorkshopForm({ open, workshop, accessToken, onSuccess, onCancel 
       current.map((p) => p.productId === productId ? { ...p, quantity: Math.max(1, quantity) } : p),
       { shouldDirty: true }
     )
+  }
+
+  const getProductName = (productId: string) => {
+    return availableProducts.find((p) => p.id === productId)
   }
 
   const onSubmit = async (data: WorkshopFormData) => {
@@ -356,36 +380,78 @@ export function WorkshopForm({ open, workshop, accessToken, onSuccess, onCancel 
               <div className="space-y-3">
                 <FormLabel>Required Kits / Products (optional)</FormLabel>
                 <FormDescription>
-                  Select products that participants need for this workshop
+                  Search and add products that participants need for this workshop
                 </FormDescription>
-                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
-                  {availableProducts.map((product) => {
-                    const selected = selectedProducts.find((p) => p.productId === product.id)
-                    return (
-                      <div key={product.id} className="flex items-center gap-3">
-                        <Checkbox
-                          checked={!!selected}
-                          onCheckedChange={() => toggleProduct(product.id)}
-                        />
-                        <span className="flex-1 text-sm truncate">
-                          {product.name}
-                          <span className="text-gray-400 ml-1">
-                            (${Number(product.basePrice).toFixed(2)})
+
+                {/* Searchable dropdown */}
+                <div className="relative" ref={dropdownRef}>
+                  <Input
+                    placeholder="Search products..."
+                    value={productSearch}
+                    onChange={(e) => {
+                      setProductSearch(e.target.value)
+                      setDropdownOpen(true)
+                    }}
+                    onFocus={() => setDropdownOpen(true)}
+                    className="h-9 text-sm"
+                  />
+                  {dropdownOpen && filteredProducts.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                      {filteredProducts.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 text-left"
+                          onClick={() => addProduct(product.id)}
+                        >
+                          <span className="truncate">{product.name}</span>
+                          <span className="ml-2 shrink-0 text-gray-400">
+                            ${Number(product.basePrice).toFixed(2)}
                           </span>
-                        </span>
-                        {selected && (
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {dropdownOpen && productSearch && filteredProducts.length === 0 && (
+                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg px-3 py-2 text-sm text-gray-400">
+                      No matching products
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected products list */}
+                {selectedProducts.length > 0 && (
+                  <div className="space-y-2">
+                    {selectedProducts.map((sp) => {
+                      const product = getProductName(sp.productId)
+                      if (!product) return null
+                      return (
+                        <div key={sp.productId} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                          <span className="flex-1 text-sm truncate">
+                            {product.name}
+                            <span className="text-gray-400 ml-1">
+                              (${Number(product.basePrice).toFixed(2)})
+                            </span>
+                          </span>
                           <Input
                             type="number"
                             min={1}
-                            value={selected.quantity}
-                            onChange={(e) => updateQuantity(product.id, Number(e.target.value))}
+                            value={sp.quantity}
+                            onChange={(e) => updateQuantity(sp.productId, Number(e.target.value))}
                             className="w-20 h-8 text-sm"
                           />
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+                          <button
+                            type="button"
+                            className="text-gray-400 hover:text-red-500 text-lg leading-none px-1"
+                            onClick={() => removeProduct(sp.productId)}
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
