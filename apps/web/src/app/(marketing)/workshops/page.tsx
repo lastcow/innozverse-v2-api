@@ -18,11 +18,14 @@ interface WorkshopData {
   _count: { registrations: number }
 }
 
+const TZ = 'America/Toronto'
+
 function formatDateRange(start: string, end: string) {
   const opts: Intl.DateTimeFormatOptions = {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: TZ,
   }
   return `${new Date(start).toLocaleDateString('en-US', opts)} - ${new Date(end).toLocaleDateString('en-US', opts)}`
 }

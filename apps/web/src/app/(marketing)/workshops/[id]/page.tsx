@@ -7,12 +7,15 @@ import { RegisterButton } from '@/components/workshops/register-button'
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
+const TZ = 'America/Toronto'
+
 function formatDateRange(start: string, end: string) {
   const opts: Intl.DateTimeFormatOptions = {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric',
+    timeZone: TZ,
   }
   return `${new Date(start).toLocaleDateString('en-US', opts)} - ${new Date(end).toLocaleDateString('en-US', opts)}`
 }
@@ -21,6 +24,7 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: TZ,
   })
 }
 
