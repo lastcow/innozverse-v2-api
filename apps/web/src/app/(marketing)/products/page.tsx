@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Cpu, Monitor, Gamepad2, Keyboard, FlaskConical, Loader2, Tag, Percent } from 'lucide-react'
+import { Cpu, Monitor, Gamepad2, Keyboard, FlaskConical, Loader2, Tag, Percent, Clock } from 'lucide-react'
 import Link from 'next/link'
 import type { EventDiscount } from '@repo/types'
 import {
@@ -487,6 +487,14 @@ function ProductCard({ product, showStudentPricing, activeEventDiscount }: Produ
         {product.stock === 0 && (
           <p className="text-xs text-red-600 font-medium">Out of stock</p>
         )}
+
+        {/* Back order notice */}
+        <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          <p className="text-xs text-amber-700 font-medium">
+            Back order available &middot; ~1 week lead time
+          </p>
+        </div>
       </CardContent>
 
       <CardFooter className="mt-auto">
