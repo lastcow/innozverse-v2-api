@@ -72,6 +72,33 @@ export function UserTable({ users, loading, onEdit, onDelete, accessToken, onRef
     router.push(`/admin/users/${userId}`)
   }
 
+  const handleManualVerify = async (e: React.MouseEvent, userId: string) => {
+    e.stopPropagation()
+    if (!accessToken) return
+
+    setActionLoading(userId)
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/admin/users/${userId}/student-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to verify user')
+      }
+
+      onRefresh?.()
+    } catch (err) {
+      console.error('Manual verification failed:', err)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleVerificationAction = async (
     e: React.MouseEvent,
     verificationId: string,
@@ -212,10 +239,34 @@ export function UserTable({ users, loading, onEdit, onDelete, accessToken, onRef
                       )}
                     </div>
                   ) : (
-                    <Badge className="bg-red-50 text-red-600 border-0">Rejected</Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge className="bg-red-50 text-red-600 border-0">Rejected</Badge>
+                      {accessToken && (
+                        <button
+                          onClick={(e) => handleManualVerify(e, user.id)}
+                          disabled={actionLoading === user.id}
+                          className="w-6 h-6 rounded-md bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center transition-colors disabled:opacity-50"
+                          title="Verify as Student"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   )
                 ) : (
-                  <span className="text-sm text-gray-400">&mdash;</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm text-gray-400">&mdash;</span>
+                    {accessToken && (
+                      <button
+                        onClick={(e) => handleManualVerify(e, user.id)}
+                        disabled={actionLoading === user.id}
+                        className="w-6 h-6 rounded-md bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center transition-colors disabled:opacity-50"
+                        title="Verify as Student"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 )}
               </td>
               <td className="px-5 py-4 text-gray-500 text-sm">

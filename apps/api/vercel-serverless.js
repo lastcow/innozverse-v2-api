@@ -3166,6 +3166,76 @@ app.put('/api/v1/admin/student-verifications/:id', authMiddleware, requireRole('
   }
 });
 
+// POST /api/v1/admin/users/:userId/student-verification - Manually verify a user as student
+app.post('/api/v1/admin/users/:userId/student-verification', authMiddleware, requireRole('ADMIN'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const admin = c.get('user');
+    const { userId } = c.req.param();
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    // Check for existing verification
+    const existing = await prisma.studentVerification.findFirst({
+      where: { userId }
+    });
+
+    if (existing && existing.status === 'APPROVED') {
+      return c.json({ error: 'User is already verified' }, 400);
+    }
+
+    let verification;
+
+    if (existing) {
+      // Update existing non-approved record
+      verification = await prisma.studentVerification.update({
+        where: { id: existing.id },
+        data: {
+          status: 'APPROVED',
+          verificationMethod: 'MANUAL_UPLOAD',
+          verifiedAt: new Date(),
+          verifiedById: admin.userId
+        },
+        include: {
+          user: { select: { id: true, email: true } },
+          verifiedBy: { select: { id: true, email: true } }
+        }
+      });
+    } else {
+      // Create new approved record
+      verification = await prisma.studentVerification.create({
+        data: {
+          userId,
+          status: 'APPROVED',
+          verificationMethod: 'MANUAL_UPLOAD',
+          verifiedAt: new Date(),
+          verifiedById: admin.userId
+        },
+        include: {
+          user: { select: { id: true, email: true } },
+          verifiedBy: { select: { id: true, email: true } }
+        }
+      });
+    }
+
+    return c.json({
+      verification,
+      message: 'User verified as student successfully'
+    });
+
+  } catch (error) {
+    console.error('Manual student verification error:', error);
+    return c.json({ error: 'Failed to verify user', message: error.message }, 500);
+  }
+});
+
 // Test endpoints
 app.get('/test/db', async (c) => {
   if (!prisma) {
