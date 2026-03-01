@@ -105,6 +105,7 @@ async function handleSubscriptionCheckout(session: Stripe.Checkout.Session) {
       billingPeriod,
       currentPeriodStart,
       currentPeriodEnd,
+      provision: true,
     },
     internalSecret,
     apiUrl

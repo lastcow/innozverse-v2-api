@@ -83,6 +83,7 @@ export async function activateFreeSubscription(): Promise<{ success: boolean; er
         planName: 'Free',
         status: 'ACTIVE',
         billingPeriod: 'monthly',
+        provision: true,
       }),
     })
 

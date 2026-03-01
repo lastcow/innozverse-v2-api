@@ -45,6 +45,7 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
       billingPeriod,
       currentPeriodStart,
       currentPeriodEnd,
+      provision,
     } = body
 
     if (!userId || !planName) {
@@ -93,9 +94,10 @@ app.post('/api/v1/subscriptions/from-stripe', async (c) => {
     })
 
     // Auto-provision VMs when subscription becomes ACTIVE
-    // Idempotency handled inside provisionVmsForSubscription (skips if VMs already exist)
+    // Only provision when explicitly requested (from checkout.session.completed)
+    // to prevent duplicate provisioning from concurrent Stripe webhook events
     const resolvedStatus = status ?? 'ACTIVE'
-    const needsProvisioning = resolvedStatus === 'ACTIVE' && (!existing || existing.status !== 'ACTIVE')
+    const needsProvisioning = provision === true && resolvedStatus === 'ACTIVE' && (!existing || existing.status !== 'ACTIVE')
 
     if (needsProvisioning) {
       try {
