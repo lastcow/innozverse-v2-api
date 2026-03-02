@@ -224,8 +224,25 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
 
   const getOriginalDisplayPrice = (plan: SerializedPlan) => {
     if (plan.monthlyPrice === 0) return null
+    if (billingPeriod === 'annual') {
+      // Show full annual price (monthly * 12) before 10% discount
+      const fullAnnual = Math.round(plan.monthlyPrice * 12 * 100) / 100
+      if (isStudent) {
+        // Student sees full annual crossed out (discount stacks)
+        return `$${formatCurrency(fullAnnual)}`
+      }
+      return `$${formatCurrency(fullAnnual)}`
+    }
     if (!isStudent) return null
     return `$${formatCurrency(getBasePrice(plan))}`
+  }
+
+  const getDiscountLabel = (plan: SerializedPlan) => {
+    if (plan.monthlyPrice === 0) return null
+    if (billingPeriod === 'annual' && isStudent) return 'Annual -10% + Student -15%'
+    if (billingPeriod === 'annual') return 'Save 10%'
+    if (isStudent) return 'Student -15%'
+    return null
   }
 
   const getPriceSuffix = (plan: SerializedPlan) => {
@@ -500,9 +517,11 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                         <span className="text-sm text-slate-400 line-through">
                           {getOriginalDisplayPrice(plan)}{getPriceSuffix(plan)}
                         </span>
-                        <Badge className="bg-blue-600 text-white text-[10px] px-1.5 py-0">
-                          Student -15%
-                        </Badge>
+                        {getDiscountLabel(plan) && (
+                          <Badge className="bg-blue-600 text-white text-[10px] px-1.5 py-0">
+                            {getDiscountLabel(plan)}
+                          </Badge>
+                        )}
                       </div>
                     )}
                     <span className="text-2xl font-bold text-slate-900">
