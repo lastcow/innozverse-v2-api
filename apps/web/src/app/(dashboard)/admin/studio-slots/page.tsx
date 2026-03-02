@@ -108,7 +108,11 @@ export default function AdminStudioSlotsPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          startTime: new Date(data.startTime).toISOString(),
+          endTime: new Date(data.endTime).toISOString(),
+        }),
       })
 
       if (res.ok) {
