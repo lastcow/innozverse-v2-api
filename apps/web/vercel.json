@@ -1,5 +1,11 @@
 {
   "buildCommand": "cd ../.. && npm install --include=dev && cd packages/database && npx prisma generate && cd ../../apps/web && npm run build",
   "installCommand": "cd ../.. && npm install --include=dev",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/workshop-reminders",
+      "schedule": "0 * * * *"
+    }
+  ]
 }
