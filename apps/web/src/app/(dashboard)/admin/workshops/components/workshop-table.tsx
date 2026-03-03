@@ -109,7 +109,7 @@ export function WorkshopTable({
             <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider w-12"></TableHead>
             <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Title</TableHead>
             <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Dates</TableHead>
-            <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Capacity</TableHead>
+            <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Bookings</TableHead>
             <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider">Status</TableHead>
             <TableHead className="text-gray-400 font-medium text-xs uppercase tracking-wider text-right">Actions</TableHead>
           </TableRow>
@@ -150,9 +150,11 @@ export function WorkshopTable({
                   {formatDate(workshop.startDate)} - {formatDate(workshop.endDate)}
                 </TableCell>
                 <TableCell className="text-gray-500 text-sm">
+                  {(workshop as Workshop & { registrationCount?: number }).registrationCount ?? 0}
+                  /
                   {(workshop as Workshop & { capacity?: number }).capacity
                     ? (workshop as Workshop & { capacity?: number }).capacity
-                    : 'Unlimited'}
+                    : '∞'}
                 </TableCell>
                 <TableCell>
                   <button

@@ -762,12 +762,14 @@ app.get('/api/v1/workshops/admin', authMiddleware, requireRole('ADMIN', 'SYSTEM'
       orderBy: { createdAt: 'desc' },
       include: {
         products: { include: { product: { select: { id: true, name: true, basePrice: true, imageUrls: true, type: true } } } },
+        _count: { select: { registrations: true } },
       }
     });
 
     return c.json({
       workshops: workshops.map((w) => ({
         ...w,
+        registrationCount: w._count.registrations,
         products: w.products.map((wp) => ({ ...wp.product, quantity: wp.quantity })),
       })),
     });
