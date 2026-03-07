@@ -322,7 +322,7 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
               {plan.description}
             </p>
 
-            <div className="mt-8">
+            <div className="mt-8 flex items-center gap-4">
               <Button
                 onClick={handleSubscribe}
                 size="lg"
@@ -330,6 +330,9 @@ export default function PlanDetailPage({ params }: { params: { planId: string } 
               >
                 {isPaid ? 'Subscribe' : 'Get Started Free'}
               </Button>
+              {!isPaid && (
+                <span className="text-sm text-slate-500">Requires student verification</span>
+              )}
             </div>
           </div>
         </div>

@@ -273,7 +273,7 @@ export default function PricingPage() {
                       </ul>
                     </CardContent>
 
-                    <CardFooter className="mt-auto">
+                    <CardFooter className="mt-auto flex-col gap-2">
                       <Button
                         asChild
                         size="lg"
@@ -287,6 +287,11 @@ export default function PricingPage() {
                       >
                         <Link href={`/pricing/${plan.name.toLowerCase()}`}>View Details</Link>
                       </Button>
+                      {isFree && (
+                        <p className="text-xs text-slate-500 text-center">
+                          Requires student verification
+                        </p>
+                      )}
                     </CardFooter>
                   </Card>
                 )

@@ -252,6 +252,10 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
 
   const handleSubscribe = (plan: SerializedPlan) => {
     if (plan.monthlyPrice === 0) {
+      if (!isStudent) {
+        toast.error('Free plan is only available for verified students')
+        return
+      }
       setFreePlanConfirming(true)
       return
     }
@@ -532,7 +536,15 @@ export default function SubscriptionClient({ plans, currentSubscription }: Subsc
                     </span>
                   </div>
 
-                  {buttonVariant === 'upgrade' ? (
+                  {!isPaid && !isStudent ? (
+                    <Button
+                      className="min-w-[120px] border border-slate-200 bg-white text-slate-400 cursor-not-allowed"
+                      disabled
+                      title="Student verification required"
+                    >
+                      Students Only
+                    </Button>
+                  ) : buttonVariant === 'upgrade' ? (
                     <Button
                       className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]"
                       onClick={() => handleSubscribe(plan)}
