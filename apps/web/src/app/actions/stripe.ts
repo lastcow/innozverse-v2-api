@@ -60,6 +60,7 @@ export async function createCheckoutSession(
     if (isSubscription) {
       const sub = subscriptionItems[0]!
       const interval: 'month' | 'year' = sub.billingPeriod === 'annual' ? 'year' : 'month'
+      const isService = sub.productId.startsWith('service-')
 
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{
         price_data: {
@@ -76,6 +77,16 @@ export async function createCheckoutSession(
         quantity: 1,
       }]
 
+      const subscriptionMetadata: Record<string, string> = {
+        userId,
+        planId: sub.productId,
+        billingPeriod: sub.billingPeriod || 'monthly',
+      }
+      if (isService) {
+        // Extract service type from productId: "service-openclaw-monthly" → "openclaw"
+        subscriptionMetadata.serviceType = sub.productId.replace(/^service-/, '').replace(/-(monthly|annual)$/, '')
+      }
+
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         line_items: lineItems,
@@ -85,11 +96,7 @@ export async function createCheckoutSession(
           items: JSON.stringify(compactItems),
         },
         subscription_data: {
-          metadata: {
-            userId,
-            planId: sub.productId,
-            billingPeriod: sub.billingPeriod || 'monthly',
-          },
+          metadata: subscriptionMetadata,
         },
         success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/checkout/cancel`,
@@ -181,6 +188,7 @@ export async function createEmbeddedCheckoutSession(
     if (isSubscription) {
       const sub = subscriptionItems[0]!
       const interval: 'month' | 'year' = sub.billingPeriod === 'annual' ? 'year' : 'month'
+      const isService = sub.productId.startsWith('service-')
 
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{
         price_data: {
@@ -197,6 +205,15 @@ export async function createEmbeddedCheckoutSession(
         quantity: 1,
       }]
 
+      const subscriptionMetadata: Record<string, string> = {
+        userId,
+        planId: sub.productId,
+        billingPeriod: sub.billingPeriod || 'monthly',
+      }
+      if (isService) {
+        subscriptionMetadata.serviceType = sub.productId.replace(/^service-/, '').replace(/-(monthly|annual)$/, '')
+      }
+
       const checkoutSession = await stripe.checkout.sessions.create({
         mode: 'subscription',
         ui_mode: 'embedded',
@@ -208,11 +225,7 @@ export async function createEmbeddedCheckoutSession(
           items: JSON.stringify(compactItems),
         },
         subscription_data: {
-          metadata: {
-            userId,
-            planId: sub.productId,
-            billingPeriod: sub.billingPeriod || 'monthly',
-          },
+          metadata: subscriptionMetadata,
         },
         return_url: `${baseUrl}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
       })

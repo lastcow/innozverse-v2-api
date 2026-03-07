@@ -40,6 +40,11 @@ export function Footer() {
                     Subscription
                   </Link>
                 </li>
+                <li>
+                  <Link href="/openclaw" className="text-sm hover:text-blue-400 transition-colors">
+                    OpenClaw Service
+                  </Link>
+                </li>
               </ul>
             </div>
 

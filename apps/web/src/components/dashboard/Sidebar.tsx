@@ -104,6 +104,7 @@ export function Sidebar({ userRole, mobileOpen, onMobileClose }: SidebarProps) {
       items: [
         { label: 'My Profile', href: '/user/settings/profile', icon: User },
         { label: 'Subscriptions', href: '/user/subscription', icon: CreditCard },
+        { label: 'Services', href: '/user/services', icon: Server },
       ],
     },
   ]

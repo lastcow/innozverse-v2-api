@@ -29,6 +29,7 @@ const navLinks: NavLink[] = [
     ],
   },
   { href: '/pricing', label: 'Subscription' },
+  { href: '/openclaw', label: 'OpenClaw' },
   { href: '/company', label: 'Company' },
 ]
 

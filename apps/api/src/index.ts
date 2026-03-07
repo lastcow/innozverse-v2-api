@@ -5,6 +5,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import vmRoutes from './routes/vms';
 import subscriptionRoutes from './routes/subscriptions';
+import serviceRoutes from './routes/services';
 import announcementRoutes from './routes/announcements';
 import storageRoutes from './routes/storage';
 import vmTemplateRoutes from './routes/vm-templates';
@@ -33,6 +34,7 @@ app.get('/api/v1', (c) => {
 });
 app.route('/', vmRoutes);
 app.route('/', subscriptionRoutes);
+app.route('/', serviceRoutes);
 app.route('/', announcementRoutes);
 app.route('/', storageRoutes);
 app.route('/', vmTemplateRoutes);

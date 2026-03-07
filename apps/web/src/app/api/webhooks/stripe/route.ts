@@ -70,11 +70,6 @@ async function handleSubscriptionCheckout(session: Stripe.Checkout.Session) {
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
-  // Parse plan name from metadata planId (e.g. "plan-basic-monthly" → "Basic")
-  const rawPlanId = subscription.metadata?.planId ?? session.metadata?.planId ?? ''
-  const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
-  const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
-
   const billingPeriod = subscription.metadata?.billingPeriod ?? session.metadata?.billingPeriod ?? 'monthly'
 
   // In newer Stripe API versions, period dates are on subscription items
@@ -93,6 +88,38 @@ async function handleSubscriptionCheckout(session: Stripe.Checkout.Session) {
     typeof session.customer === 'string'
       ? session.customer
       : session.customer?.id ?? null
+
+  // Branch: service subscriptions go to a different API endpoint
+  const serviceType = subscription.metadata?.serviceType
+  if (serviceType) {
+    const unitAmount = firstItem?.price?.unit_amount ?? firstItem?.plan?.amount ?? 0
+    const result = await forwardToApi(
+      '/api/v1/services/from-stripe',
+      {
+        userId,
+        serviceName: 'OpenClaw',
+        stripeSubscriptionId: subscription.id,
+        stripeCustomerId,
+        status: 'PENDING_SETUP',
+        billingPeriod,
+        currentPeriodStart,
+        currentPeriodEnd,
+        monthlyPrice: unitAmount / 100,
+      },
+      internalSecret,
+      apiUrl
+    )
+    if (!result.ok) {
+      console.error('API service subscription creation failed:', result.status, result.body)
+      return NextResponse.json({ error: 'Failed to create service subscription' }, { status: 500 })
+    }
+    return NextResponse.json({ received: true })
+  }
+
+  // Parse plan name from metadata planId (e.g. "plan-basic-monthly" → "Basic")
+  const rawPlanId = subscription.metadata?.planId ?? session.metadata?.planId ?? ''
+  const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
+  const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
 
   const result = await forwardToApi(
     '/api/v1/subscriptions/from-stripe',
@@ -132,18 +159,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
   }
 
-  const rawPlanId = subscription.metadata?.planId ?? ''
-  const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
-  const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
   const billingPeriod = subscription.metadata?.billingPeriod ?? 'monthly'
-
-  const statusMap: Record<string, string> = {
-    active: 'ACTIVE',
-    past_due: 'PAST_DUE',
-    canceled: 'CANCELED',
-    incomplete: 'INCOMPLETE',
-    trialing: 'TRIALING',
-  }
 
   const subAny = subscription as any
   const firstItem = subAny.items?.data?.[0]
@@ -160,6 +176,50 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     typeof subscription.customer === 'string'
       ? subscription.customer
       : (subscription.customer as any)?.id ?? null
+
+  // Branch: service subscriptions
+  const serviceType = subscription.metadata?.serviceType
+  if (serviceType) {
+    const serviceStatusMap: Record<string, string> = {
+      active: 'RUNNING',
+      past_due: 'SUSPENDED',
+      canceled: 'CANCELED',
+      incomplete: 'PENDING_SETUP',
+    }
+    const unitAmount = firstItem?.price?.unit_amount ?? firstItem?.plan?.amount ?? 0
+    const result = await forwardToApi(
+      '/api/v1/services/from-stripe',
+      {
+        userId,
+        serviceName: 'OpenClaw',
+        stripeSubscriptionId: subscription.id,
+        stripeCustomerId,
+        status: serviceStatusMap[subscription.status] ?? 'RUNNING',
+        billingPeriod,
+        currentPeriodStart,
+        currentPeriodEnd,
+        monthlyPrice: unitAmount / 100,
+      },
+      internalSecret,
+      apiUrl
+    )
+    if (!result.ok) {
+      console.error('API service subscription update failed:', result.status, result.body)
+    }
+    return NextResponse.json({ received: true })
+  }
+
+  const statusMap: Record<string, string> = {
+    active: 'ACTIVE',
+    past_due: 'PAST_DUE',
+    canceled: 'CANCELED',
+    incomplete: 'INCOMPLETE',
+    trialing: 'TRIALING',
+  }
+
+  const rawPlanId = subscription.metadata?.planId ?? ''
+  const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
+  const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
 
   const result = await forwardToApi(
     '/api/v1/subscriptions/from-stripe',
@@ -347,9 +407,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
       }
 
-      const rawPlanId = subDetails.metadata?.planId ?? ''
-      const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
-      const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
       const billingPeriod = subDetails.metadata?.billingPeriod ?? 'monthly'
 
       // Period dates from the first line item
@@ -365,6 +422,33 @@ export async function POST(req: NextRequest) {
         typeof invoice.customer === 'string'
           ? invoice.customer
           : (invoice.customer as any)?.id ?? null
+
+      // Branch: service subscriptions
+      const invoiceServiceType = subDetails.metadata?.serviceType
+      if (invoiceServiceType) {
+        const unitAmount = lineItem?.price?.unit_amount ?? lineItem?.plan?.amount ?? 0
+        await forwardToApi(
+          '/api/v1/services/from-stripe',
+          {
+            userId,
+            serviceName: 'OpenClaw',
+            stripeSubscriptionId: subDetails.subscription,
+            stripeCustomerId,
+            status: 'RUNNING',
+            billingPeriod,
+            currentPeriodStart: periodStart,
+            currentPeriodEnd: periodEnd,
+            monthlyPrice: unitAmount / 100,
+          },
+          internalSecret,
+          apiUrl
+        )
+        return NextResponse.json({ received: true })
+      }
+
+      const rawPlanId = subDetails.metadata?.planId ?? ''
+      const namePart = rawPlanId.replace(/^plan-/, '').replace(/-(monthly|annual)$/, '')
+      const planName = namePart.charAt(0).toUpperCase() + namePart.slice(1)
 
       await forwardToApi(
         '/api/v1/subscriptions/from-stripe',
@@ -397,6 +481,35 @@ export async function POST(req: NextRequest) {
       if (!internalSecret) {
         console.error('INTERNAL_WEBHOOK_SECRET not configured')
         return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+      }
+
+      // Branch: service subscriptions
+      const deletedServiceType = subscription.metadata?.serviceType
+      if (deletedServiceType) {
+        const stripeCustomerId =
+          typeof subscription.customer === 'string'
+            ? subscription.customer
+            : subscription.customer?.id ?? null
+
+        const result = await forwardToApi(
+          '/api/v1/services/from-stripe',
+          {
+            userId,
+            serviceName: 'OpenClaw',
+            stripeSubscriptionId: subscription.id,
+            stripeCustomerId,
+            status: 'CANCELED',
+            billingPeriod: subscription.metadata?.billingPeriod ?? 'monthly',
+            monthlyPrice: 0,
+          },
+          internalSecret,
+          apiUrl
+        )
+        if (!result.ok) {
+          console.error('API service subscription deletion failed:', result.status, result.body)
+          return NextResponse.json({ error: 'Failed to cancel service subscription' }, { status: 500 })
+        }
+        return NextResponse.json({ received: true })
       }
 
       const rawPlanId = subscription.metadata?.planId ?? ''

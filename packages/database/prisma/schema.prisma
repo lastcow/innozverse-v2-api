@@ -61,6 +61,7 @@ model User {
   studioBookings        StudioBooking[]
   subscription          UserSubscription?
   virtualMachines       VirtualMachine[]
+  serviceSubscriptions  ServiceSubscription[]
 
   @@unique([oauthProvider, oauthId])
   @@map("users")
@@ -452,4 +453,34 @@ model IpAllocation {
 
   @@index([poolId])
   @@map("ip_allocations")
+}
+
+enum ServiceStatus {
+  PENDING_SETUP
+  IN_PROGRESS
+  RUNNING
+  CANCELED
+  SUSPENDED
+}
+
+model ServiceSubscription {
+  id                   String        @id @default(uuid())
+  userId               String        @map("user_id")
+  serviceName          String        @map("service_name")
+  stripeSubscriptionId String?       @unique @map("stripe_subscription_id")
+  stripeCustomerId     String?       @map("stripe_customer_id")
+  status               ServiceStatus @default(PENDING_SETUP)
+  billingPeriod        String        @default("monthly") @map("billing_period")
+  monthlyPrice         Float         @map("monthly_price")
+  currentPeriodStart   DateTime?     @map("current_period_start")
+  currentPeriodEnd     DateTime?     @map("current_period_end")
+  canceledAt           DateTime?     @map("canceled_at")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("service_subscriptions")
 }
