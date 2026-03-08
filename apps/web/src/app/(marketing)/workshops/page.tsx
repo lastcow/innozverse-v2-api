@@ -16,6 +16,7 @@ interface WorkshopData {
   capacity: number
   isPublished: boolean
   _count: { registrations: number }
+  totalSeats?: number
 }
 
 const TZ = 'America/Toronto'
@@ -135,10 +136,10 @@ export default async function WorkshopsPage() {
                 const images = Array.isArray(workshop.imageUrls)
                   ? (workshop.imageUrls as string[])
                   : []
-                const registered = workshop._count.registrations
+                const totalSeats = workshop.totalSeats ?? workshop._count.registrations
                 const seatsText =
                   workshop.capacity > 0
-                    ? `${registered} / ${workshop.capacity} Seats Taken`
+                    ? `${totalSeats} / ${workshop.capacity} Seats Taken`
                     : null
 
                 return (

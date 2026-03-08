@@ -150,7 +150,7 @@ export function WorkshopTable({
                   {formatDate(workshop.startDate)} - {formatDate(workshop.endDate)}
                 </TableCell>
                 <TableCell className="text-gray-500 text-sm">
-                  {(workshop as Workshop & { registrationCount?: number }).registrationCount ?? 0}
+                  {(workshop as Workshop & { totalSeats?: number }).totalSeats ?? (workshop as Workshop & { registrationCount?: number }).registrationCount ?? 0}
                   /
                   {(workshop as Workshop & { capacity?: number }).capacity
                     ? (workshop as Workshop & { capacity?: number }).capacity

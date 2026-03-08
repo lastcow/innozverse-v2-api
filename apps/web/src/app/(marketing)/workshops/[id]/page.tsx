@@ -57,13 +57,15 @@ export default async function WorkshopDetailPage({
     : []
   const now = new Date()
   const isPast = new Date(workshop.endDate) < now
+  const totalSeats = workshop.totalSeats ?? workshop._count?.registrations ?? 0
   const isFull =
     workshop.capacity > 0 &&
-    workshop._count.registrations >= workshop.capacity
-  const registered = workshop._count.registrations
+    totalSeats >= workshop.capacity
+  const availableSeats =
+    workshop.capacity > 0 ? workshop.capacity - totalSeats : null
   const seatsText =
     workshop.capacity > 0
-      ? `${registered} / ${workshop.capacity} Seats Taken`
+      ? `${totalSeats} / ${workshop.capacity} Seats Taken`
       : 'Unlimited Seats'
 
   const products = Array.isArray(workshop.products) ? workshop.products as Array<{
@@ -162,6 +164,7 @@ export default async function WorkshopDetailPage({
           isRegistered={isRegistered}
           isFull={isFull}
           isPast={isPast}
+          availableSeats={availableSeats}
         />
       </div>
 

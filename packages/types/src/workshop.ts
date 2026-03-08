@@ -54,3 +54,8 @@ export const UpdateWorkshopRequestSchema = z.object({
   path: ['endDate'],
 });
 export type UpdateWorkshopRequest = z.infer<typeof UpdateWorkshopRequestSchema>;
+
+export const WorkshopRegistrationRequestSchema = z.object({
+  seats: z.number().int().min(1).default(1),
+});
+export type WorkshopRegistrationRequest = z.infer<typeof WorkshopRegistrationRequestSchema>;

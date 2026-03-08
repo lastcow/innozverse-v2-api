@@ -94,7 +94,7 @@ export default async function AdminWorkshopDetailPage({
               </div>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-gray-400" />
-                {workshop.registrations.length} / {workshop.capacity || '\u221e'} registered
+                {workshop.registrations.reduce((sum: number, r: { seats?: number }) => sum + (r.seats ?? 1), 0)} / {workshop.capacity || '\u221e'} seats booked
               </div>
             </div>
           </div>
@@ -106,7 +106,7 @@ export default async function AdminWorkshopDetailPage({
         <div className="flex items-center gap-2 mb-4">
           <Users className="w-5 h-5 text-[#4379EE]" />
           <h2 className="text-lg font-semibold text-[#202224]">
-            Registered Participants ({workshop.registrations.length})
+            Registered Participants ({workshop.registrations.length} registrations, {workshop.registrations.reduce((sum: number, r: { seats?: number }) => sum + (r.seats ?? 1), 0)} seats)
           </h2>
         </div>
 
@@ -117,7 +117,7 @@ export default async function AdminWorkshopDetailPage({
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {workshop.registrations.map((reg: { id: string; createdAt: string; user: { email: string; fname: string | null; lname: string | null } }, i: number) => {
+            {workshop.registrations.map((reg: { id: string; seats?: number; createdAt: string; user: { email: string; fname: string | null; lname: string | null } }, i: number) => {
               const name =
                 [reg.user.fname, reg.user.lname].filter(Boolean).join(' ') || null
               return (
@@ -143,6 +143,11 @@ export default async function AdminWorkshopDetailPage({
                   <span className="text-xs text-gray-400 shrink-0">
                     {formatDateTime(reg.createdAt)}
                   </span>
+                  {(reg.seats ?? 1) > 1 && (
+                    <span className="text-xs font-medium text-[#4379EE] bg-blue-50 px-2 py-0.5 rounded-full shrink-0">
+                      {reg.seats} seats
+                    </span>
+                  )}
                 </div>
               )
             })}

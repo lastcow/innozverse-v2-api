@@ -733,6 +733,7 @@ app.get('/api/v1/workshops', async (c) => {
       where: { isPublished: true },
       orderBy: { startDate: 'asc' },
       include: {
+        registrations: { select: { seats: true } },
         _count: { select: { registrations: true } },
         products: { include: { product: { select: { id: true, name: true, basePrice: true, imageUrls: true, type: true } } } },
       }
@@ -741,6 +742,8 @@ app.get('/api/v1/workshops', async (c) => {
     return c.json({
       workshops: workshops.map((w) => ({
         ...w,
+        totalSeats: w.registrations.reduce((sum, r) => sum + r.seats, 0),
+        registrations: undefined,
         products: w.products.map((wp) => ({ ...wp.product, quantity: wp.quantity })),
       })),
     });
@@ -761,6 +764,7 @@ app.get('/api/v1/workshops/admin', authMiddleware, requireRole('ADMIN', 'SYSTEM'
     const workshops = await prisma.workshop.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
+        registrations: { select: { seats: true } },
         products: { include: { product: { select: { id: true, name: true, basePrice: true, imageUrls: true, type: true } } } },
         _count: { select: { registrations: true } },
       }
@@ -769,7 +773,9 @@ app.get('/api/v1/workshops/admin', authMiddleware, requireRole('ADMIN', 'SYSTEM'
     return c.json({
       workshops: workshops.map((w) => ({
         ...w,
+        totalSeats: w.registrations.reduce((sum, r) => sum + r.seats, 0),
         registrationCount: w._count.registrations,
+        registrations: undefined,
         products: w.products.map((wp) => ({ ...wp.product, quantity: wp.quantity })),
       })),
     });
@@ -933,7 +939,10 @@ app.get('/api/v1/workshops/my-registrations', authMiddleware, async (c) => {
       where: { userId: user.userId },
       include: {
         workshop: {
-          include: { _count: { select: { registrations: true } } },
+          include: {
+            registrations: { select: { seats: true } },
+            _count: { select: { registrations: true } },
+          },
         },
       },
       orderBy: { workshop: { startDate: 'asc' } },
@@ -948,7 +957,8 @@ app.get('/api/v1/workshops/my-registrations', authMiddleware, async (c) => {
       startDate: r.workshop.startDate.toISOString(),
       endDate: r.workshop.endDate.toISOString(),
       capacity: r.workshop.capacity,
-      registered: r.workshop._count.registrations,
+      registered: r.workshop.registrations.reduce((sum, reg) => sum + reg.seats, 0),
+      seats: r.seats,
       registeredAt: r.createdAt.toISOString(),
     }));
 
@@ -973,6 +983,7 @@ app.get('/api/v1/workshops/:id', optionalAuthMiddleware, async (c) => {
     const workshopRaw = await prisma.workshop.findUnique({
       where: { id },
       include: {
+        registrations: { select: { seats: true } },
         _count: { select: { registrations: true } },
         products: { include: { product: { select: { id: true, name: true, basePrice: true, imageUrls: true, type: true } } } },
       },
@@ -982,8 +993,11 @@ app.get('/api/v1/workshops/:id', optionalAuthMiddleware, async (c) => {
       return c.json({ error: 'Workshop not found' }, 404);
     }
 
+    const totalSeats = workshopRaw.registrations.reduce((sum, r) => sum + r.seats, 0);
     const workshop = {
       ...workshopRaw,
+      totalSeats,
+      registrations: undefined,
       products: workshopRaw.products.map((wp) => ({ ...wp.product, quantity: wp.quantity })),
     };
 
@@ -1014,9 +1028,13 @@ app.post('/api/v1/workshops/:id/register', authMiddleware, async (c) => {
     const user = c.get('user');
     const userId = user.userId;
 
+    let body = {};
+    try { body = await c.req.json(); } catch {}
+    const seats = Math.max(1, Math.floor(Number(body.seats) || 1));
+
     const workshop = await prisma.workshop.findUnique({
       where: { id: workshopId },
-      include: { _count: { select: { registrations: true } } },
+      include: { registrations: { select: { seats: true } } },
     });
 
     if (!workshop || !workshop.isPublished) {
@@ -1027,8 +1045,9 @@ app.post('/api/v1/workshops/:id/register', authMiddleware, async (c) => {
       return c.json({ error: 'This workshop has already ended.' }, 400);
     }
 
-    if (workshop.capacity > 0 && workshop._count.registrations >= workshop.capacity) {
-      return c.json({ error: 'This workshop is full.' }, 400);
+    const totalSeats = workshop.registrations.reduce((sum, r) => sum + r.seats, 0);
+    if (workshop.capacity > 0 && totalSeats + seats > workshop.capacity) {
+      return c.json({ error: 'Not enough seats available.' }, 400);
     }
 
     const existing = await prisma.workshopRegistration.findUnique({
@@ -1040,7 +1059,7 @@ app.post('/api/v1/workshops/:id/register', authMiddleware, async (c) => {
     }
 
     await prisma.workshopRegistration.create({
-      data: { userId, workshopId },
+      data: { userId, workshopId, seats },
     });
 
     return c.json({ message: 'Registered successfully' }, 201);

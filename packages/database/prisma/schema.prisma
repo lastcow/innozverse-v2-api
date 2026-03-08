@@ -246,6 +246,7 @@ model WorkshopRegistration {
   id         String   @id @default(uuid())
   userId     String   @map("user_id")
   workshopId String   @map("workshop_id")
+  seats      Int      @default(1)
   createdAt  DateTime @default(now()) @map("created_at")
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)

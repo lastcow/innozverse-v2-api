@@ -20,6 +20,7 @@ interface WorkshopRegistration {
   endDate: string
   capacity: number
   registered: number
+  seats: number
   registeredAt: string
 }
 
@@ -135,12 +136,19 @@ export function MyWorkshops({ workshops }: MyWorkshopsProps) {
                       <p className="text-sm text-[#4379EE] font-medium mb-1">
                         {formatDateRange(w.startDate, w.endDate)}
                       </p>
+                      <div className="flex flex-wrap items-center gap-3 mb-2">
                       {seatsText && (
-                        <p className="text-xs text-gray-400 flex items-center gap-1 mb-2">
+                        <p className="text-xs text-gray-400 flex items-center gap-1">
                           <Users className="w-3.5 h-3.5" />
                           {seatsText}
                         </p>
                       )}
+                      {w.seats > 1 && (
+                        <span className="text-xs font-medium text-[#4379EE] bg-blue-50 px-2 py-0.5 rounded-full">
+                          {w.seats} seats booked
+                        </span>
+                      )}
+                    </div>
                       <p className="text-gray-500 text-sm line-clamp-2">
                         {w.description}
                       </p>
