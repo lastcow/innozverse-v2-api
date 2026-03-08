@@ -96,6 +96,7 @@ export async function GET(request: Request) {
         endTime,
         registrationCount: workshop.registrations.reduce((sum, r) => sum + r.seats, 0),
         capacity: workshop.capacity,
+        seats: registration.seats,
         products,
         workshopUrl: `${webUrl}/workshops/${workshop.id}`,
       }

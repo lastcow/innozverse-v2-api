@@ -7,6 +7,7 @@ export interface WorkshopReminderData {
   endTime: string
   registrationCount: number
   capacity: number
+  seats: number
   products: Array<{ name: string; quantity: number }>
   workshopUrl: string
 }
@@ -96,7 +97,7 @@ export function buildWorkshopReminderEmail(data: WorkshopReminderData): string {
       </div>
 
       <p style="color:#94a3b8;font-size:13px;line-height:1.5;margin:24px 0 0;">
-        You&rsquo;re receiving this email because you registered for this workshop.
+        You&rsquo;re receiving this email because you registered ${data.seats} seat${data.seats > 1 ? 's' : ''} for this workshop.
         If you can no longer attend, please cancel your registration on our website.
       </p>
 
