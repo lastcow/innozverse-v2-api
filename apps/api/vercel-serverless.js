@@ -1135,6 +1135,51 @@ app.get('/api/v1/workshops/:id/registrations', authMiddleware, requireRole('ADMI
   }
 });
 
+// PATCH /api/v1/workshops/registrations/:registrationId - Admin: update seats
+app.patch('/api/v1/workshops/registrations/:registrationId', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { registrationId } = c.req.param();
+    const body = await c.req.json();
+    const seats = Math.max(1, Math.floor(Number(body.seats) || 1));
+
+    const registration = await prisma.workshopRegistration.update({
+      where: { id: registrationId },
+      data: { seats },
+    });
+
+    return c.json({ registration, message: 'Registration updated' });
+
+  } catch (error) {
+    console.error('Update registration error:', error);
+    return c.json({ error: 'Failed to update registration', message: error.message }, 500);
+  }
+});
+
+// DELETE /api/v1/workshops/registrations/:registrationId - Admin: cancel registration
+app.delete('/api/v1/workshops/registrations/:registrationId', authMiddleware, requireRole('ADMIN', 'SYSTEM'), async (c) => {
+  if (!prisma) {
+    return c.json({ error: 'Database not available' }, 500);
+  }
+
+  try {
+    const { registrationId } = c.req.param();
+
+    await prisma.workshopRegistration.delete({
+      where: { id: registrationId },
+    });
+
+    return c.json({ message: 'Registration cancelled' });
+
+  } catch (error) {
+    console.error('Delete registration error:', error);
+    return c.json({ error: 'Failed to cancel registration', message: error.message }, 500);
+  }
+});
+
 // ============================================================
 // Studio Slot Routes
 // ============================================================
