@@ -136,7 +136,7 @@ export default function AdminUsersPage() {
   }
 
   const handleFormSubmit = async (
-    data: { fname: string; mname?: string; lname: string; email: string; role: MockUser['role']; status: MockUser['status'] },
+    data: { fname: string; mname?: string; lname: string; email: string; role: MockUser['role']; status: MockUser['status']; taxExempt: boolean },
     userId?: string
   ) => {
     if (!accessToken) return
@@ -156,6 +156,7 @@ export default function AdminUsersPage() {
             email: data.email,
             role: data.role,
             status: data.status,
+            taxExempt: data.taxExempt,
           }),
         })
 
