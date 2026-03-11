@@ -29,7 +29,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import type { MockUser } from './user-table'
 
 const userSchema = z.object({
@@ -239,7 +239,7 @@ export function UserForm({ open, user, onSubmit, onCancel }: UserFormProps) {
                     <p className="text-xs text-gray-500 mt-0.5">Exempt from tax on one-time purchases only</p>
                   </div>
                   <FormControl>
-                    <Switch
+                    <Checkbox
                       checked={field.value}
                       onCheckedChange={field.onChange}
                     />
