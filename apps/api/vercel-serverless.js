@@ -2737,6 +2737,7 @@ app.get('/api/v1/admin/users', authMiddleware, requireRole('ADMIN'), async (c) =
           lname: true,
           role: true,
           status: true,
+          taxExempt: true,
           emailVerified: true,
           createdAt: true,
           updatedAt: true,
@@ -2784,6 +2785,8 @@ app.get('/api/v1/admin/users/:id', authMiddleware, requireRole('ADMIN'), async (
         lname: true,
         role: true,
         status: true,
+        taxExempt: true,
+        stripeCustomerId: true,
         emailVerified: true,
         oauthProvider: true,
         createdAt: true,
@@ -2832,7 +2835,7 @@ app.put('/api/v1/admin/users/:id', authMiddleware, requireRole('ADMIN'), async (
   try {
     const { id } = c.req.param();
     const body = await c.req.json();
-    const { email, role, fname, mname, lname, status } = body;
+    const { email, role, fname, mname, lname, status, taxExempt } = body;
 
     // Validate the user exists
     const existingUser = await prisma.user.findUnique({ where: { id } });
@@ -2858,6 +2861,12 @@ app.put('/api/v1/admin/users/:id', authMiddleware, requireRole('ADMIN'), async (
       }
       updateData.status = status;
     }
+    if (taxExempt !== undefined) {
+      if (typeof taxExempt !== 'boolean') {
+        return c.json({ error: 'taxExempt must be a boolean' }, 400);
+      }
+      updateData.taxExempt = taxExempt;
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id },
@@ -2870,6 +2879,7 @@ app.put('/api/v1/admin/users/:id', authMiddleware, requireRole('ADMIN'), async (
         lname: true,
         role: true,
         status: true,
+        taxExempt: true,
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
@@ -3604,6 +3614,28 @@ app.post('/api/v1/subscriptions/cancel', authMiddleware, async (c) => {
   } catch (error) {
     console.error('Failed to cancel subscription:', error);
     return c.json({ error: 'Failed to cancel subscription' }, 500);
+  }
+});
+
+// GET /api/v1/users/profile - Get current user's profile (taxExempt + stripeCustomerId for checkout)
+app.get('/api/v1/users/profile', authMiddleware, async (c) => {
+  if (!prisma) return c.json({ error: 'Database not available' }, 500);
+  try {
+    const userId = c.get('userId');
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        taxExempt: true,
+        stripeCustomerId: true,
+      }
+    });
+    if (!user) return c.json({ error: 'User not found' }, 404);
+    return c.json({ user });
+  } catch (error) {
+    console.error('Get user profile error:', error);
+    return c.json({ error: 'Failed to fetch profile' }, 500);
   }
 });
 

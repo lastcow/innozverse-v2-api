@@ -29,6 +29,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Switch } from '@/components/ui/switch'
 import type { MockUser } from './user-table'
 
 const userSchema = z.object({
@@ -38,6 +39,7 @@ const userSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   role: z.enum(['USER', 'ADMIN', 'SYSTEM']),
   status: z.enum(['ACTIVE', 'SUSPENDED', 'PENDING']),
+  taxExempt: z.boolean().default(false),
 })
 
 type UserFormData = z.infer<typeof userSchema>
@@ -61,6 +63,7 @@ export function UserForm({ open, user, onSubmit, onCancel }: UserFormProps) {
       email: '',
       role: 'USER',
       status: 'ACTIVE',
+      taxExempt: false,
     },
   })
 
@@ -73,6 +76,7 @@ export function UserForm({ open, user, onSubmit, onCancel }: UserFormProps) {
         email: user.email,
         role: user.role || 'USER',
         status: user.status || 'ACTIVE',
+        taxExempt: user.taxExempt ?? false,
       })
     } else {
       form.reset({
@@ -82,6 +86,7 @@ export function UserForm({ open, user, onSubmit, onCancel }: UserFormProps) {
         email: '',
         role: 'USER',
         status: 'ACTIVE',
+        taxExempt: false,
       })
     }
   }, [user, form])
@@ -223,6 +228,25 @@ export function UserForm({ open, user, onSubmit, onCancel }: UserFormProps) {
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="taxExempt"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3">
+                  <div>
+                    <FormLabel className="text-sm font-medium text-[#202224]">Tax Exempt</FormLabel>
+                    <p className="text-xs text-gray-500 mt-0.5">Exempt from tax on one-time purchases only</p>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
 
             <DialogFooter>
               <Button

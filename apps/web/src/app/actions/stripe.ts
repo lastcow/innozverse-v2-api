@@ -9,6 +9,24 @@ function getStripe() {
   })
 }
 
+async function getUserProfile(): Promise<{ taxExempt: boolean; stripeCustomerId: string | null }> {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL
+    const sessionData = await auth()
+    const token = (sessionData as { accessToken?: string })?.accessToken
+    if (!token || !apiUrl) return { taxExempt: false, stripeCustomerId: null }
+    const res = await fetch(`${apiUrl}/api/v1/users/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
+    if (!res.ok) return { taxExempt: false, stripeCustomerId: null }
+    const { user } = await res.json()
+    return { taxExempt: user.taxExempt ?? false, stripeCustomerId: user.stripeCustomerId ?? null }
+  } catch {
+    return { taxExempt: false, stripeCustomerId: null }
+  }
+}
+
 interface CartItem {
   productId: string
   name: string
@@ -121,10 +139,18 @@ export async function createCheckoutSession(
       })
     )
 
+    // Tax exempt: pass Stripe Customer if user is exempt (Customer carries tax_exempt flag)
+    const { taxExempt, stripeCustomerId } = await getUserProfile()
+    const customerParams: Partial<Stripe.Checkout.SessionCreateParams> =
+      taxExempt && stripeCustomerId
+        ? { customer: stripeCustomerId }
+        : {}
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: lineItems,
       automatic_tax: { enabled: true },
+      ...customerParams,
       metadata: {
         userId,
         items: JSON.stringify(compactItems),
@@ -249,12 +275,21 @@ export async function createEmbeddedCheckoutSession(
       })
     )
 
+    // Tax exempt: pass Stripe Customer if user is exempt; otherwise fall back to customer_email
+    const { taxExempt, stripeCustomerId } = await getUserProfile()
+    const customerParams: Partial<Stripe.Checkout.SessionCreateParams> =
+      taxExempt && stripeCustomerId
+        ? { customer: stripeCustomerId }
+        : email
+          ? { customer_email: email }
+          : {}
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'payment',
       ui_mode: 'embedded',
       line_items: lineItems,
       automatic_tax: { enabled: true },
-      ...(email ? { customer_email: email } : {}),
+      ...customerParams,
       metadata: {
         userId,
         items: JSON.stringify(compactItems),

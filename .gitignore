@@ -51,3 +51,4 @@ yarn-error.log*
 .claude_settings.json
 .security-key
 logs/security/
+PLAN_*.md
