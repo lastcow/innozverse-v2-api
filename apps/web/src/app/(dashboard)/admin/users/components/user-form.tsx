@@ -39,7 +39,7 @@ const userSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   role: z.enum(['USER', 'ADMIN', 'SYSTEM']),
   status: z.enum(['ACTIVE', 'SUSPENDED', 'PENDING']),
-  taxExempt: z.boolean().default(false),
+  taxExempt: z.boolean(),
 })
 
 type UserFormData = z.infer<typeof userSchema>
