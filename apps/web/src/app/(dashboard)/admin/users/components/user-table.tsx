@@ -196,10 +196,10 @@ export function UserTable({ users, loading, onEdit, onDelete, accessToken, onRef
                 </div>
               </td>
               <td className="px-5 py-4">
-                <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <Badge className={getRoleBadge(user.role)}>{user.role}</Badge>
                   {user.taxExempt && (
-                    <Badge className="bg-green-50 text-green-700 border border-green-200 text-xs">Tax Exempt</Badge>
+                    <Badge className="bg-amber-50 text-amber-700 border-0 text-xs">Tax Exempt</Badge>
                   )}
                 </div>
               </td>

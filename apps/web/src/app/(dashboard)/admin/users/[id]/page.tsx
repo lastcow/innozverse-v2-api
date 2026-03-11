@@ -192,7 +192,7 @@ export default function UserDetailPage() {
               </h1>
               <Badge className={getRoleBadgeStyle(user.role)}>{user.role}</Badge>
               {user.taxExempt && (
-                <Badge className="bg-green-50 text-green-700 border border-green-200 text-xs">Tax Exempt</Badge>
+                <Badge className="bg-amber-50 text-amber-700 border-0 text-xs">Tax Exempt</Badge>
               )}
             </div>
 
