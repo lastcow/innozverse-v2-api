@@ -139,18 +139,13 @@ export async function createCheckoutSession(
       })
     )
 
-    // Tax exempt: pass Stripe Customer if user is exempt (Customer carries tax_exempt flag)
-    const { taxExempt, stripeCustomerId } = await getUserProfile()
-    const customerParams: Partial<Stripe.Checkout.SessionCreateParams> =
-      taxExempt && stripeCustomerId
-        ? { customer: stripeCustomerId }
-        : {}
+    // Tax exempt: disable automatic_tax entirely for exempt users
+    const { taxExempt } = await getUserProfile()
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: lineItems,
-      automatic_tax: { enabled: true },
-      ...customerParams,
+      ...(taxExempt ? {} : { automatic_tax: { enabled: true } }),
       metadata: {
         userId,
         items: JSON.stringify(compactItems),
@@ -275,21 +270,15 @@ export async function createEmbeddedCheckoutSession(
       })
     )
 
-    // Tax exempt: pass Stripe Customer if user is exempt; otherwise fall back to customer_email
-    const { taxExempt, stripeCustomerId } = await getUserProfile()
-    const customerParams: Partial<Stripe.Checkout.SessionCreateParams> =
-      taxExempt && stripeCustomerId
-        ? { customer: stripeCustomerId }
-        : email
-          ? { customer_email: email }
-          : {}
+    // Tax exempt: disable automatic_tax entirely for exempt users
+    const { taxExempt } = await getUserProfile()
 
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'payment',
       ui_mode: 'embedded',
       line_items: lineItems,
-      automatic_tax: { enabled: true },
-      ...customerParams,
+      ...(taxExempt ? {} : { automatic_tax: { enabled: true } }),
+      ...(email ? { customer_email: email } : {}),
       metadata: {
         userId,
         items: JSON.stringify(compactItems),
