@@ -5,20 +5,17 @@ const { Hono } = require('hono');
 const { cors } = require('hono/cors');
 const { logger } = require('hono/logger');
 
-// Initialize Prisma Client with connection pooling for serverless
+// Initialize Prisma Client with singleton for serverless (prevents connection exhaustion on Neon)
 let prisma;
 try {
   const { PrismaClient } = require('@prisma/client');
-
-  // Singleton pattern for serverless - reuse connection across invocations
   const globalForPrisma = global;
-  prisma = globalForPrisma.prisma || new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  });
-
-  if (process.env.NODE_ENV !== 'production') {
-    globalForPrisma.prisma = prisma;
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = new PrismaClient({
+      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    });
   }
+  prisma = globalForPrisma.prisma;
 } catch (error) {
   console.error('Failed to initialize Prisma Client:', error.message);
   prisma = null;
