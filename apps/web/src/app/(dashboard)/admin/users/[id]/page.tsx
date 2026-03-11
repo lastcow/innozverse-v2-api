@@ -51,6 +51,7 @@ interface UserDetail {
   id: string
   email: string
   role: 'USER' | 'ADMIN' | 'SYSTEM'
+  taxExempt?: boolean
   emailVerified: boolean
   oauthProvider?: string
   createdAt: string
@@ -190,6 +191,9 @@ export default function UserDetailPage() {
                 {user.email}
               </h1>
               <Badge className={getRoleBadgeStyle(user.role)}>{user.role}</Badge>
+              {user.taxExempt && (
+                <Badge className="bg-green-50 text-green-700 border border-green-200 text-xs">Tax Exempt</Badge>
+              )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">

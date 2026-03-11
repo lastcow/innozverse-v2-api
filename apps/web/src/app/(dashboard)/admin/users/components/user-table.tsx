@@ -15,6 +15,7 @@ export interface MockUser {
   email: string
   role: 'USER' | 'ADMIN' | 'SYSTEM'
   status: 'ACTIVE' | 'SUSPENDED' | 'PENDING'
+  taxExempt?: boolean
   emailVerified?: boolean
   createdAt: string
   studentVerification?: {
@@ -195,7 +196,12 @@ export function UserTable({ users, loading, onEdit, onDelete, accessToken, onRef
                 </div>
               </td>
               <td className="px-5 py-4">
-                <Badge className={getRoleBadge(user.role)}>{user.role}</Badge>
+                <div className="flex flex-col gap-1">
+                  <Badge className={getRoleBadge(user.role)}>{user.role}</Badge>
+                  {user.taxExempt && (
+                    <Badge className="bg-green-50 text-green-700 border border-green-200 text-xs">Tax Exempt</Badge>
+                  )}
+                </div>
               </td>
               <td className="px-5 py-4">
                 {user.status === 'ACTIVE' ? (

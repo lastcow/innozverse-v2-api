@@ -9,6 +9,24 @@ function getStripe() {
   })
 }
 
+async function getUserProfile(): Promise<{ taxExempt: boolean; stripeCustomerId: string | null }> {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL
+    const sessionData = await auth()
+    const token = sessionData?.accessToken
+    if (!token || !apiUrl) return { taxExempt: false, stripeCustomerId: null }
+    const res = await fetch(`${apiUrl}/api/v1/users/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
+    if (!res.ok) return { taxExempt: false, stripeCustomerId: null }
+    const { user } = await res.json()
+    return { taxExempt: user.taxExempt ?? false, stripeCustomerId: user.stripeCustomerId ?? null }
+  } catch {
+    return { taxExempt: false, stripeCustomerId: null }
+  }
+}
+
 interface CartItem {
   productId: string
   name: string
@@ -121,10 +139,21 @@ export async function createCheckoutSession(
       })
     )
 
+    // Tax exempt: pass Stripe Customer (with tax_exempt='exempt' set server-side) + keep automatic_tax
+    // Stripe docs: "set Customer.tax_exempt='exempt' and pass customer ID to checkout session"
+    const { taxExempt, stripeCustomerId } = await getUserProfile()
+    console.log('[stripe.ts] getUserProfile:', { taxExempt, stripeCustomerId, userId })
+    const customerParams: Partial<Stripe.Checkout.SessionCreateParams> =
+      taxExempt && stripeCustomerId
+        ? { customer: stripeCustomerId, customer_update: { address: 'auto', name: 'auto' } }
+        : {}
+    console.log('[stripe.ts] customerParams:', JSON.stringify(customerParams))
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: lineItems,
       automatic_tax: { enabled: true },
+      ...customerParams,
       metadata: {
         userId,
         items: JSON.stringify(compactItems),
@@ -249,12 +278,21 @@ export async function createEmbeddedCheckoutSession(
       })
     )
 
+    // Tax exempt: pass Stripe Customer (with tax_exempt='exempt' set server-side) + keep automatic_tax
+    const { taxExempt, stripeCustomerId } = await getUserProfile()
+    console.log('[stripe.ts embedded] getUserProfile:', { taxExempt, stripeCustomerId, userId })
+    const customerParams: Partial<Stripe.Checkout.SessionCreateParams> =
+      taxExempt && stripeCustomerId
+        ? { customer: stripeCustomerId, customer_update: { address: 'auto', name: 'auto' } }
+        : email ? { customer_email: email } : {}
+    console.log('[stripe.ts embedded] customerParams:', JSON.stringify(customerParams))
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'payment',
       ui_mode: 'embedded',
       line_items: lineItems,
       automatic_tax: { enabled: true },
-      ...(email ? { customer_email: email } : {}),
+      ...customerParams,
       metadata: {
         userId,
         items: JSON.stringify(compactItems),
