@@ -144,7 +144,9 @@ export async function createCheckoutSession(
     const { taxExempt, stripeCustomerId } = await getUserProfile()
     console.log('[stripe.ts] getUserProfile:', { taxExempt, stripeCustomerId, userId })
     const customerParams: Partial<Stripe.Checkout.SessionCreateParams> =
-      taxExempt && stripeCustomerId ? { customer: stripeCustomerId } : {}
+      taxExempt && stripeCustomerId
+        ? { customer: stripeCustomerId, customer_update: { address: 'auto', name: 'auto' } }
+        : {}
     console.log('[stripe.ts] customerParams:', JSON.stringify(customerParams))
 
     const session = await stripe.checkout.sessions.create({
@@ -281,7 +283,7 @@ export async function createEmbeddedCheckoutSession(
     console.log('[stripe.ts embedded] getUserProfile:', { taxExempt, stripeCustomerId, userId })
     const customerParams: Partial<Stripe.Checkout.SessionCreateParams> =
       taxExempt && stripeCustomerId
-        ? { customer: stripeCustomerId }
+        ? { customer: stripeCustomerId, customer_update: { address: 'auto', name: 'auto' } }
         : email ? { customer_email: email } : {}
     console.log('[stripe.ts embedded] customerParams:', JSON.stringify(customerParams))
 
