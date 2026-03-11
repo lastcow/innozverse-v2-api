@@ -2866,6 +2866,27 @@ app.put('/api/v1/admin/users/:id', authMiddleware, requireRole('ADMIN'), async (
         return c.json({ error: 'taxExempt must be a boolean' }, 400);
       }
       updateData.taxExempt = taxExempt;
+
+      // Sync tax_exempt status to Stripe Customer
+      const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+      if (STRIPE_SECRET_KEY) {
+        const Stripe = require('stripe');
+        const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2026-01-28.clover' });
+        const stripeExemptStatus = taxExempt ? 'exempt' : 'none';
+
+        if (existingUser.stripeCustomerId) {
+          // Update existing Stripe customer
+          await stripe.customers.update(existingUser.stripeCustomerId, { tax_exempt: stripeExemptStatus });
+        } else if (taxExempt) {
+          // Create a new Stripe customer with exempt status and save the ID
+          const customer = await stripe.customers.create({
+            email: existingUser.email,
+            metadata: { userId: existingUser.id },
+            tax_exempt: stripeExemptStatus,
+          });
+          updateData.stripeCustomerId = customer.id;
+        }
+      }
     }
 
     const updatedUser = await prisma.user.update({
