@@ -3643,7 +3643,7 @@ app.get('/api/v1/users/profile', authMiddleware, async (c) => {
   if (!prisma) return c.json({ error: 'Database not available' }, 500);
   try {
     const authUser = c.get('user');
-    const userId = authUser?.sub || authUser?.id;
+    const userId = authUser?.userId || authUser?.sub || authUser?.id;
     if (!userId) return c.json({ error: 'Unauthorized' }, 401);
     const user = await prisma.user.findUnique({
       where: { id: userId },
