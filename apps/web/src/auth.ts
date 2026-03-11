@@ -3,6 +3,7 @@ import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
 import { SignJWT } from 'jose';
+import bcrypt from 'bcryptjs';
 import { prisma, OAuthProvider, UserStatus } from '@repo/database';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
@@ -31,27 +32,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         try {
-          const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: credentials.email,
-              password: credentials.password,
-            }),
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string },
+            select: { id: true, email: true, role: true, passwordHash: true, deletedAt: true, status: true },
           });
 
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.error || 'Login failed');
+          if (!user || !user.passwordHash) {
+            throw new Error('Invalid email or password');
           }
 
-          return {
-            id: data.user.id,
-            email: data.user.email,
-            role: data.user.role,
-            accessToken: data.accessToken,
-          };
+          if (user.deletedAt) {
+            throw new Error('Account deactivated');
+          }
+
+          const valid = await bcrypt.compare(credentials.password as string, user.passwordHash);
+          if (!valid) {
+            throw new Error('Invalid email or password');
+          }
+
+          const accessToken = await signApiToken({ userId: user.id, email: user.email, role: user.role });
+
+          return { id: user.id, email: user.email, role: user.role, accessToken };
         } catch (error) {
           console.error('Auth error:', error);
           throw error;
