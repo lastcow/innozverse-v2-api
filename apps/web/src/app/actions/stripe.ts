@@ -13,7 +13,7 @@ async function getUserProfile(): Promise<{ taxExempt: boolean; stripeCustomerId:
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL
     const sessionData = await auth()
-    const token = (sessionData as { accessToken?: string })?.accessToken
+    const token = sessionData?.accessToken
     if (!token || !apiUrl) return { taxExempt: false, stripeCustomerId: null }
     const res = await fetch(`${apiUrl}/api/v1/users/profile`, {
       headers: { Authorization: `Bearer ${token}` },
