@@ -17,8 +17,8 @@ export async function GET(request: Request) {
   }
 
   const now = new Date()
-  const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000)
-  const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000)
+  const windowStart = now
+  const windowEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000)
 
   const workshops = await prisma.workshop.findMany({
     where: {
@@ -59,21 +59,25 @@ export async function GET(request: Request) {
   let totalSent = 0
 
   for (const workshop of workshops) {
+    const tz = 'America/New_York'
     const startDate = workshop.startDate.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+      timeZone: tz,
     })
     const startTime = workshop.startDate.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: tz,
     })
     const endTime = workshop.endDate.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: tz,
     })
 
     const products = workshop.products.map((wp) => ({
@@ -104,7 +108,7 @@ export async function GET(request: Request) {
       const html = buildWorkshopReminderEmail(data)
       const result = await sendEmail({
         to: registration.user.email,
-        subject: `Reminder: ${workshop.title} is tomorrow`,
+        subject: `Reminder: ${workshop.title} is today`,
         html,
       })
 

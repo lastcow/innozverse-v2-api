@@ -59,7 +59,7 @@ export function buildWorkshopReminderEmail(data: WorkshopReminderData): string {
       </div>
 
       <div style="margin-bottom:20px;">
-        <span style="background-color:#EEF2FF;border-radius:8px;padding:8px 16px;color:#4379EE;font-size:13px;font-weight:600;display:inline-block;">Workshop Tomorrow</span>
+        <span style="background-color:#EEF2FF;border-radius:8px;padding:8px 16px;color:#4379EE;font-size:13px;font-weight:600;display:inline-block;">Workshop Today</span>
       </div>
 
       <h2 style="color:#202224;font-size:20px;font-weight:600;margin:0 0 16px;">
