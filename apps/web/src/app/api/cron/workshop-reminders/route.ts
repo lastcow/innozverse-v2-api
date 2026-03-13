@@ -17,8 +17,8 @@ export async function GET(request: Request) {
   }
 
   const now = new Date()
-  const windowStart = now
-  const windowEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+  const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000)
+  const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000)
 
   const workshops = await prisma.workshop.findMany({
     where: {
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
       const html = buildWorkshopReminderEmail(data)
       const result = await sendEmail({
         to: registration.user.email,
-        subject: `Reminder: ${workshop.title} is today`,
+        subject: `Reminder: ${workshop.title} is tomorrow`,
         html,
       })
 

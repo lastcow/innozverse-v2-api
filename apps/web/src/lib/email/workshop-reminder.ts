@@ -59,7 +59,7 @@ export function buildWorkshopReminderEmail(data: WorkshopReminderData): string {
       </div>
 
       <div style="margin-bottom:20px;">
-        <span style="background-color:#EEF2FF;border-radius:8px;padding:8px 16px;color:#4379EE;font-size:13px;font-weight:600;display:inline-block;">Workshop Today</span>
+        <span style="background-color:#EEF2FF;border-radius:8px;padding:8px 16px;color:#4379EE;font-size:13px;font-weight:600;display:inline-block;">Workshop Tomorrow</span>
       </div>
 
       <h2 style="color:#202224;font-size:20px;font-weight:600;margin:0 0 16px;">
@@ -95,6 +95,10 @@ export function buildWorkshopReminderEmail(data: WorkshopReminderData): string {
           View Workshop Details
         </a>
       </div>
+
+      <p style="color:#374151;font-size:14px;line-height:1.6;margin:0 0 16px;background-color:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:14px 16px;">
+        &#9200; Please plan to arrive <strong>15 minutes early</strong> for setup and preparation.
+      </p>
 
       <p style="color:#94a3b8;font-size:13px;line-height:1.5;margin:24px 0 0;">
         You&rsquo;re receiving this email because you registered ${data.seats} seat${data.seats > 1 ? 's' : ''} for this workshop.
