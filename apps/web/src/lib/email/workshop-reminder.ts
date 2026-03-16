@@ -96,6 +96,10 @@ export function buildWorkshopReminderEmail(data: WorkshopReminderData): string {
         </a>
       </div>
 
+      <p style="color:#374151;font-size:14px;line-height:1.6;margin:0 0 16px;background-color:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:14px 16px;">
+        &#9200; Please plan to arrive <strong>15 minutes early</strong> for setup and preparation.
+      </p>
+
       <p style="color:#94a3b8;font-size:13px;line-height:1.5;margin:24px 0 0;">
         You&rsquo;re receiving this email because you registered ${data.seats} seat${data.seats > 1 ? 's' : ''} for this workshop.
         If you can no longer attend, please cancel your registration on our website.

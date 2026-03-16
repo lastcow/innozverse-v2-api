@@ -59,21 +59,25 @@ export async function GET(request: Request) {
   let totalSent = 0
 
   for (const workshop of workshops) {
+    const tz = 'America/New_York'
     const startDate = workshop.startDate.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+      timeZone: tz,
     })
     const startTime = workshop.startDate.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: tz,
     })
     const endTime = workshop.endDate.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: tz,
     })
 
     const products = workshop.products.map((wp) => ({

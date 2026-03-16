@@ -6,31 +6,34 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { signOut } from 'next-auth/react'
-import { X, User, LogOut, LayoutDashboard, ChevronDown, ShoppingCart } from 'lucide-react'
+import { X, User, LogOut, LayoutDashboard, ChevronDown, ShoppingCart, BookOpen, Package, GraduationCap, CreditCard, Building2, type LucideIcon } from 'lucide-react'
 import { useCartStore } from '@/store/useCartStore'
 import { CartDrawer } from '@/components/cart/cart-drawer'
 
 interface NavLink {
   href: string
   label: string
-  children?: { href: string; label: string }[]
+  icon?: LucideIcon
+  emoji?: string
+  children?: { href: string; label: string; icon?: LucideIcon }[]
 }
 
 const navLinks: NavLink[] = [
-  { href: '/knowledge-base', label: 'Knowledge Base' },
-  { href: '/products', label: 'Product' },
+  { href: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen },
+  { href: '/products', label: 'Product', icon: Package },
   {
     href: '/youth-program',
     label: 'Youth Program',
+    icon: GraduationCap,
     children: [
       { href: '/youth-program', label: 'Overview' },
       { href: '/workshops', label: 'Workshops' },
       { href: '/youth-program/open-studio', label: 'Open Studio' },
     ],
   },
-  { href: '/pricing', label: 'Subscription' },
-  { href: '/openclaw', label: 'OpenClaw' },
-  { href: '/company', label: 'Company' },
+  { href: '/pricing', label: 'Subscription', icon: CreditCard },
+  { href: '/openclaw', label: 'OpenClaw', emoji: '🦞' },
+  { href: '/company', label: 'Company', icon: Building2 },
 ]
 
 export function Navbar() {
@@ -79,12 +82,13 @@ export function Navbar() {
                     <button
                       onClick={() => setNavDropdown(navDropdown === link.href ? null : link.href)}
                       onBlur={() => setTimeout(() => setNavDropdown(null), 200)}
-                      className={`flex items-center h-full px-3 text-[15px] border-b-2 transition-colors gap-1 ${
+                      className={`flex items-center h-full px-3 text-[15px] border-b-2 transition-colors gap-1.5 ${
                         childActive
                           ? 'text-blue-600 border-blue-600 font-medium'
                           : 'text-slate-600 border-transparent hover:text-blue-600'
                       }`}
                     >
+                      {link.emoji ? <span className="text-base leading-none">{link.emoji}</span> : link.icon ? <link.icon className="w-4 h-4 shrink-0" /> : null}
                       {link.label}
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform ${navDropdown === link.href ? 'rotate-180' : ''}`} />
                     </button>
@@ -114,12 +118,13 @@ export function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center h-full px-3 text-[15px] border-b-2 transition-colors ${
+                  className={`flex items-center gap-1.5 h-full px-3 text-[15px] border-b-2 transition-colors ${
                     active
                       ? 'text-blue-600 border-blue-600 font-medium'
                       : 'text-slate-600 border-transparent hover:text-blue-600'
                   }`}
                 >
+                  {link.emoji ? <span className="text-base leading-none">{link.emoji}</span> : link.icon ? <link.icon className="w-4 h-4 shrink-0" /> : null}
                   {link.label}
                 </Link>
               )
@@ -247,7 +252,10 @@ export function Navbar() {
                           : 'text-slate-700 hover:text-blue-600'
                       }`}
                     >
-                      {link.label}
+                      <span className="flex items-center gap-2.5">
+                        {link.emoji ? <span className="text-xl leading-none">{link.emoji}</span> : link.icon ? <link.icon className="w-5 h-5 shrink-0" /> : null}
+                        {link.label}
+                      </span>
                       <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
                     </button>
                     {expanded && (
@@ -276,13 +284,14 @@ export function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`block px-4 py-3 text-lg transition-colors ${
+                  className={`flex items-center gap-2.5 px-4 py-3 text-lg transition-colors ${
                     active
                       ? 'text-blue-600 font-medium'
                       : 'text-slate-700 hover:text-blue-600'
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
+                  {link.emoji ? <span className="text-xl leading-none">{link.emoji}</span> : link.icon ? <link.icon className="w-5 h-5 shrink-0" /> : null}
                   {link.label}
                 </Link>
               )
