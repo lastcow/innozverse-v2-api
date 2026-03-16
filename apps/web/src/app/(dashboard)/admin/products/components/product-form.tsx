@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -70,6 +70,7 @@ interface ProductFormProps {
 
 export function ProductForm({ open, product, accessToken, onSuccess, onCancel }: ProductFormProps) {
   const isEditing = !!product
+  const [activeTab, setActiveTab] = useState('general')
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -87,6 +88,10 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
       studentDiscountPercentage: null,
     },
   })
+
+  useEffect(() => {
+    if (open) setActiveTab('general')
+  }, [open])
 
   useEffect(() => {
     if (product) {
@@ -126,6 +131,20 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
       })
     }
   }, [product, form])
+
+  const handleSubmitWithTabSwitch = () => {
+    // Trigger validation and switch to the tab with errors
+    form.handleSubmit(onSubmit)().then(() => {
+      const errors = form.formState.errors
+      const specFields = ['upc', 'description', 'properties']
+      const generalFields = ['name', 'type', 'basePrice', 'stock', 'imageUrls']
+      if (specFields.some(f => errors[f as keyof typeof errors])) {
+        setActiveTab('specifications')
+      } else if (generalFields.some(f => errors[f as keyof typeof errors])) {
+        setActiveTab('general')
+      }
+    })
+  }
 
   const onSubmit = async (data: ProductFormData) => {
     try {
@@ -220,10 +239,26 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-            <Tabs defaultValue="general" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="general">General</TabsTrigger>
-                <TabsTrigger value="specifications">Specifications</TabsTrigger>
+                <TabsTrigger value="general" className="flex items-center gap-1.5">
+                  General
+                  {(() => {
+                    const errors = form.formState.errors
+                    const generalFields = ['name', 'type', 'basePrice', 'stock', 'imageUrls', 'isRefurbished', 'isOpenBox', 'studentDiscountPercentage']
+                    const hasError = generalFields.some(f => errors[f as keyof typeof errors])
+                    return hasError ? <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> : null
+                  })()}
+                </TabsTrigger>
+                <TabsTrigger value="specifications" className="flex items-center gap-1.5">
+                  Specifications
+                  {(() => {
+                    const errors = form.formState.errors
+                    const specFields = ['upc', 'description', 'properties']
+                    const hasError = specFields.some(f => errors[f as keyof typeof errors])
+                    return hasError ? <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> : null
+                  })()}
+                </TabsTrigger>
               </TabsList>
 
               {/* Tab 1: General */}
@@ -528,7 +563,8 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
                 Cancel
               </Button>
               <Button
-                type="submit"
+                type="button"
+                onClick={handleSubmitWithTabSwitch}
                 className="bg-[#4379EE] hover:bg-[#3568d4] text-white rounded-xl"
               >
                 {isEditing ? 'Update Product' : 'Create Product'}
