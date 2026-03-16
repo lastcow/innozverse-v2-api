@@ -241,24 +241,30 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="general" className="flex items-center gap-1.5">
-                  General
-                  {(() => {
-                    const errors = form.formState.errors
-                    const generalFields = ['name', 'type', 'basePrice', 'stock', 'imageUrls', 'isRefurbished', 'isOpenBox', 'studentDiscountPercentage']
-                    const hasError = generalFields.some(f => errors[f as keyof typeof errors])
-                    return hasError ? <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> : null
-                  })()}
-                </TabsTrigger>
-                <TabsTrigger value="specifications" className="flex items-center gap-1.5">
-                  Specifications
-                  {(() => {
-                    const errors = form.formState.errors
-                    const specFields = ['upc', 'description', 'properties']
-                    const hasError = specFields.some(f => errors[f as keyof typeof errors])
-                    return hasError ? <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> : null
-                  })()}
-                </TabsTrigger>
+                {(() => {
+                  const errors = form.formState.errors
+                  const generalHasError = ['name', 'type', 'basePrice', 'stock', 'imageUrls', 'isRefurbished', 'isOpenBox', 'studentDiscountPercentage'].some(f => errors[f as keyof typeof errors])
+                  return (
+                    <TabsTrigger
+                      value="general"
+                      className={generalHasError ? 'text-red-500 data-[state=active]:text-red-500 border border-red-300 data-[state=active]:border-red-400' : ''}
+                    >
+                      General{generalHasError ? ' !' : ''}
+                    </TabsTrigger>
+                  )
+                })()}
+                {(() => {
+                  const errors = form.formState.errors
+                  const specHasError = ['upc', 'description', 'properties'].some(f => errors[f as keyof typeof errors])
+                  return (
+                    <TabsTrigger
+                      value="specifications"
+                      className={specHasError ? 'text-red-500 data-[state=active]:text-red-500 border border-red-300 data-[state=active]:border-red-400' : ''}
+                    >
+                      Specifications{specHasError ? ' !' : ''}
+                    </TabsTrigger>
+                  )
+                })()}
               </TabsList>
 
               {/* Tab 1: General */}
