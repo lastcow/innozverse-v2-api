@@ -155,7 +155,7 @@ export function RegistrationList({ registrations: initial, workshopCapacity }: R
                     )}
                   </div>
 
-                  {/* Consent status icons */}
+                  {/* Consent status icons + IP */}
                   <div className="flex items-center gap-1.5 shrink-0">
                     {hasAgreed ? (
                       <span title={`Agreement signed ${formatDateTime(reg.agreementAcceptedAt!)}`}>
@@ -173,6 +173,12 @@ export function RegistrationList({ registrations: initial, workshopCapacity }: R
                     ) : (
                       <span title="Photo/video consent denied">
                         <CameraOff className="w-4 h-4 text-orange-400" />
+                      </span>
+                    )}
+                    {reg.agreementIp && (
+                      <span className="hidden sm:flex items-center gap-1 text-[10px] font-mono text-gray-400 bg-gray-100 rounded px-1.5 py-0.5" title="IP at time of agreement">
+                        <Globe className="w-2.5 h-2.5" />
+                        {reg.agreementIp}
                       </span>
                     )}
                   </div>
