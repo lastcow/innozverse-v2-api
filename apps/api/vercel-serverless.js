@@ -960,6 +960,10 @@ app.get('/api/v1/workshops/my-registrations', authMiddleware, async (c) => {
       registered: r.workshop.registrations.reduce((sum, reg) => sum + reg.seats, 0),
       seats: r.seats,
       registeredAt: r.createdAt.toISOString(),
+      // Consent record
+      agreementAcceptedAt: r.agreementAcceptedAt ? r.agreementAcceptedAt.toISOString() : null,
+      agreementVersion: r.agreementVersion ?? null,
+      mediaConsentGranted: r.mediaConsentGranted,
     }));
 
     return c.json({ workshops });

@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
-import { CalendarDays, Users, ExternalLink, Loader2 } from 'lucide-react'
+import { CalendarDays, Users, ExternalLink, Loader2, ShieldCheck, ShieldX } from 'lucide-react'
+import { AgreementViewDialog } from '@/components/workshops/agreement-view-dialog'
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -22,6 +23,9 @@ interface WorkshopRegistration {
   registered: number
   seats: number
   registeredAt: string
+  agreementAcceptedAt: string | null
+  agreementVersion: string | null
+  mediaConsentGranted: boolean
 }
 
 interface MyWorkshopsProps {
@@ -50,6 +54,7 @@ export function MyWorkshops({ workshops }: MyWorkshopsProps) {
   const { accessToken } = useAuth()
   const [items, setItems] = useState(workshops)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [viewingAgreement, setViewingAgreement] = useState<WorkshopRegistration | null>(null)
 
   const upcoming = items.filter((w) => getStatus(w.startDate, w.endDate) === 'upcoming')
   const active = items.filter((w) => getStatus(w.startDate, w.endDate) === 'active')
@@ -77,6 +82,19 @@ export function MyWorkshops({ workshops }: MyWorkshopsProps) {
     } finally {
       setCancellingId(null)
     }
+  }
+
+  if (viewingAgreement) {
+    return (
+      <AgreementViewDialog
+        version={viewingAgreement.agreementVersion}
+        acceptedAt={viewingAgreement.agreementAcceptedAt}
+        ip={null}
+        userAgent={null}
+        mediaConsent={viewingAgreement.mediaConsentGranted}
+        onClose={() => setViewingAgreement(null)}
+      />
+    )
   }
 
   if (items.length === 0) {
@@ -153,13 +171,30 @@ export function MyWorkshops({ workshops }: MyWorkshopsProps) {
                         {w.description}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3 mt-4">
+                    <div className="flex items-center gap-3 mt-4 flex-wrap">
                       <Button variant="outline" size="sm" asChild>
                         <Link href={`/workshops/${w.workshopId}`}>
                           <ExternalLink className="w-3.5 h-3.5" />
                           View Details
                         </Link>
                       </Button>
+                      {/* Agreement link */}
+                      <button
+                        type="button"
+                        onClick={() => setViewingAgreement(w)}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium rounded-lg px-3 py-1.5 border transition-colors"
+                        style={{
+                          borderColor: w.agreementAcceptedAt ? '#86efac' : '#d1d5db',
+                          color: w.agreementAcceptedAt ? '#15803d' : '#6b7280',
+                          backgroundColor: w.agreementAcceptedAt ? '#f0fdf4' : '#f9fafb',
+                        }}
+                      >
+                        {w.agreementAcceptedAt
+                          ? <ShieldCheck className="w-3.5 h-3.5" />
+                          : <ShieldX className="w-3.5 h-3.5" />
+                        }
+                        {w.agreementAcceptedAt ? 'Signed Agreement' : 'No Agreement'}
+                      </button>
                       {showCancel && (
                         <Button
                           variant="destructive"
