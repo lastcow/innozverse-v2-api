@@ -1031,6 +1031,15 @@ app.post('/api/v1/workshops/:id/register', authMiddleware, async (c) => {
     let body = {};
     try { body = await c.req.json(); } catch {}
     const seats = Math.max(1, Math.floor(Number(body.seats) || 1));
+    const mediaConsentGranted = body.mediaConsentGranted !== false; // default true
+    const agreementVersion = 'MD-STEM-v1-2026-03-26';
+    const agreementAcceptedAt = new Date(); // server-authoritative timestamp
+    const agreementIp =
+      c.req.header('cf-connecting-ip') ||
+      (c.req.header('x-forwarded-for') || '').split(',')[0].trim() ||
+      c.req.header('x-real-ip') ||
+      'unknown';
+    const agreementUserAgent = c.req.header('user-agent') || null;
 
     const workshop = await prisma.workshop.findUnique({
       where: { id: workshopId },
@@ -1059,10 +1068,24 @@ app.post('/api/v1/workshops/:id/register', authMiddleware, async (c) => {
     }
 
     await prisma.workshopRegistration.create({
-      data: { userId, workshopId, seats },
+      data: {
+        userId,
+        workshopId,
+        seats,
+        agreementAcceptedAt,
+        agreementVersion,
+        agreementIp,
+        agreementUserAgent,
+        mediaConsentGranted,
+      },
     });
 
-    return c.json({ message: 'Registered successfully' }, 201);
+    return c.json({
+      message: 'Registered successfully',
+      agreementVersion,
+      agreementAcceptedAt: agreementAcceptedAt.toISOString(),
+      mediaConsentGranted,
+    }, 201);
 
   } catch (error) {
     if (error.code === 'P2002') {
