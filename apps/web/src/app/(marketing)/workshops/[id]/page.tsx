@@ -33,7 +33,7 @@ export default async function WorkshopDetailPage({
 }: {
   params: { id: string }
 }) {
-  const session = await auth().catch(() => null)
+  const session = await auth()
   const isAuthenticated = !!session?.user?.id
 
   const headers: Record<string, string> = {}
@@ -41,17 +41,10 @@ export default async function WorkshopDetailPage({
     headers['Authorization'] = `Bearer ${session.accessToken}`
   }
 
-  let res = await fetch(`${apiUrl}/api/v1/workshops/${params.id}`, {
+  const res = await fetch(`${apiUrl}/api/v1/workshops/${params.id}`, {
     cache: 'no-store',
     headers,
   })
-
-  // If auth caused a failure, retry as guest
-  if (!res.ok && headers['Authorization']) {
-    res = await fetch(`${apiUrl}/api/v1/workshops/${params.id}`, {
-      cache: 'no-store',
-    })
-  }
 
   if (!res.ok) {
     notFound()

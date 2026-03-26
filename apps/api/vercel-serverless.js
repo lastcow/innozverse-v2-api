@@ -1003,10 +1003,15 @@ app.get('/api/v1/workshops/:id', optionalAuthMiddleware, async (c) => {
 
     let isRegistered = false;
     if (user) {
-      const registration = await prisma.workshopRegistration.findUnique({
-        where: { userId_workshopId: { userId: user.userId, workshopId: id } },
-      });
-      isRegistered = !!registration;
+      try {
+        const registration = await prisma.workshopRegistration.findUnique({
+          where: { userId_workshopId: { userId: user.userId, workshopId: id } },
+        });
+        isRegistered = !!registration;
+      } catch (regError) {
+        console.error('isRegistered check failed (non-fatal):', regError?.message);
+        // Non-fatal: workshop still loads, registration status unknown
+      }
     }
 
     return c.json({ workshop, isRegistered });
