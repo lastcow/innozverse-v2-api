@@ -5,7 +5,7 @@ import { X, ScrollText, CheckCircle2, AlertTriangle, Shield, Heart, Camera, MapP
 import { Button } from '@/components/ui/button'
 
 interface AgreementModalProps {
-  onAccept: () => void
+  onAccept: (mediaConsent: boolean) => void
   onCancel: () => void
 }
 
@@ -13,6 +13,7 @@ export function AgreementModal({ onAccept, onCancel }: AgreementModalProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [hasScrolled, setHasScrolled] = useState(false)
   const [checked, setChecked] = useState(false)
+  const [mediaConsent, setMediaConsent] = useState(true)
 
   function handleScroll() {
     const el = scrollRef.current
@@ -153,13 +154,35 @@ export function AgreementModal({ onAccept, onCancel }: AgreementModalProps) {
             <p className="text-slate-600 text-xs">Cancellations must be submitted <strong>in writing</strong>. Refunds (if any) follow the official posted policy. Programs may be <strong>canceled or rescheduled</strong> due to weather, low enrollment, or unforeseen events.</p>
           </div>
 
-          {/* Media */}
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
-            <div className="flex items-center gap-1.5">
-              <Camera className="w-3.5 h-3.5 text-gray-500" />
-              <p className="font-semibold text-slate-800 text-xs uppercase tracking-wide">Media Release</p>
+          {/* Media Release with opt-out toggle */}
+          <div className={`rounded-xl border-2 px-4 py-3 space-y-2 transition-colors ${mediaConsent ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Camera className={`w-3.5 h-3.5 ${mediaConsent ? 'text-green-600' : 'text-gray-400'}`} />
+                <p className="font-semibold text-slate-800 text-xs uppercase tracking-wide">Photo & Video Consent</p>
+              </div>
+              {/* Toggle */}
+              <button
+                type="button"
+                onClick={() => setMediaConsent((v) => !v)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none
+                  ${mediaConsent ? 'bg-green-500' : 'bg-gray-300'}`}
+                role="switch"
+                aria-checked={mediaConsent}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition duration-200
+                    ${mediaConsent ? 'translate-x-4' : 'translate-x-0'}`}
+                />
+              </button>
             </div>
-            <p className="text-slate-600 text-xs">Unless you <strong>opt out in writing</strong>, you grant permission for use of photos/videos for educational and promotional purposes <strong>without compensation</strong>.</p>
+            <p className="text-slate-600 text-xs">
+              {mediaConsent
+                ? <span>✅ <strong>Consent granted</strong> — photos/videos of the Participant may be used for educational and promotional purposes without compensation.</span>
+                : <span>🚫 <strong>Opted out</strong> — photos/videos of the Participant will <strong>not</strong> be used for promotional purposes.</span>
+              }
+            </p>
+            <p className="text-slate-400 text-[10px]">Toggle to opt out. You can change this at any time by contacting us in writing.</p>
           </div>
 
           {/* Privacy & Governing Law */}
@@ -225,7 +248,7 @@ export function AgreementModal({ onAccept, onCancel }: AgreementModalProps) {
             <Button
               className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-semibold"
               disabled={!checked || !hasScrolled}
-              onClick={onAccept}
+              onClick={() => onAccept(mediaConsent)}
             >
               ✓ I Agree — Continue Registration
             </Button>

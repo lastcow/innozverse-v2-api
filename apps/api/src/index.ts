@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import vmRoutes from './routes/vms';
+import workshopRoutes from './routes/workshops';
 import subscriptionRoutes from './routes/subscriptions';
 import serviceRoutes from './routes/services';
 import announcementRoutes from './routes/announcements';
@@ -33,6 +34,7 @@ app.get('/api/v1', (c) => {
   return c.json({ message: 'Innozverse API v1' });
 });
 app.route('/', vmRoutes);
+app.route('/', workshopRoutes);
 app.route('/', subscriptionRoutes);
 app.route('/', serviceRoutes);
 app.route('/', announcementRoutes);

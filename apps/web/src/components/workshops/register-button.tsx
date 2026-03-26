@@ -73,7 +73,7 @@ export function RegisterButton({
 
   const maxSeats = availableSeats ?? 99
 
-  async function handleRegister() {
+  async function handleRegister(mediaConsentGranted = true) {
     setLoading(true)
     try {
       const res = await fetch(`${apiUrl}/api/v1/workshops/${workshopId}/register`, {
@@ -82,7 +82,11 @@ export function RegisterButton({
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ seats }),
+        body: JSON.stringify({
+          seats,
+          mediaConsentGranted,
+          agreedAt: new Date().toISOString(),
+        }),
       })
 
       if (res.ok) {
@@ -105,9 +109,9 @@ export function RegisterButton({
     <>
       {showAgreement && (
         <AgreementModal
-          onAccept={() => {
+          onAccept={(mediaConsent) => {
             setShowAgreement(false)
-            handleRegister()
+            handleRegister(mediaConsent)
           }}
           onCancel={() => setShowAgreement(false)}
         />
