@@ -156,15 +156,17 @@ export default function YouthProgramPage() {
                   key={w.name}
                   className={`rounded-3xl overflow-hidden border-2 ${w.border} ${w.bg} shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1`}
                 >
-                  {/* Workshop image */}
-                  <div className="relative w-full aspect-video">
-                    <Image
-                      src={w.img}
-                      alt={w.alt}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 640px) 100vw, 50vw"
-                    />
+                  {/* Workshop image — padded top so all cards align */}
+                  <div className="p-4 pb-0">
+                    <div className="relative w-full aspect-video rounded-2xl overflow-hidden">
+                      <Image
+                        src={w.img}
+                        alt={w.alt}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 640px) 100vw, 50vw"
+                      />
+                    </div>
                   </div>
 
                   {/* Card body */}
