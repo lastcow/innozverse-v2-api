@@ -250,6 +250,13 @@ model WorkshopRegistration {
   seats      Int      @default(1)
   createdAt  DateTime @default(now()) @map("created_at")
 
+  // Agreement consent record
+  agreementAcceptedAt   DateTime? @map("agreement_accepted_at")
+  agreementVersion      String?   @map("agreement_version")
+  agreementIp           String?   @map("agreement_ip")
+  agreementUserAgent    String?   @map("agreement_user_agent")
+  mediaConsentGranted   Boolean   @default(true) @map("media_consent_granted")
+
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   workshop Workshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
 

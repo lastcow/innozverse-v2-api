@@ -960,6 +960,10 @@ app.get('/api/v1/workshops/my-registrations', authMiddleware, async (c) => {
       registered: r.workshop.registrations.reduce((sum, reg) => sum + reg.seats, 0),
       seats: r.seats,
       registeredAt: r.createdAt.toISOString(),
+      // Consent record
+      agreementAcceptedAt: r.agreementAcceptedAt ? r.agreementAcceptedAt.toISOString() : null,
+      agreementVersion: r.agreementVersion ?? null,
+      mediaConsentGranted: r.mediaConsentGranted,
     }));
 
     return c.json({ workshops });
@@ -1003,10 +1007,15 @@ app.get('/api/v1/workshops/:id', optionalAuthMiddleware, async (c) => {
 
     let isRegistered = false;
     if (user) {
-      const registration = await prisma.workshopRegistration.findUnique({
-        where: { userId_workshopId: { userId: user.userId, workshopId: id } },
-      });
-      isRegistered = !!registration;
+      try {
+        const registration = await prisma.workshopRegistration.findUnique({
+          where: { userId_workshopId: { userId: user.userId, workshopId: id } },
+        });
+        isRegistered = !!registration;
+      } catch (regError) {
+        console.error('isRegistered check failed (non-fatal):', regError?.message);
+        // Non-fatal: workshop still loads, registration status unknown
+      }
     }
 
     return c.json({ workshop, isRegistered });
@@ -1031,6 +1040,15 @@ app.post('/api/v1/workshops/:id/register', authMiddleware, async (c) => {
     let body = {};
     try { body = await c.req.json(); } catch {}
     const seats = Math.max(1, Math.floor(Number(body.seats) || 1));
+    const mediaConsentGranted = body.mediaConsentGranted !== false; // default true
+    const agreementVersion = 'MD-STEM-v1-2026-03-26';
+    const agreementAcceptedAt = new Date(); // server-authoritative timestamp
+    const agreementIp =
+      c.req.header('cf-connecting-ip') ||
+      (c.req.header('x-forwarded-for') || '').split(',')[0].trim() ||
+      c.req.header('x-real-ip') ||
+      'unknown';
+    const agreementUserAgent = c.req.header('user-agent') || null;
 
     const workshop = await prisma.workshop.findUnique({
       where: { id: workshopId },
@@ -1059,10 +1077,24 @@ app.post('/api/v1/workshops/:id/register', authMiddleware, async (c) => {
     }
 
     await prisma.workshopRegistration.create({
-      data: { userId, workshopId, seats },
+      data: {
+        userId,
+        workshopId,
+        seats,
+        agreementAcceptedAt,
+        agreementVersion,
+        agreementIp,
+        agreementUserAgent,
+        mediaConsentGranted,
+      },
     });
 
-    return c.json({ message: 'Registered successfully' }, 201);
+    return c.json({
+      message: 'Registered successfully',
+      agreementVersion,
+      agreementAcceptedAt: agreementAcceptedAt.toISOString(),
+      mediaConsentGranted,
+    }, 201);
 
   } catch (error) {
     if (error.code === 'P2002') {
@@ -1119,6 +1151,7 @@ app.get('/api/v1/workshops/:id/registrations', authMiddleware, requireRole('ADMI
             },
           },
           orderBy: { createdAt: 'asc' },
+          // Include consent/agreement fields for admin view
         },
       },
     });
