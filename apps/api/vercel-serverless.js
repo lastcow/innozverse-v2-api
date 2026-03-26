@@ -1147,6 +1147,7 @@ app.get('/api/v1/workshops/:id/registrations', authMiddleware, requireRole('ADMI
             },
           },
           orderBy: { createdAt: 'asc' },
+          // Include consent/agreement fields for admin view
         },
       },
     });
