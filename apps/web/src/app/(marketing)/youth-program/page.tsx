@@ -266,7 +266,7 @@ export default function YouthProgramPage() {
             <Button asChild size="lg" className="bg-white text-blue-600 hover:bg-blue-50 text-lg rounded-2xl px-8 py-6 font-bold shadow-lg">
               <Link href="/workshops">🚀 View Workshops</Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="text-lg rounded-2xl px-8 py-6 border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-bold">
+            <Button asChild size="lg" className="bg-white text-blue-600 hover:bg-blue-50 text-lg rounded-2xl px-8 py-6 font-bold shadow-lg">
               <Link href="/contact">📬 Contact Us</Link>
             </Button>
           </div>
