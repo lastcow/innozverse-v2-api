@@ -21,7 +21,7 @@ const workshops = [
     tagline: 'Power up and drive!',
     description:
       'Learn how electricity makes things move! Build your own solar-powered car and explore the science behind wind turbines and light bulbs.',
-    grades: 'Grades 3–6',
+    grades: 'Ages 7+',
     icon: Zap,
     color: 'from-orange-400 to-yellow-300',
     bg: 'bg-orange-50',
@@ -37,7 +37,7 @@ const workshops = [
     tagline: 'Snap, click, light up!',
     description:
       'No soldering needed! Snap colorful pieces together to build radios, alarms, and fun gadgets. Every click teaches you how electricity flows.',
-    grades: 'Grades 3–7',
+    grades: 'Ages 6+',
     icon: Cpu,
     color: 'from-blue-500 to-cyan-400',
     bg: 'bg-blue-50',
@@ -53,7 +53,7 @@ const workshops = [
     tagline: 'Gears, dinos, and trucks!',
     description:
       'Make things move with gears and motors! Build mechanical dinosaurs and monster trucks while learning the basics of engineering.',
-    grades: 'Grades 4–8',
+    grades: 'Ages 8+',
     icon: Cog,
     color: 'from-green-500 to-lime-400',
     bg: 'bg-green-50',
@@ -69,7 +69,8 @@ const workshops = [
     tagline: 'Build your own robot!',
     description:
       'Program cute robots to wave, dance, and solve mazes! Learn the basics of AI and robotics through hands-on challenges and mini-competitions.',
-    grades: 'Grades 5–9',
+    grades: '⭐ Advanced',
+    prereq: 'Requires at least 1 of: Energy, Snap Circuits, or Mechanic Motion',
     icon: Bot,
     color: 'from-purple-500 to-indigo-400',
     bg: 'bg-purple-50',
@@ -185,6 +186,14 @@ export default function YouthProgramPage() {
                     </div>
 
                     <p className="text-slate-600 leading-relaxed">{w.description}</p>
+
+                    {/* Prerequisite notice */}
+                    {'prereq' in w && (
+                      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-700 font-medium">
+                        <span className="shrink-0">📋</span>
+                        {(w as typeof w & { prereq: string }).prereq}
+                      </div>
+                    )}
 
                     {/* Skills chips */}
                     <div className="flex flex-wrap gap-2">
