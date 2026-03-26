@@ -70,7 +70,7 @@ const workshops = [
     description:
       'Program cute robots to wave, dance, and solve mazes! Learn the basics of AI and robotics through hands-on challenges and mini-competitions.',
     grades: '⭐ Advanced',
-    prereq: 'Requires at least 1 session each from: Energy & Drive, Snap Circuits, and Mechanic Motion',
+    prereq: 'Requires full completion of Energy & Drive, Snap Circuits, and Mechanic Motion',
     icon: Bot,
     color: 'from-purple-500 to-indigo-400',
     bg: 'bg-purple-50',
