@@ -112,8 +112,8 @@ export function AgreementModal({ onAccept, onCancel }: AgreementModalProps) {
           <Section icon={Heart} iconColor="text-pink-500" bg="bg-pink-50" border="border-pink-200" title="Medical Authorization">
             <p className="text-slate-600">You authorize program staff to seek <strong>emergency medical care</strong> if needed. You acknowledge that:</p>
             <ul className="mt-1 space-y-1 text-slate-600">
-              <li className="flex items-start gap-2"><span className="text-pink-500 mt-0.5">•</span> You are financially responsible for any medical treatment</li>
-              <li className="flex items-start gap-2"><span className="text-pink-500 mt-0.5">•</span> You have disclosed all relevant medical conditions, allergies, or special needs</li>
+              <li className="flex items-start gap-2"><span className="text-pink-500 mt-0.5">•</span> You are <strong>financially responsible</strong> for any medical treatment</li>
+              <li className="flex items-start gap-2"><span className="text-pink-500 mt-0.5">•</span> You have disclosed all relevant <strong>medical conditions, allergies, or special needs</strong></li>
             </ul>
           </Section>
 
@@ -121,19 +121,19 @@ export function AgreementModal({ onAccept, onCancel }: AgreementModalProps) {
           <Section icon={Ban} iconColor="text-slate-500" bg="bg-slate-50" border="border-slate-200" title="Code of Conduct & Dismissal Policy">
             <p className="text-slate-600">Participants must follow all safety rules and instructions. The program reserves the right to:</p>
             <ul className="mt-1 space-y-1 text-slate-600">
-              <li className="flex items-start gap-2"><span className="text-slate-400 mt-0.5">•</span> Remove any participant for unsafe, disruptive, or inappropriate behavior</li>
-              <li className="flex items-start gap-2"><span className="text-slate-400 mt-0.5">•</span> Suspend participation immediately if safety is at risk</li>
+              <li className="flex items-start gap-2"><span className="text-slate-400 mt-0.5">•</span> Remove any participant for <strong>unsafe, disruptive, or inappropriate behavior</strong></li>
+              <li className="flex items-start gap-2"><span className="text-slate-400 mt-0.5">•</span> <strong>Suspend participation immediately</strong> if safety is at risk</li>
             </ul>
-            <p className="mt-2 text-xs text-slate-500 italic">No refund is guaranteed in cases of dismissal due to misconduct.</p>
+            <p className="mt-2 text-xs text-slate-500 font-semibold">⚠️ No refund is guaranteed in cases of dismissal due to misconduct.</p>
           </Section>
 
           {/* Pickup */}
           <Section icon={MapPin} iconColor="text-blue-500" bg="bg-blue-50" border="border-blue-200" title="Pickup Authorization & Release of Child">
             <p className="text-slate-600">You must provide authorized pickup individuals during registration. By registering:</p>
             <ul className="mt-1 space-y-1 text-slate-600">
-              <li className="flex items-start gap-2"><span className="text-blue-500 mt-0.5">•</span> Only authorized individuals may pick up the Participant</li>
-              <li className="flex items-start gap-2"><span className="text-blue-500 mt-0.5">•</span> Valid identification may be required</li>
-              <li className="flex items-start gap-2"><span className="text-blue-500 mt-0.5">•</span> The program is not responsible for the Participant after authorized pickup</li>
+              <li className="flex items-start gap-2"><span className="text-blue-500 mt-0.5">•</span> <strong>Only authorized individuals</strong> may pick up the Participant</li>
+              <li className="flex items-start gap-2"><span className="text-blue-500 mt-0.5">•</span> <strong>Valid identification may be required</strong></li>
+              <li className="flex items-start gap-2"><span className="text-blue-500 mt-0.5">•</span> The program is <strong>not responsible</strong> for the Participant after authorized pickup</li>
             </ul>
           </Section>
 
@@ -150,7 +150,7 @@ export function AgreementModal({ onAccept, onCancel }: AgreementModalProps) {
           {/* Cancellation */}
           <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
             <p className="font-semibold text-slate-800 text-xs uppercase tracking-wide">Cancellation & Refund Policy</p>
-            <p className="text-slate-600 text-xs">Cancellations must be submitted in writing. Refunds (if any) follow the official posted policy. Programs may be canceled or rescheduled due to weather, low enrollment, or unforeseen events.</p>
+            <p className="text-slate-600 text-xs">Cancellations must be submitted <strong>in writing</strong>. Refunds (if any) follow the official posted policy. Programs may be <strong>canceled or rescheduled</strong> due to weather, low enrollment, or unforeseen events.</p>
           </div>
 
           {/* Media */}
@@ -159,7 +159,7 @@ export function AgreementModal({ onAccept, onCancel }: AgreementModalProps) {
               <Camera className="w-3.5 h-3.5 text-gray-500" />
               <p className="font-semibold text-slate-800 text-xs uppercase tracking-wide">Media Release</p>
             </div>
-            <p className="text-slate-600 text-xs">Unless you opt out in writing, you grant permission for use of photos/videos for educational and promotional purposes without compensation.</p>
+            <p className="text-slate-600 text-xs">Unless you <strong>opt out in writing</strong>, you grant permission for use of photos/videos for educational and promotional purposes <strong>without compensation</strong>.</p>
           </div>
 
           {/* Privacy & Governing Law */}
