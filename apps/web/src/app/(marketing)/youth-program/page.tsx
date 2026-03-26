@@ -101,7 +101,7 @@ export default function YouthProgramPage() {
         <div className="container max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold mb-6">
             <GraduationCap className="w-4 h-4" />
-            K–9 STEM Workshops
+            K–12 STEM Workshops
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight mb-4">
@@ -222,32 +222,6 @@ export default function YouthProgramPage() {
                   {step}
                 </div>
                 <div className="text-4xl mb-3">{emoji}</div>
-                <h3 className="text-lg font-extrabold text-slate-900 mb-2">{title}</h3>
-                <p className="text-slate-500 text-sm leading-relaxed">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Who It's For ──────────────────────────────────── */}
-      <section className="py-20 bg-white">
-        <div className="container max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-3">
-              👋 Who Can Join?
-            </h2>
-            <p className="text-lg text-slate-500">Our workshops are designed for every kind of kid.</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {[
-              { emoji: '🏫', title: 'School Groups', desc: 'Perfect for class trips, after-school programs, and STEM clubs.' },
-              { emoji: '🏠', title: 'Homeschool Families', desc: "Flexible scheduling to fit your family's learning style." },
-              { emoji: '🌍', title: 'Community Centers', desc: 'We partner with community organizations to make STEM accessible to all.' },
-            ].map(({ emoji, title, desc }) => (
-              <div key={title} className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-3xl p-8 border border-blue-100 text-center hover:shadow-md transition-shadow">
-                <div className="text-5xl mb-4">{emoji}</div>
                 <h3 className="text-lg font-extrabold text-slate-900 mb-2">{title}</h3>
                 <p className="text-slate-500 text-sm leading-relaxed">{desc}</p>
               </div>
