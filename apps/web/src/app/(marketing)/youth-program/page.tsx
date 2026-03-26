@@ -1,3 +1,4 @@
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import {
   Zap,
@@ -13,6 +14,11 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+
+const HomeNetworkCanvas = dynamic(
+  () => import('@/components/home/HomeNetworkCanvas').then((mod) => mod.HomeNetworkCanvas),
+  { ssr: false }
+)
 
 const workshops = [
   {
@@ -95,6 +101,10 @@ export default function YouthProgramPage() {
 
       {/* ── Hero ─────────────────────────────────────────── */}
       <section className="relative py-16 lg:py-24 bg-gradient-to-b from-sky-100 via-blue-50 to-white overflow-hidden">
+        {/* Three.js background */}
+        <div className="absolute inset-0 pointer-events-none">
+          <HomeNetworkCanvas />
+        </div>
         {/* Decorative blobs */}
         <div className="absolute top-0 left-0 w-72 h-72 bg-yellow-200 rounded-full blur-3xl opacity-30 -translate-x-1/2 -translate-y-1/2" />
         <div className="absolute top-0 right-0 w-72 h-72 bg-purple-200 rounded-full blur-3xl opacity-30 translate-x-1/2 -translate-y-1/2" />
