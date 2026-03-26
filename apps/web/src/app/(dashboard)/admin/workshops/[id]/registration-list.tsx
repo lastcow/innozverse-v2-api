@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Users, Mail, Minus, Plus, Trash2, Loader2, ShieldCheck, ShieldX, Camera, CameraOff, Clock, Globe, ChevronDown, ChevronUp } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
+import { AgreementViewDialog } from '@/components/workshops/agreement-view-dialog'
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -41,6 +42,7 @@ export function RegistrationList({ registrations: initial, workshopCapacity }: R
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [viewingAgreement, setViewingAgreement] = useState<Registration | null>(null)
 
   const totalSeats = registrations.reduce((sum, r) => sum + r.seats, 0)
   const agreedCount = registrations.filter((r) => r.agreementAcceptedAt).length
@@ -98,6 +100,17 @@ export function RegistrationList({ registrations: initial, workshopCapacity }: R
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
+      {viewingAgreement && (
+        <AgreementViewDialog
+          version={viewingAgreement.agreementVersion}
+          acceptedAt={viewingAgreement.agreementAcceptedAt}
+          ip={viewingAgreement.agreementIp}
+          userAgent={viewingAgreement.agreementUserAgent}
+          mediaConsent={viewingAgreement.mediaConsentGranted}
+          userName={[viewingAgreement.user.fname, viewingAgreement.user.lname].filter(Boolean).join(' ') || viewingAgreement.user.email}
+          onClose={() => setViewingAgreement(null)}
+        />
+      )}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-[#4379EE]" />
@@ -256,10 +269,16 @@ export function RegistrationList({ registrations: initial, workshopCapacity }: R
                         <div>
                           <p className="text-gray-500">Agreement</p>
                           <p className={`font-medium ${hasAgreed ? 'text-green-700' : 'text-gray-400'}`}>
-                            {hasAgreed ? `Signed` : 'Not on record'}
+                            {hasAgreed ? 'Signed' : 'Not on record'}
                           </p>
                           {reg.agreementVersion && (
-                            <p className="text-gray-400">{reg.agreementVersion}</p>
+                            <button
+                              type="button"
+                              onClick={() => setViewingAgreement(reg)}
+                              className="text-blue-500 hover:text-blue-700 hover:underline font-mono text-[10px] mt-0.5"
+                            >
+                              {reg.agreementVersion} ↗
+                            </button>
                           )}
                         </div>
                       </div>
