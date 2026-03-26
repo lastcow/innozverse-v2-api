@@ -130,7 +130,7 @@ export default function YouthProgramPage() {
             <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white text-lg rounded-2xl px-8 py-6 shadow-lg shadow-blue-200">
               <Link href="/workshops">🎉 See Upcoming Workshops</Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="text-lg rounded-2xl px-8 py-6 border-2">
+            <Button asChild variant="outline" size="lg" className="text-lg rounded-2xl px-8 py-6 border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-bold">
               <Link href="/contact">📬 Contact Us</Link>
             </Button>
           </div>
@@ -266,8 +266,8 @@ export default function YouthProgramPage() {
             <Button asChild size="lg" className="bg-white text-blue-600 hover:bg-blue-50 text-lg rounded-2xl px-8 py-6 font-bold shadow-lg">
               <Link href="/workshops">🚀 View Workshops</Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-blue-600 text-lg rounded-2xl px-8 py-6 font-bold">
-              <Link href="/contact">📬 Get in Touch</Link>
+            <Button asChild variant="outline" size="lg" className="text-lg rounded-2xl px-8 py-6 border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-bold">
+              <Link href="/contact">📬 Contact Us</Link>
             </Button>
           </div>
         </div>
