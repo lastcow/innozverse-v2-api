@@ -314,6 +314,143 @@ app.post('/api/v1/auth/login', async (c) => {
 });
 
 // ============================================================
+// Upload Routes
+// ============================================================
+
+// POST /api/v1/upload/images - Upload images with Cloudinary
+app.post('/api/v1/upload/images', authMiddleware, async (c) => {
+  const crypto = require('crypto');
+  
+  try {
+    const contentType = c.req.header('content-type') || '';
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      return c.json({ error: 'Cloudinary not configured' }, 500);
+    }
+
+    // Flow A: Multipart file upload
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await c.req.formData();
+      const files = formData.getAll('files');
+
+      if (!files || files.length === 0) {
+        return c.json({ error: 'No files provided' }, 400);
+      }
+
+      if (files.length > 10) {
+        return c.json({ error: 'Maximum 10 files allowed' }, 400);
+      }
+
+      const images = [];
+
+      for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+          return c.json({ error: `Invalid file type: ${file.type}` }, 400);
+        }
+
+        if (file.size > 50 * 1024 * 1024) {
+          return c.json({ error: 'File size exceeds 50MB limit' }, 400);
+        }
+
+        try {
+          const buffer = await file.arrayBuffer();
+          const timestamp = Math.floor(Date.now() / 1000);
+
+          const params = {
+            timestamp,
+            api_key: apiKey,
+          };
+
+          const sortedKeys = Object.keys(params).sort();
+          const paramsStr = sortedKeys.map((key) => `${key}=${params[key]}`).join('&');
+          const signature = crypto.createHash('sha1').update(paramsStr + apiSecret).digest('hex');
+
+          const uploadFormData = new FormData();
+          uploadFormData.append('file', new Blob([buffer], { type: file.type }), file.name);
+          uploadFormData.append('api_key', apiKey);
+          uploadFormData.append('timestamp', timestamp.toString());
+          uploadFormData.append('signature', signature);
+
+          const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+          const uploadResponse = await fetch(uploadUrl, {
+            method: 'POST',
+            body: uploadFormData,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Cloudinary upload failed: ${uploadResponse.status}`);
+          }
+
+          const uploadData = await uploadResponse.json();
+          images.push({
+            url: uploadData.secure_url,
+            publicId: uploadData.public_id,
+          });
+        } catch (fileError) {
+          console.error('File upload error:', fileError);
+          return c.json({ error: `Failed to upload ${file.name}` }, 500);
+        }
+      }
+
+      return c.json({ images });
+    }
+
+    // Flow B: Direct URL upload
+    if (contentType.includes('application/json')) {
+      const body = await c.req.json();
+
+      // Single URL
+      if (body.imageUrl) {
+        try {
+          new URL(body.imageUrl);
+        } catch {
+          return c.json({ error: 'Invalid URL format' }, 400);
+        }
+        return c.json({ images: [{ url: body.imageUrl, publicId: '' }] });
+      }
+
+      // Batch URLs
+      if (Array.isArray(body.imageUrls) && body.imageUrls.length > 0) {
+        if (body.imageUrls.length > 10) {
+          return c.json({ error: 'Maximum 10 URLs allowed' }, 400);
+        }
+        for (const url of body.imageUrls) {
+          try {
+            new URL(url);
+          } catch {
+            return c.json({ error: 'One or more URLs are invalid' }, 400);
+          }
+        }
+        const images = body.imageUrls.map((url) => ({
+          url,
+          publicId: '',
+        }));
+        return c.json({ images });
+      }
+
+      return c.json({ error: 'Either imageUrl or imageUrls is required' }, 400);
+    }
+
+    return c.json({ error: 'Content-Type must be multipart/form-data or application/json' }, 400);
+  } catch (error) {
+    console.error('Upload error:', error);
+    const message = error instanceof Error ? error.message : 'Upload failed';
+    return c.json({ error: message }, 500);
+  }
+});
+
+// GET /api/v1/upload/test - Health check
+app.get('/api/v1/upload/test', authMiddleware, (c) => {
+  return c.json({
+    message: 'Upload endpoint is healthy',
+    cloudinaryConfigured: !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET),
+  });
+});
+
+// ============================================================
 // Product Routes
 // ============================================================
 
