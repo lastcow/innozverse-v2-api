@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Plus, Trash2, Image } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/form'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { MultiImageUpload } from '@/components/ui/multi-image-upload'
 import type { Product } from '@repo/database'
 
 const productSchema = z.object({
@@ -210,18 +211,7 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
     )
   }
 
-  const addImageUrl = () => {
-    const currentImageUrls = form.getValues('imageUrls')
-    form.setValue('imageUrls', [...currentImageUrls, ''])
-  }
 
-  const removeImageUrl = (index: number) => {
-    const currentImageUrls = form.getValues('imageUrls')
-    form.setValue(
-      'imageUrls',
-      currentImageUrls.filter((_, i) => i !== index)
-    )
-  }
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onCancel()}>
@@ -411,53 +401,26 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
                   )}
                 />
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-base">Product Images</Label>
-                    <Button
-                      type="button"
-                      onClick={addImageUrl}
-                      variant="outline"
-                      size="sm"
-                      className="border-gray-200 text-[#4379EE] hover:bg-blue-50"
-                    >
-                      <Image className="w-4 h-4 mr-1" />
-                      Add Image URL
-                    </Button>
-                  </div>
-
-                  <div className="space-y-3 border border-gray-100 rounded-xl p-4 bg-[#F9FAFB]">
-                    {form.watch('imageUrls').length === 0 ? (
-                      <p className="text-sm text-gray-400 text-center py-4">
-                        No images added yet. Click &ldquo;Add Image URL&rdquo; to start.
-                      </p>
-                    ) : (
-                      form.watch('imageUrls').map((_, index) => (
-                        <div key={index} className="flex gap-2">
-                          <FormField
-                            control={form.control}
-                            name={`imageUrls.${index}`}
-                            render={({ field }) => (
-                              <FormItem className="flex-1">
-                                <FormControl>
-                                  <Input placeholder="https://example.com/image.jpg" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeImageUrl(index)}
-                            className="w-9 h-9 shrink-0 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+                <FormField
+                  control={form.control}
+                  name="imageUrls"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Product Images</FormLabel>
+                      <FormControl>
+                        <MultiImageUpload
+                          value={field.value}
+                          onChange={(urls) => form.setValue('imageUrls', urls, { shouldDirty: true })}
+                          accessToken={accessToken}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Upload files or paste image URLs (up to 10 images)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </TabsContent>
 
               {/* Tab 2: Specifications */}

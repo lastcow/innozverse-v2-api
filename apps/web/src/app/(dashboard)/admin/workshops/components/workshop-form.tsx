@@ -465,6 +465,7 @@ export function WorkshopForm({ open, workshop, accessToken, onSuccess, onCancel 
                     <MultiImageUpload
                       value={field.value}
                       onChange={(urls) => form.setValue('imageUrls', urls, { shouldDirty: true })}
+                      accessToken={accessToken}
                     />
                   </FormControl>
                   <FormDescription>

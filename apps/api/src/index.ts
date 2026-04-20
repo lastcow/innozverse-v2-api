@@ -10,6 +10,7 @@ import announcementRoutes from './routes/announcements';
 import storageRoutes from './routes/storage';
 import vmTemplateRoutes from './routes/vm-templates';
 import ipPoolRoutes from './routes/ip-pool';
+import uploadRoutes from './routes/upload';
 
 const app = new Hono();
 
@@ -39,6 +40,7 @@ app.route('/', announcementRoutes);
 app.route('/', storageRoutes);
 app.route('/', vmTemplateRoutes);
 app.route('/', ipPoolRoutes);
+app.route('/', uploadRoutes);
 
 export default app;
 
