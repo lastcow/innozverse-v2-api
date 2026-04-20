@@ -62,6 +62,7 @@ async function uploadToCloudinary(buffer: Buffer, filename: string): Promise<Upl
   const params = {
     timestamp,
     api_key: apiKey,
+    folder: 'innoZverse/product_imgs',
   }
 
   const signature = signCloudinaryRequest(params as Record<string, string | number>)
@@ -72,6 +73,7 @@ async function uploadToCloudinary(buffer: Buffer, filename: string): Promise<Upl
   formData.append('api_key', apiKey)
   formData.append('timestamp', timestamp.toString())
   formData.append('signature', signature)
+  formData.append('folder', 'innoZverse/product_imgs')
 
   const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`
 

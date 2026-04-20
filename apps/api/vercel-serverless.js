@@ -362,6 +362,7 @@ app.post('/api/v1/upload/images', authMiddleware, async (c) => {
           const params = {
             timestamp,
             api_key: apiKey,
+            folder: 'innoZverse/product_imgs',
           };
 
           const sortedKeys = Object.keys(params).sort();
@@ -373,6 +374,7 @@ app.post('/api/v1/upload/images', authMiddleware, async (c) => {
           uploadFormData.append('api_key', apiKey);
           uploadFormData.append('timestamp', timestamp.toString());
           uploadFormData.append('signature', signature);
+          uploadFormData.append('folder', 'innoZverse/product_imgs');
 
           const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
           const uploadResponse = await fetch(uploadUrl, {
