@@ -29,6 +29,14 @@ export function WorkshopHero() {
           Join our hands-on workshops to learn new skills and connect with our
           community. Real hardware, real projects, real learning.
         </p>
+        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg inline-block">
+          <p className="text-sm text-green-800 font-semibold">
+            🎉 Trail Run Now: FREE Workshops Through August 31, 2026
+          </p>
+          <p className="text-xs text-green-700 mt-1">
+            Workshops held once every 2 weeks
+          </p>
+        </div>
       </div>
     </section>
   )
