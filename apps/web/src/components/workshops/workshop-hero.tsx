@@ -31,10 +31,13 @@ export function WorkshopHero() {
         </p>
         <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg inline-block">
           <p className="text-sm text-green-800 font-semibold">
-            🎉 Trail Run Now: FREE Workshops Through August 31, 2026
+            🎉 Trial Run Now: FREE Workshops Through August 31, 2026
           </p>
           <p className="text-xs text-green-700 mt-1">
             Workshops held once every 2 weeks
+          </p>
+          <p className="text-xs text-green-700 mt-2 border-t border-green-200 pt-2">
+            <strong>Note:</strong> Free trial does not include kits. Kits need to be purchased separately.
           </p>
         </div>
       </div>
