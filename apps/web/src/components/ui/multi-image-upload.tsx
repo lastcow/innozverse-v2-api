@@ -1,86 +1,144 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
-import { ImagePlus, X } from 'lucide-react'
+import { useState, useRef, useCallback } from 'react'
+import { ImagePlus, X, Upload } from 'lucide-react'
 import Image from 'next/image'
 
 interface MultiImageUploadProps {
   value: string[]
   onChange: (urls: string[]) => void
+  accessToken?: string | null
+  maxFiles?: number
 }
 
-declare global {
-  interface Window {
-    cloudinary?: {
-      createUploadWidget: (
-        options: Record<string, unknown>,
-        callback: (error: unknown, result: { event: string; info: { secure_url: string } }) => void
-      ) => { open: () => void }
+interface UploadProgress {
+  [key: string]: number // filename -> percentage
+}
+
+export function MultiImageUpload({
+  value,
+  onChange,
+  accessToken,
+  maxFiles = 10,
+}: MultiImageUploadProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [urlInput, setUrlInput] = useState('')
+  const [progress, setProgress] = useState<UploadProgress>({})
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+  const handleFileSelect = useCallback(
+    async (files: File[]) => {
+      if (value.length + files.length > maxFiles) {
+        setError(`Maximum ${maxFiles} files allowed`)
+        return
+      }
+
+      setUploading(true)
+      setError(null)
+      const newProgress: UploadProgress = {}
+
+      try {
+        const formData = new FormData()
+        files.forEach((file) => {
+          formData.append('files', file)
+        })
+
+        const response = await fetch(`${apiUrl}/api/v1/upload/images`, {
+          method: 'POST',
+          headers: {
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: formData,
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Upload failed')
+        }
+
+        const data = await response.json()
+        const uploadedUrls = data.images.map((img: { url: string }) => img.url)
+        onChange([...value, ...uploadedUrls])
+        setUrlInput('')
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upload failed'
+        setError(message)
+        console.error('Upload error:', err)
+      } finally {
+        setUploading(false)
+        setProgress({})
+      }
+    },
+    [value, onChange, maxFiles, apiUrl, accessToken]
+  )
+
+  const handleAddUrl = useCallback(async () => {
+    if (!urlInput.trim()) {
+      setError('Please enter a URL')
+      return
+    }
+
+    // Validate URL
+    try {
+      new URL(urlInput)
+    } catch {
+      setError('Invalid URL format')
+      return
+    }
+
+    if (value.length >= maxFiles) {
+      setError(`Maximum ${maxFiles} images allowed`)
+      return
+    }
+
+    setUploading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/upload/images`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ imageUrl: urlInput }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to add URL')
+      }
+
+      const data = await response.json()
+      const uploadedUrl = data.images[0]?.url
+      if (uploadedUrl) {
+        onChange([...value, uploadedUrl])
+        setUrlInput('')
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to add URL'
+      setError(message)
+      console.error('URL add error:', err)
+    } finally {
+      setUploading(false)
+    }
+  }, [urlInput, value, onChange, maxFiles, apiUrl, accessToken])
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.dataTransfer?.files) {
+      handleFileSelect(Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/')))
     }
   }
-}
-
-export function MultiImageUpload({ value, onChange }: MultiImageUploadProps) {
-  const widgetRef = useRef<{ open: () => void } | null>(null)
-  // Use refs to avoid stale closures in the widget callback
-  const valueRef = useRef(value)
-  const onChangeRef = useRef(onChange)
-
-  useEffect(() => {
-    valueRef.current = value
-  }, [value])
-
-  useEffect(() => {
-    onChangeRef.current = onChange
-  }, [onChange])
-
-  useEffect(() => {
-    // Load Cloudinary script if not already loaded
-    if (document.getElementById('cloudinary-widget-script')) return
-
-    const script = document.createElement('script')
-    script.id = 'cloudinary-widget-script'
-    script.src = 'https://upload-widget.cloudinary.com/latest/global/all.js'
-    script.async = true
-    document.body.appendChild(script)
-  }, [])
-
-  const openWidget = useCallback(() => {
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-
-    if (!cloudName || !uploadPreset) {
-      alert('Cloudinary is not configured')
-      return
-    }
-
-    if (!window.cloudinary) {
-      alert('Upload widget is still loading, please try again')
-      return
-    }
-
-    widgetRef.current = window.cloudinary.createUploadWidget(
-      {
-        cloudName,
-        uploadPreset,
-        multiple: true,
-        maxFiles: 10,
-        sources: ['local', 'url', 'camera', 'google_drive', 'dropbox', 'instagram'],
-        resourceType: 'image',
-      },
-      (error, result) => {
-        if (!error && result.event === 'success') {
-          // Read from refs to always get the latest value
-          const current = valueRef.current
-          const updated = [...current, result.info.secure_url]
-          valueRef.current = updated
-          onChangeRef.current(updated)
-        }
-      }
-    )
-
-    widgetRef.current.open()
-  }, [])
 
   const handleRemove = useCallback(
     (urlToRemove: string) => {
@@ -90,18 +148,25 @@ export function MultiImageUpload({ value, onChange }: MultiImageUploadProps) {
   )
 
   return (
-    <div className="space-y-3">
-      {/* Image Grid */}
+    <div className="space-y-4">
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Image Grid Preview */}
       {value.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
-          {value.map((url) => (
+          {value.map((url, index) => (
             <div
-              key={url}
-              className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group"
+              key={`${url}-${index}`}
+              className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group bg-gray-100"
             >
               <Image
                 src={url}
-                alt="Workshop image"
+                alt={`Preview ${index + 1}`}
                 fill
                 className="object-cover"
                 sizes="120px"
@@ -118,15 +183,55 @@ export function MultiImageUpload({ value, onChange }: MultiImageUploadProps) {
         </div>
       )}
 
-      {/* Upload Button */}
-      <button
-        type="button"
-        onClick={openWidget}
-        className="w-full border-dashed border-2 border-gray-300 hover:border-[#4379EE] rounded-xl py-6 text-gray-500 hover:text-[#4379EE] flex items-center justify-center cursor-pointer transition-colors"
+      {/* File Upload Area */}
+      <div
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        className="border-dashed border-2 border-gray-300 hover:border-[#4379EE] rounded-xl py-6 px-4 text-center transition-colors cursor-pointer"
+        onClick={() => fileInputRef.current?.click()}
       >
-        <ImagePlus className="w-5 h-5 mr-2" />
-        Upload Images ({value.length})
-      </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={(e) => e.target.files && handleFileSelect(Array.from(e.target.files))}
+          disabled={uploading || value.length >= maxFiles}
+          className="hidden"
+        />
+        <ImagePlus className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+        <p className="text-sm text-gray-600 font-medium">
+          {uploading ? 'Uploading...' : 'Drag images here or click to select'}
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+          {value.length} / {maxFiles} images
+        </p>
+      </div>
+
+      {/* Direct URL Input */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700">Or paste image URL</label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="https://example.com/image.jpg"
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleAddUrl()}
+            disabled={uploading || value.length >= maxFiles}
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4379EE] focus:border-transparent text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+          />
+          <button
+            type="button"
+            onClick={handleAddUrl}
+            disabled={uploading || value.length >= maxFiles || !urlInput.trim()}
+            className="px-4 py-2 bg-[#4379EE] hover:bg-[#3568d4] text-white rounded-lg text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            Add
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

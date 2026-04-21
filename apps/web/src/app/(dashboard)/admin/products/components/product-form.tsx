@@ -411,10 +411,11 @@ export function ProductForm({ open, product, accessToken, onSuccess, onCancel }:
                         <MultiImageUpload
                           value={field.value}
                           onChange={(urls) => form.setValue('imageUrls', urls, { shouldDirty: true })}
+                          accessToken={accessToken}
                         />
                       </FormControl>
                       <FormDescription>
-                        Upload product photos (up to 10 images)
+                        Upload files or paste image URLs (up to 10 images)
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
