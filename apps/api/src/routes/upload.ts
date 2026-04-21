@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import crypto from 'crypto'
 import type { AuthContext } from '../types'
 import { authMiddleware } from '../middleware/auth'
 
@@ -31,48 +30,20 @@ const batchUrlsSchema = z.object({
 })
 
 /**
- * Sign parameters for Cloudinary API request
- */
-function signCloudinaryRequest(params: Record<string, string | number | boolean>): string {
-  const apiSecret = process.env.CLOUDINARY_API_SECRET
-  if (!apiSecret) {
-    throw new Error('CLOUDINARY_API_SECRET not configured')
-  }
-
-  const sortedKeys = Object.keys(params).sort()
-  const paramsStr = sortedKeys.map((key) => `${key}=${params[key]}`).join('&')
-  const signature = crypto.createHash('sha1').update(paramsStr + apiSecret).digest('hex')
-
-  return signature
-}
-
-/**
- * Upload file to Cloudinary
+ * Upload file to Cloudinary (unsigned upload using upload preset)
  */
 async function uploadToCloudinary(buffer: Buffer, filename: string): Promise<UploadedImage> {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME
-  const apiKey = process.env.CLOUDINARY_API_KEY
+  const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET
 
-  if (!cloudName || !apiKey) {
-    throw new Error('Cloudinary credentials not configured')
+  if (!cloudName || !uploadPreset) {
+    throw new Error('Cloudinary credentials not configured (cloud_name or upload_preset missing)')
   }
-
-  const timestamp = Math.floor(Date.now() / 1000)
-
-  const params = {
-    timestamp,
-    api_key: apiKey,
-    folder: 'innoZverse/product_imgs',
-  }
-
-  const signature = signCloudinaryRequest(params as Record<string, string | number>)
 
   const formData = new FormData()
   const blob = new Blob([buffer], { type: 'image/jpeg' })
   formData.append('file', blob, filename)
-  formData.append('api_key', apiKey)
-  formData.append('timestamp', timestamp.toString())
-  formData.append('signature', signature)
+  formData.append('upload_preset', uploadPreset)
   formData.append('folder', 'innoZverse/product_imgs')
 
   const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`
@@ -193,11 +164,7 @@ app.post('/api/v1/upload/images', authMiddleware, async (c) => {
 app.get('/api/v1/upload/test', authMiddleware, (c) => {
   return c.json({
     message: 'Upload endpoint is healthy',
-    cloudinaryConfigured: !!(
-      process.env.CLOUDINARY_CLOUD_NAME &&
-      process.env.CLOUDINARY_API_KEY &&
-      process.env.CLOUDINARY_API_SECRET
-    ),
+    cloudinaryConfigured: !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_UPLOAD_PRESET),
   })
 })
 

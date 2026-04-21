@@ -317,18 +317,15 @@ app.post('/api/v1/auth/login', async (c) => {
 // Upload Routes
 // ============================================================
 
-// POST /api/v1/upload/images - Upload images with Cloudinary
+// POST /api/v1/upload/images - Upload images with Cloudinary (unsigned preset)
 app.post('/api/v1/upload/images', authMiddleware, async (c) => {
-  const crypto = require('crypto');
-  
   try {
     const contentType = c.req.header('content-type') || '';
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
 
-    if (!cloudName || !apiKey || !apiSecret) {
-      return c.json({ error: 'Cloudinary not configured' }, 500);
+    if (!cloudName || !uploadPreset) {
+      return c.json({ error: 'Cloudinary not configured (cloud_name or upload_preset missing)' }, 500);
     }
 
     // Flow A: Multipart file upload
@@ -357,23 +354,10 @@ app.post('/api/v1/upload/images', authMiddleware, async (c) => {
 
         try {
           const buffer = await file.arrayBuffer();
-          const timestamp = Math.floor(Date.now() / 1000);
-
-          const params = {
-            timestamp,
-            api_key: apiKey,
-            folder: 'innoZverse/product_imgs',
-          };
-
-          const sortedKeys = Object.keys(params).sort();
-          const paramsStr = sortedKeys.map((key) => `${key}=${params[key]}`).join('&');
-          const signature = crypto.createHash('sha1').update(paramsStr + apiSecret).digest('hex');
 
           const uploadFormData = new FormData();
           uploadFormData.append('file', new Blob([buffer], { type: file.type }), file.name);
-          uploadFormData.append('api_key', apiKey);
-          uploadFormData.append('timestamp', timestamp.toString());
-          uploadFormData.append('signature', signature);
+          uploadFormData.append('upload_preset', uploadPreset);
           uploadFormData.append('folder', 'innoZverse/product_imgs');
 
           const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
@@ -448,7 +432,7 @@ app.post('/api/v1/upload/images', authMiddleware, async (c) => {
 app.get('/api/v1/upload/test', authMiddleware, (c) => {
   return c.json({
     message: 'Upload endpoint is healthy',
-    cloudinaryConfigured: !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET),
+    cloudinaryConfigured: !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_UPLOAD_PRESET),
   });
 });
 
