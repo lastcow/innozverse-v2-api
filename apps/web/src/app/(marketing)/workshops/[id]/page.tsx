@@ -93,12 +93,12 @@ export default async function WorkshopDetailPage({
 
       {/* Hero Image */}
       {images[0] && (
-        <div className="relative w-full h-64 sm:h-80 md:h-96 rounded-2xl overflow-hidden mb-8">
+        <div className="relative w-full h-64 sm:h-80 md:h-96 rounded-2xl overflow-hidden mb-8 bg-gray-100 flex items-center justify-center">
           <Image
             src={images[0]}
             alt={workshop.title}
             fill
-            className="object-cover"
+            className="object-contain"
             sizes="(max-width: 896px) 100vw, 896px"
             priority
           />
@@ -183,13 +183,13 @@ export default async function WorkshopDetailPage({
             {images.slice(1).map((url: string, i: number) => (
               <div
                 key={url}
-                className="relative aspect-square rounded-xl overflow-hidden"
+                className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center"
               >
                 <Image
                   src={url}
                   alt={`${workshop.title} photo ${i + 2}`}
                   fill
-                  className="object-cover"
+                  className="object-contain"
                   sizes="(max-width: 640px) 50vw, 33vw"
                 />
               </div>
